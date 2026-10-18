@@ -140,6 +140,8 @@ export default function App() {
         evalStatus: "done",
         similarity: r.similarity,
         similarityRaw: r.similarity_raw,
+        similarityModel: r.similarity_model,
+        routerModel: r.router_model,
         verdict: r.verdict,
         reason: r.reason,
         staffOverride: false,

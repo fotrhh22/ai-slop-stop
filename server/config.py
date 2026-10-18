@@ -10,7 +10,8 @@ from pathlib import Path
 
 def _load_env_file() -> None:
     root = Path(__file__).resolve().parents[1]  # server/ -> project root
-    for name in (".env", ".env.local"):
+    # Exported variables win, then root .env.local, then root .env.
+    for name in (".env.local", ".env"):
         p = root / name
         if not p.exists():
             continue
@@ -34,6 +35,11 @@ class Settings:
     public_app_origin: str
     max_requests_per_minute: int
     port: int
+    supabase_url: str = ""
+    supabase_secret_key: str = ""
+    jina_api_key: str = ""
+    similarity_model: str = "jina-clip-v2"
+    similarity_timeout: float = 60.0
 
     @property
     def gemini_configured(self) -> bool:
@@ -49,4 +55,9 @@ def load_settings() -> Settings:
         public_app_origin=os.getenv("PUBLIC_APP_ORIGIN", "http://127.0.0.1:5173"),
         max_requests_per_minute=int(os.getenv("RATE_LIMIT_PER_MIN", "20")),
         port=int(os.getenv("PORT", "8000")),
+        supabase_url=os.getenv("SUPABASE_URL", ""),
+        supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
+        jina_api_key=os.getenv("JINA_API_KEY", ""),
+        similarity_model=os.getenv("SIMILARITY_MODEL", "jina-clip-v2"),
+        similarity_timeout=float(os.getenv("SIMILARITY_TIMEOUT_SECONDS", "60")),
     )

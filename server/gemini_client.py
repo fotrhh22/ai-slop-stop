@@ -101,7 +101,7 @@ def route_verdict(
                     types.Part.from_bytes(data=target_bytes, mime_type=target_mime),
                     "GENERATED 이미지:",
                     types.Part.from_bytes(data=generated_bytes, mime_type=generated_mime),
-                    f"참고 CLIP 코사인 유사도 점수: {similarity} (0~1, 높을수록 시각적으로 유사)",
+                    f"참고 이미지 임베딩 코사인 유사도 점수: {similarity} (-1~1, 높을수록 시각적으로 유사)",
                     "위 기준으로 PASS 또는 FAIL 을 판정하라.",
                 ],
                 config=types.GenerateContentConfig(

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+services:
+  - type: web
+    name: ai-slop-stop-api
+    runtime: docker
+    region: singapore
+    # CLIP inference runs externally; no torch or model weights on Render.
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - server/**
+        - Dockerfile
+        - .dockerignore
+        - render.yaml
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_IMAGE_MODEL
+        sync: false
+      - key: GEMINI_ROUTER_MODEL
+        sync: false
+      - key: ROUTER_PROVIDER
+        value: gemini
+      - key: PUBLIC_APP_ORIGIN
+        sync: false
+      - key: RATE_LIMIT_PER_MIN
+        value: "20"
+      - key: JINA_API_KEY
+        sync: false
+      - key: SIMILARITY_MODEL
+        value: jina-clip-v2
+      - key: SIMILARITY_TIMEOUT_SECONDS
+        value: "60"
+      # Credentials are reserved for the next backend persistence integration.
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SECRET_KEY
+        sync: false

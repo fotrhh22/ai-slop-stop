@@ -68,7 +68,7 @@ export function AttemptCard({
           {evaluated && a.similarityRaw !== undefined && (
             <span className="raw">(raw {a.similarityRaw.toFixed(2)})</span>
           )}
-          {evaluated && <span className="by">by CLIP ViT-B/32</span>}
+          {evaluated && a.similarityModel && <span className="by">by {a.similarityModel}</span>}
         </div>
         <div className="attempt-card__verdict">
           <span className="k">판정</span>
@@ -82,7 +82,7 @@ export function AttemptCard({
                 {a.verdict}
               </span>
               {a.staffOverride && <span className="staff-tag">STAFF 수동</span>}
-              <span className="by">by gemini-3.8-flash</span>
+              {!a.staffOverride && a.routerModel && <span className="by">by {a.routerModel}</span>}
             </>
           ) : (
             <span className="v muted">평가 전</span>

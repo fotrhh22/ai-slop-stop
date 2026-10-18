@@ -8,20 +8,24 @@ import type { Verdict } from "../types";
 
 // Vite 환경변수. .env.local 에 VITE_USE_MOCK=false 로 두면 실제 백엔드 호출.
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
+const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export interface GenerateResult {
   imageUrl: string;
 }
 
 export interface EvaluateResult {
-  similarity: number; // 표시용 재스케일 점수 (0~1). 일치율 %가 아님.
+  similarity: number; // 코사인 점수 (음수는 0으로 제한). 일치율 %가 아님.
   similarity_raw?: number; // 원시 CLIP 코사인
+  similarity_model?: string;
+  similarity_provider?: string;
+  router_model?: string;
   verdict: Verdict; // Router 최종 판정 PASS/FAIL
   reason: string; // 짧은 판정 이유
 }
 
 async function req<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
@@ -68,7 +72,8 @@ export async function evaluate(
       verdict === "PASS"
         ? "주요 피사체·구도·배경이 목표 이미지와 충분히 일치합니다."
         : "주요 피사체는 유사하지만 배경과 구도가 다릅니다.";
-    return { similarity, similarity_raw: similarity, verdict, reason };
+    return { similarity, similarity_raw: similarity, verdict, reason,
+      similarity_model: "Mock", similarity_provider: "mock", router_model: "Mock" };
   }
   return req<EvaluateResult>("/api/evaluate", {
     target_image: targetImageUrl,

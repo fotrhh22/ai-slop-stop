@@ -65,6 +65,9 @@ def health() -> dict:
         "image_model": settings.image_model,
         "router_provider": settings.router_provider,
         "router_model": settings.router_model,
+        "similarity_provider": "jina",
+        "similarity_model": settings.similarity_model,
+        "similarity_configured": bool(settings.jina_api_key),
     }
 
 
@@ -96,11 +99,13 @@ def api_evaluate(req: EvaluateRequest):
     except GeminiError as e:
         return JSONResponse(status_code=400, content={"detail": str(e).split(":")[0]})
 
-    # 2) CLIP 유사도 (raw: Router 참고 신호, score: UI 표시용 재스케일)
+    # 2) 외부 CLIP 임베딩 + 원시 코사인 유사도 (로컬 모델 없음)
     try:
-        sim = compute_similarity(target_bytes, gen_bytes)
+        sim = compute_similarity(target_bytes, gen_bytes, settings)
     except SimilarityError as e:
-        return JSONResponse(status_code=502, content={"detail": "SIMILARITY_FAILED", "message": str(e)})
+        code = str(e)
+        status = 503 if code == "JINA_API_KEY_MISSING" else 400 if code in ("BAD_IMAGE", "IMAGE_TOO_LARGE") else 502
+        return JSONResponse(status_code=status, content={"detail": code})
 
     # 3) Gemini Router 최종 판정 (PASS/FAIL + 이유). raw 코사인을 참고 신호로 전달.
     try:
@@ -114,8 +119,11 @@ def api_evaluate(req: EvaluateRequest):
         )
 
     return {
-        "similarity": sim["score"],   # 재스케일된 표시용 점수 (0~1)
+        "similarity": sim["score"],   # 음수만 0으로 제한한 코사인, 일치율이 아님
         "similarity_raw": sim["raw"], # 원시 코사인 (투명성/디버그)
         "verdict": verdict["verdict"],
         "reason": verdict["reason"],
+        "similarity_model": sim["model"],
+        "similarity_provider": sim["provider"],
+        "router_model": settings.router_model,
     }

@@ -15,7 +15,7 @@
 
 객체에 확장자가 없어도 실제 MIME을 업로드 시 지정하면 됩니다. 파일은 Storage API로 업로드하고 `storage.objects`에 SQL로 직접 삽입하지 않습니다. DB에는 영구 객체 경로만 저장하고, 조회 시 백엔드에서 짧은 유효기간의 signed URL을 발급합니다.
 
-4. 프로젝트 URL과 서버용 secret key 또는 legacy service-role key는 백엔드 환경변수로만 설정합니다. 다음은 **향후 연동할 설정 이름**이며 현재 서버는 아직 읽지 않습니다.
+4. 프로젝트 URL과 서버용 secret key 또는 legacy service-role key는 프로젝트 루트 `.env.local` 또는 Render의 백엔드 환경변수로만 설정합니다. 현재 서버는 다음 설정을 읽지만 실제 DB 저장 로직은 아직 연동되지 않았습니다.
 
 ```dotenv
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
@@ -43,7 +43,7 @@ FAIL 시에도 `attempts`와 `api_calls`는 기록합니다. 단, FAIL 이미지
 
 - `generation_calls`: 실제 Gemini 이미지 생성 요청 수. SDK/래퍼가 재시도한 요청도 각각 포함합니다.
 - `router_calls`: 실제 Router 요청 수. 같은 이미지를 다시 Try하면 추가됩니다.
-- `model_calls_total`: 위 두 수의 합. CLIP 계산은 Gemini 호출이 아니므로 제외합니다.
+- `model_calls_total`: 위 두 수의 합. 최초 스키마는 생성·Router만 집계합니다. 현재 CLIP은 Jina 외부 API이므로 해당 호출·토큰까지 기록하려면 후속 스키마/집계 확장이 필요합니다.
 - `failed_calls`: API 오류 수입니다. **Router가 정상 응답으로 FAIL을 판정한 경우는 호출 자체는 succeeded**이며 토큰은 그대로 누적됩니다.
 - `known_tokens_total`: 응답에서 확인한 `total_tokens`의 합입니다. 토큰을 알 수 없는 오류·타임아웃은 `NULL`과 누락 횟수로 남깁니다. 알려지지 않은 사용량을 0으로 확정하지 않습니다.
 - `tokens_by_model`: `gemini/실제모델ID` 키별 호출·알려진 토큰 합계와 누락 수입니다. 모델 ID는 설정값을 사용하고 표시용 이름을 하드코딩하지 않습니다.

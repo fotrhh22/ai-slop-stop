@@ -13,8 +13,10 @@ export interface Attempt {
 
   // 평가(Try) 결과
   evalStatus: "none" | "evaluating" | "done" | "error";
-  similarity?: number; // 표시용 재스케일 점수 (예: 0.47). 일치율 %가 아님.
+  similarity?: number; // 코사인 점수 (음수만 0으로 제한). 일치율 %가 아님.
   similarityRaw?: number; // 원시 CLIP 코사인 (투명성)
+  similarityModel?: string;
+  routerModel?: string;
   verdict?: Verdict; // Router 최종 판정 (또는 STAFF 수동 전환)
   reason?: string; // Router 판정 이유
   evalError?: string;
