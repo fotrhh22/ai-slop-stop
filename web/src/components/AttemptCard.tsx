@@ -1,0 +1,100 @@
+import type { Attempt } from "../types";
+
+interface Props {
+  attempt: Attempt;
+  busy: boolean; // 다른 생성/평가 진행 중이면 중복 클릭 방지
+  staffMode: boolean; // STAFF 모드일 때만 수동 PASS 전환 버튼 노출
+  onTry: (id: string) => void;
+  onStaffPass: (id: string) => void;
+}
+
+// 시도 카드: 프롬프트 -> Try -> 생성 이미지 -> 유사도/판정
+export function AttemptCard({
+  attempt: a,
+  busy,
+  staffMode,
+  onTry,
+  onStaffPass,
+}: Props) {
+  const generating = a.genStatus === "generating";
+  const evaluating = a.evalStatus === "evaluating";
+  const canAct = a.genStatus === "ready" && !busy;
+  const evaluated = a.evalStatus === "done";
+  const passed = evaluated && a.verdict === "PASS";
+
+  return (
+    <div className="attempt-card">
+      <div className="attempt-card__prompt">{a.prompt}</div>
+
+      {/* PASS 가 되면 Try/STAFF 버튼을 모두 숨긴다 */}
+      {!passed && (
+        <div className="attempt-card__actions">
+          <button
+            className="btn-try"
+            disabled={!canAct || evaluating}
+            onClick={() => onTry(a.id)}
+          >
+            {evaluating ? "평가 중…" : "Try · 평가하기"}
+          </button>
+          {/* STAFF 모드: 평가가 끝났고 아직 PASS 가 아닐 때 수동 전환 */}
+          {staffMode && evaluated && (
+            <button className="btn-staff" onClick={() => onStaffPass(a.id)}>
+              STAFF · 수동 PASS
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="attempt-card__image">
+        {generating ? (
+          <div className="attempt-card__placeholder">이미지 생성 중…</div>
+        ) : a.genStatus === "error" ? (
+          <div className="attempt-card__placeholder is-error">
+            생성 오류: {a.genError ?? "알 수 없음"} · 같은 프롬프트를 다시 입력해 재생성하세요.
+          </div>
+        ) : a.imageUrl ? (
+          <img src={a.imageUrl} alt="생성 이미지" />
+        ) : null}
+      </div>
+
+      <div className="attempt-card__result">
+        <div className="attempt-card__score">
+          <span className="k">유사도 점수</span>
+          <span className="v">
+            {evaluated && a.similarity !== undefined
+              ? a.similarity.toFixed(2)
+              : "--"}
+          </span>
+          {evaluated && a.similarityRaw !== undefined && (
+            <span className="raw">(raw {a.similarityRaw.toFixed(2)})</span>
+          )}
+          {evaluated && <span className="by">by CLIP ViT-B/32</span>}
+        </div>
+        <div className="attempt-card__verdict">
+          <span className="k">판정</span>
+          {a.evalStatus === "evaluating" ? (
+            <span className="v muted">평가 중…</span>
+          ) : a.evalStatus === "error" ? (
+            <span className="v muted">평가 오류 — 다시 Try</span>
+          ) : evaluated && a.verdict ? (
+            <>
+              <span className={"badge " + (a.verdict === "PASS" ? "pass" : "fail")}>
+                {a.verdict}
+              </span>
+              {a.staffOverride && <span className="staff-tag">STAFF 수동</span>}
+              <span className="by">by gemini-3.8-flash</span>
+            </>
+          ) : (
+            <span className="v muted">평가 전</span>
+          )}
+        </div>
+        {evaluated && a.reason && (
+          <div className="attempt-card__reason">이유: {a.reason}</div>
+        )}
+        {a.evalStatus === "error" && a.evalError && (
+          <div className="attempt-card__reason is-error">오류: {a.evalError}</div>
+        )}
+      </div>
+    </div>
+  );
+}

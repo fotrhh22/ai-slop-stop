@@ -1,0 +1,39 @@
+# secrets — 절대 커밋 금지
+.env
+.env.*
+!.env.example
+*.local
+*.pem
+*.key
+
+# node
+web/node_modules/
+web/dist/
+node_modules/
+dist/
+*.tsbuildinfo
+
+# python / model caches
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.cache/
+*.safetensors
+*.pt
+*.pth
+
+# local tools and deployment metadata
+.kiro/
+.vercel/
+*.log
+
+# local reference documents (keep on disk)
+/*.docx
+/*.pdf
+
+# os/editor
+.DS_Store
