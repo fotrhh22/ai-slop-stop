@@ -43,7 +43,7 @@ FAIL 시에도 `attempts`와 `api_calls`는 기록합니다. 단, FAIL 이미지
 
 - `generation_calls`: 실제 Gemini 이미지 생성 요청 수. SDK/래퍼가 재시도한 요청도 각각 포함합니다.
 - `router_calls`: 실제 Router 요청 수. 같은 이미지를 다시 Try하면 추가됩니다.
-- `model_calls_total`: 위 두 수의 합. 최초 스키마는 생성·Router만 집계합니다. 현재 CLIP은 Jina 외부 API이므로 해당 호출·토큰까지 기록하려면 후속 스키마/집계 확장이 필요합니다.
+- `model_calls_total`: 생성·Router 호출 수의 합. CLIP은 서버 내 CPU 계산이므로 외부 모델 호출·토큰 집계에 포함하지 않습니다.
 - `failed_calls`: API 오류 수입니다. **Router가 정상 응답으로 FAIL을 판정한 경우는 호출 자체는 succeeded**이며 토큰은 그대로 누적됩니다.
 - `known_tokens_total`: 응답에서 확인한 `total_tokens`의 합입니다. 토큰을 알 수 없는 오류·타임아웃은 `NULL`과 누락 횟수로 남깁니다. 알려지지 않은 사용량을 0으로 확정하지 않습니다.
 - `tokens_by_model`: `gemini/실제모델ID` 키별 호출·알려진 토큰 합계와 누락 수입니다. 모델 ID는 설정값을 사용하고 표시용 이름을 하드코딩하지 않습니다.

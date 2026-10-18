@@ -2,19 +2,18 @@
 services:
   - type: web
     name: ai-slop-stop-api
-    runtime: docker
+    runtime: python
     region: singapore
-    # CLIP inference runs externally; no torch or model weights on Render.
+    # Free-plan trial: verify memory during the first actual CLIP evaluation.
     plan: free
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    buildCommand: pip install -r server/requirements-render.txt && python -m server.prepare_clip
+    startCommand: python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
     healthCheckPath: /health
     autoDeployTrigger: commit
     buildFilter:
       paths:
         - server/**
-        - Dockerfile
-        - .dockerignore
+        - .python-version
         - render.yaml
     envVars:
       - key: GEMINI_API_KEY
@@ -25,16 +24,14 @@ services:
         sync: false
       - key: ROUTER_PROVIDER
         value: gemini
-      - key: PUBLIC_APP_ORIGIN
-        sync: false
       - key: RATE_LIMIT_PER_MIN
         value: "20"
-      - key: JINA_API_KEY
-        sync: false
-      - key: SIMILARITY_MODEL
-        value: jina-clip-v2
-      - key: SIMILARITY_TIMEOUT_SECONDS
-        value: "60"
+      - key: CLIP_CACHE_DIR
+        value: .cache/clip
+      - key: OMP_NUM_THREADS
+        value: "1"
+      - key: MKL_NUM_THREADS
+        value: "1"
       # Credentials are reserved for the next backend persistence integration.
       - key: SUPABASE_URL
         sync: false

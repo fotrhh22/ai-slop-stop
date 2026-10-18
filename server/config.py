@@ -37,9 +37,7 @@ class Settings:
     port: int
     supabase_url: str = ""
     supabase_secret_key: str = ""
-    jina_api_key: str = ""
-    similarity_model: str = "jina-clip-v2"
-    similarity_timeout: float = 60.0
+    clip_cache_dir: str = ".cache/clip"
 
     @property
     def gemini_configured(self) -> bool:
@@ -57,7 +55,5 @@ def load_settings() -> Settings:
         port=int(os.getenv("PORT", "8000")),
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
-        jina_api_key=os.getenv("JINA_API_KEY", ""),
-        similarity_model=os.getenv("SIMILARITY_MODEL", "jina-clip-v2"),
-        similarity_timeout=float(os.getenv("SIMILARITY_TIMEOUT_SECONDS", "60")),
+        clip_cache_dir=os.getenv("CLIP_CACHE_DIR", ".cache/clip"),
     )

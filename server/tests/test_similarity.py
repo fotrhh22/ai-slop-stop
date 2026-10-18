@@ -1,138 +1,126 @@
-"""External API contract and failure checks; no paid requests or API keys needed."""
+"""Local CLIP lifecycle, cosine and API checks without downloading weights."""
 from __future__ import annotations
 
 import base64
 import io
-import json
+import threading
+import time
 import unittest
-from dataclasses import replace
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
-import httpx
+import torch
 from fastapi.testclient import TestClient
 from PIL import Image
 
+from server import main, similarity
 from server.config import Settings
 from server.similarity import SimilarityError, compute_similarity
-from server import main
 
 
-def image_bytes(size=(16, 16)):
+def image_bytes():
     buffer = io.BytesIO()
-    Image.new("RGB", size, "red").save(buffer, format="PNG")
+    Image.new("RGB", (16, 16), "red").save(buffer, format="PNG")
     return buffer.getvalue()
 
 
 class SimilarityTests(unittest.TestCase):
     def setUp(self):
         self.settings = Settings(
-            gemini_api_key="fake-gemini-key", image_model="image-test", router_model="router-test",
+            gemini_api_key="fake-key", image_model="image-test", router_model="router-test",
             router_provider="gemini", public_app_origin="http://127.0.0.1:5173",
-            max_requests_per_minute=100, port=8000, jina_api_key="fake-jina-key",
+            max_requests_per_minute=100, port=8000,
         )
         self.image = image_bytes()
-        self.client_class = httpx.Client
+        self.encoder_patch = patch.object(similarity, "_encoder", None)
+        self.preprocess_patch = patch.object(similarity, "_preprocess", None)
+        self.encoder_patch.start()
+        self.preprocess_patch.start()
+        self.addCleanup(self.encoder_patch.stop)
+        self.addCleanup(self.preprocess_patch.stop)
 
-    def transport_patch(self, handler):
-        def factory(**kwargs):
-            return self.client_class(transport=httpx.MockTransport(handler), **kwargs)
-        return patch("server.similarity.httpx.Client", side_effect=factory)
+    def prepared_encoder(self, encoder):
+        similarity._encoder = encoder
+        similarity._preprocess = lambda image: torch.ones(3, 2, 2)
 
-    def response(self, request, vectors):
-        return httpx.Response(200, request=request, text=json.dumps({"data": vectors}))
+    def test_cpu_load_happens_once_and_retains_only_visual_encoder(self):
+        import open_clip
+        visual = torch.nn.Identity()
+        full_model = type("CLIP", (), {"visual": visual})()
+        with patch.object(open_clip, "create_model_and_transforms", return_value=(full_model, None, object())) as create:
+            with similarity._inference_lock:
+                similarity._ensure_encoder(self.settings)
+                similarity._ensure_encoder(self.settings)
+        self.assertEqual(create.call_count, 1)
+        self.assertEqual(create.call_args.kwargs["device"], "cpu")
+        self.assertEqual(create.call_args.kwargs["precision"], "fp32")
+        self.assertIs(similarity._encoder, visual)
+        self.assertFalse(visual.training)
 
-    def test_one_batched_request_resizes_and_respects_indices(self):
-        requests = []
+    def test_cosine_normalization_and_negative_raw_score(self):
+        for vector, raw, score in [([3., 4.], 0.6, 0.6), ([-1., 0.], -1., 0.)]:
+            with self.subTest(vector=vector):
+                outputs = iter([torch.tensor([[1., 0.]]), torch.tensor([vector])])
+                self.prepared_encoder(lambda tensor: next(outputs))
+                result = compute_similarity(self.image, self.image, self.settings)
+                self.assertEqual(result["raw"], raw)
+                self.assertEqual(result["score"], score)
+                self.assertEqual(result["provider"], "local")
+                self.assertEqual(result["model"], "CLIP ViT-B/32 (openai)")
 
-        def handler(request):
-            requests.append(request)
-            body = json.loads(request.content)
-            self.assertEqual(request.url, "https://api.jina.ai/v1/embeddings")
-            self.assertEqual(request.headers["Authorization"], "Bearer fake-jina-key")
-            self.assertEqual(body["model"], "jina-clip-v2")
-            self.assertEqual(body["embedding_type"], "float")
-            self.assertEqual(len(body["input"]), 2)
-            with Image.open(io.BytesIO(base64.b64decode(body["input"][0]["image"]))) as sent:
-                self.assertEqual(sent.size, (512, 256))
-            return self.response(request, [
-                {"index": 1, "embedding": [3, 4]},
-                {"index": 0, "embedding": [1, 0]},
-            ])
+    def test_invalid_image_is_rejected_before_model_load(self):
+        with patch.object(similarity, "_ensure_encoder") as load:
+            with self.assertRaisesRegex(SimilarityError, "^BAD_IMAGE$"):
+                compute_similarity(b"bad image", self.image, self.settings)
+            load.assert_not_called()
 
-        with self.transport_patch(handler):
-            result = compute_similarity(image_bytes((1024, 512)), self.image, self.settings)
-        self.assertEqual(len(requests), 1)
-        self.assertEqual(result["raw"], 0.6)
-        self.assertEqual(result["score"], 0.6)  # old 0.45..0.90 remapping is gone
-        self.assertEqual(result["model"], "jina-clip-v2")
+    def test_load_failure_is_reported_without_upstream_details(self):
+        import open_clip
+        with patch.object(open_clip, "create_model_and_transforms", side_effect=RuntimeError("private path")):
+            with self.assertRaisesRegex(SimilarityError, "^CLIP_LOAD_FAILED$"):
+                compute_similarity(self.image, self.image, self.settings)
+        self.assertFalse(similarity.model_loaded())
 
-    def test_negative_cosine_preserved_for_router(self):
-        with self.transport_patch(lambda r: self.response(r, [
-            {"index": 0, "embedding": [1, 0]}, {"index": 1, "embedding": [-1, 0]}
-        ])):
-            result = compute_similarity(self.image, self.image, self.settings)
-        self.assertEqual(result["raw"], -1)
-        self.assertEqual(result["score"], 0)
-
-    def test_missing_key_and_invalid_images_make_no_external_request(self):
-        with patch("server.similarity.httpx.Client") as client:
-            with self.assertRaisesRegex(SimilarityError, "JINA_API_KEY_MISSING"):
-                compute_similarity(self.image, self.image, replace(self.settings, jina_api_key=""))
-            with self.assertRaisesRegex(SimilarityError, "BAD_IMAGE"):
-                compute_similarity(b"not an image", self.image, self.settings)
-            client.assert_not_called()
-
-    def test_http_errors_do_not_echo_provider_body(self):
-        for code, expected in [(401, "EMBEDDING_AUTH_FAILED"), (403, "EMBEDDING_AUTH_FAILED"),
-                               (429, "EMBEDDING_RATE_LIMITED"), (500, "EMBEDDING_HTTP_500")]:
-            with self.subTest(code=code), self.transport_patch(
-                lambda r: httpx.Response(code, request=r, text="fake-jina-key private payload")
-            ):
-                with self.assertRaisesRegex(SimilarityError, f"^{expected}$"):
-                    compute_similarity(self.image, self.image, self.settings)
-
-    def test_timeout_and_connection_errors(self):
-        for error, expected in [(httpx.ReadTimeout, "EMBEDDING_TIMEOUT"),
-                                (httpx.ConnectError, "EMBEDDING_UNAVAILABLE")]:
-            def handler(request):
-                raise error("private request info", request=request)
-            with self.subTest(error=error), self.transport_patch(handler):
-                with self.assertRaisesRegex(SimilarityError, f"^{expected}$"):
-                    compute_similarity(self.image, self.image, self.settings)
-
-    def test_malformed_outputs_are_rejected(self):
-        invalid = [
-            [], [{"index": 0, "embedding": [1]}],
-            [{"index": 0, "embedding": [1]}, {"index": 0, "embedding": [1]}],
-            [{"index": False, "embedding": [1]}, {"index": 1, "embedding": [1]}],
-            [{"index": 0, "embedding": [1]}, {"index": 1, "embedding": [1, 2]}],
-        ]
-        for vector in [[], [0, 0], [True, 1], ["1", 0], [None, 1], [float("inf"), 0]]:
-            invalid.append([{"index": 0, "embedding": vector}, {"index": 1, "embedding": [1, 0]}])
-        for records in invalid:
-            with self.subTest(records=records), self.transport_patch(lambda r: self.response(r, records)):
-                with self.assertRaisesRegex(SimilarityError, "EMBEDDING_BAD_RESPONSE"):
-                    compute_similarity(self.image, self.image, self.settings)
-        with self.transport_patch(lambda r: httpx.Response(200, request=r, text="invalid json")):
-            with self.assertRaisesRegex(SimilarityError, "EMBEDDING_BAD_RESPONSE"):
+    def test_inference_errors_and_nonfinite_results(self):
+        def failed(tensor):
+            raise RuntimeError("private path")
+        for encoder, expected in [(failed, "CLIP_INFERENCE_FAILED"),
+                                  (lambda tensor: torch.tensor([[float("nan"), 1.]]), "CLIP_INVALID_RESULT")]:
+            self.prepared_encoder(encoder)
+            with self.assertRaisesRegex(SimilarityError, f"^{expected}$"):
                 compute_similarity(self.image, self.image, self.settings)
 
-    def test_api_calls_router_only_after_similarity_success(self):
+    def test_concurrent_requests_are_serialized(self):
+        state = {"active": 0, "peak": 0}
+        lock = threading.Lock()
+        def encode(tensor):
+            with lock:
+                state["active"] += 1
+                state["peak"] = max(state["active"], state["peak"])
+            time.sleep(0.01)
+            with lock:
+                state["active"] -= 1
+            return torch.tensor([[1., 0.]])
+        self.prepared_encoder(encode)
+        with ThreadPoolExecutor(max_workers=3) as executor:
+            results = list(executor.map(lambda _: compute_similarity(self.image, self.image, self.settings), range(3)))
+        self.assertEqual(state["peak"], 1)
+        self.assertTrue(all(r["score"] == 1 for r in results))
+
+    def test_api_uses_local_similarity_and_skips_router_on_failure(self):
         data_url = "data:image/png;base64," + base64.b64encode(self.image).decode()
         body = {"target_image": data_url, "generated_image": data_url}
-        with patch.object(main, "settings", self.settings), self.transport_patch(
-            lambda r: self.response(r, [{"index": 0, "embedding": [1, 0]},
-                                       {"index": 1, "embedding": [3, 4]}])
-        ), patch.object(main, "route_verdict", return_value={"verdict": "PASS", "reason": "일치"}) as router:
+        outputs = iter([torch.tensor([[1., 0.]]), torch.tensor([[3., 4.]])])
+        self.prepared_encoder(lambda tensor: next(outputs))
+        with patch.object(main, "settings", self.settings), patch.object(main, "route_verdict", return_value={"verdict": "PASS", "reason": "일치"}) as router:
             response = TestClient(main.app).post("/api/evaluate", json=body)
             self.assertEqual(response.status_code, 200)
-            self.assertEqual(response.json()["similarity_model"], "jina-clip-v2")
-            self.assertEqual(response.json()["router_model"], "router-test")
+            self.assertEqual(response.json()["similarity_provider"], "local")
             self.assertEqual(router.call_args.args[-1], 0.6)
-        with patch.object(main, "settings", replace(self.settings, jina_api_key="")), patch.object(main, "route_verdict") as router:
-            response = TestClient(main.app).post("/api/evaluate", json=body)
-            self.assertEqual(response.status_code, 503)
-            self.assertEqual(response.json()["detail"], "JINA_API_KEY_MISSING")
+        with patch.object(main, "route_verdict") as router:
+            response = TestClient(main.app).post("/api/evaluate", json={**body, "target_image": "data:image/png;base64,YmFk"})
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(response.json()["detail"], "BAD_IMAGE")
             router.assert_not_called()
 
 

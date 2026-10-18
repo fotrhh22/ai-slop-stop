@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from .config import load_settings
 from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
-from .similarity import SimilarityError, compute_similarity
+from .similarity import MODEL_LABEL, SimilarityError, compute_similarity, model_loaded
 
 settings = load_settings()
 
@@ -65,9 +65,9 @@ def health() -> dict:
         "image_model": settings.image_model,
         "router_provider": settings.router_provider,
         "router_model": settings.router_model,
-        "similarity_provider": "jina",
-        "similarity_model": settings.similarity_model,
-        "similarity_configured": bool(settings.jina_api_key),
+        "similarity_provider": "local",
+        "similarity_model": MODEL_LABEL,
+        "similarity_loaded": model_loaded(),
     }
 
 
@@ -99,12 +99,12 @@ def api_evaluate(req: EvaluateRequest):
     except GeminiError as e:
         return JSONResponse(status_code=400, content={"detail": str(e).split(":")[0]})
 
-    # 2) 외부 CLIP 임베딩 + 원시 코사인 유사도 (로컬 모델 없음)
+    # 2) 로컬 CPU CLIP 임베딩 + 원시 코사인 유사도
     try:
         sim = compute_similarity(target_bytes, gen_bytes, settings)
     except SimilarityError as e:
         code = str(e)
-        status = 503 if code == "JINA_API_KEY_MISSING" else 400 if code in ("BAD_IMAGE", "IMAGE_TOO_LARGE") else 502
+        status = 400 if code in ("BAD_IMAGE", "IMAGE_TOO_LARGE") else 503
         return JSONResponse(status_code=status, content={"detail": code})
 
     # 3) Gemini Router 최종 판정 (PASS/FAIL + 이유). raw 코사인을 참고 신호로 전달.
