@@ -1,0 +1,157 @@
+"""Persisted challenge workflow. Single Render worker serializes each session."""
+from __future__ import annotations
+
+import hmac
+import threading
+from uuid import UUID
+
+from fastapi import APIRouter, Header, HTTPException
+from pydantic import BaseModel, Field
+
+from .config import load_settings
+from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
+from .persistence import CallRecorder, PersistenceError, Store, digest
+from .similarity import SimilarityError, _read_image, compute_similarity
+
+router = APIRouter(prefix="/api/challenges")
+_locks = [threading.Lock() for _ in range(64)]
+
+
+def session(cid, token):
+    settings = load_settings()
+    store = Store(settings)
+    challenge = store.authorize(str(cid), token)
+    return settings, store, challenge
+
+
+def image(data_url):
+    try:
+        raw, mime = decode_data_url(data_url)
+        _read_image(raw)  # validate without loading CLIP
+        return raw, mime
+    except (GeminiError, SimilarityError) as exc:
+        raise HTTPException(400, str(exc).split(":")[0]) from exc
+
+
+class CreateChallenge(BaseModel):
+    target_image: str
+
+
+@router.post("")
+def create(req: CreateChallenge):
+    raw, mime = image(req.target_image)
+    return Store(load_settings()).create_challenge(raw, mime)
+
+
+class Generate(BaseModel):
+    attempt_id: UUID
+    prompt: str = Field(min_length=1, max_length=2000)
+
+
+@router.post("/{cid}/generate")
+def generate(cid: UUID, req: Generate, x_challenge_token: str = Header(default="")):
+    with _locks[cid.int % len(_locks)]:
+        settings, store, challenge = session(cid, x_challenge_token)
+        cid, aid = str(cid), str(req.attempt_id)
+        if challenge["status"] != "active":
+            raise HTTPException(409, "CHALLENGE_COMPLETED")
+        if not req.prompt.strip():
+            raise HTTPException(400, "EMPTY_PROMPT")
+        if store.rows("attempts", id="eq." + aid):
+            raise HTTPException(409, "ATTEMPT_ALREADY_EXISTS")
+        if store.rows("attempts", challenge_id="eq." + cid, router_verdict="eq.PASS"):
+            raise HTTPException(409, "SUCCESS_SAVE_PENDING")
+        store.insert("attempts", {"id": aid, "challenge_id": cid, "prompt": req.prompt})
+        try:
+            result = generate_image(settings, req.prompt,
+                recorder=CallRecorder(store, cid, aid, "generate", settings.image_model))
+        except GeminiError as exc:
+            store.update("attempts", aid, {"generation_status": "failed"})
+            raise HTTPException(502, str(exc).split(":")[0]) from exc
+        raw, _ = image(result)
+        store.update("attempts", aid, {"generation_status": "ready", "generated_image_sha256": digest(raw)})
+        return {"imageUrl": result}
+
+
+class Evaluate(BaseModel):
+    attempt_id: UUID
+    generated_image: str
+
+
+def verify_image(store, cid, aid, data_url):
+    attempt = store.attempt(cid, aid)
+    raw, mime = image(data_url)
+    if attempt["generation_status"] != "ready" or digest(raw) != attempt.get("generated_image_sha256"):
+        raise HTTPException(400, "GENERATED_IMAGE_MISMATCH")
+    return attempt, raw, mime
+
+
+@router.post("/{cid}/evaluate")
+def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="")):
+    with _locks[cid.int % len(_locks)]:
+        settings, store, challenge = session(cid, x_challenge_token)
+        cid, aid = str(cid), str(req.attempt_id)
+        attempt, raw, mime = verify_image(store, cid, aid, req.generated_image)
+        existing = store.receipt(cid) if challenge["status"] == "succeeded" else None
+        if existing:
+            if existing["attempt_id"] != aid:
+                raise HTTPException(409, "CHALLENGE_COMPLETED")
+            return {**(attempt.get("evaluation_result") or {}), "verdict": "PASS", "receipt": existing}
+        if challenge["status"] != "active":
+            raise HTTPException(409, "CHALLENGE_COMPLETED")
+        result = attempt.get("evaluation_result")
+        # A failed success-save must not trigger another paid Router call.
+        if attempt.get("router_verdict") != "PASS" or not result:
+            target = store.download("challenge-targets", challenge["target_image_path"])
+            target_mime = "image/png" if target.startswith(b"\x89PNG") else "image/webp" if target[8:12] == b"WEBP" else "image/jpeg"
+            try:
+                sim = compute_similarity(target, raw, settings)
+            except SimilarityError as exc:
+                raise HTTPException(503, str(exc)) from exc
+            try:
+                verdict = route_verdict(settings, target, target_mime, raw, mime, sim["raw"],
+                    recorder=CallRecorder(store, cid, aid, "router", settings.router_model))
+            except GeminiError as exc:
+                raise HTTPException(502, str(exc).split(":")[0]) from exc
+            result = {"similarity": sim["score"], "similarity_raw": sim["raw"],
+                "similarity_model": sim["model"], "similarity_provider": sim["provider"],
+                "router_model": settings.router_model, **verdict}
+            store.update("attempts", aid, {"router_verdict": verdict["verdict"],
+                "router_reason": verdict["reason"], "similarity_raw": sim["raw"],
+                "similarity_display": sim["score"], "evaluation_result": result})
+        if result["verdict"] == "PASS":
+            try:
+                return {**result, "receipt": store.finalize(cid, aid, raw, mime, "router")}
+            except PersistenceError as exc:
+                return {**result, "receipt_error": str(exc)}
+        return result
+
+
+class Finalize(Evaluate):
+    source: str = Field(pattern="^(router|staff)$")
+    actor: str = Field(default="", max_length=100)
+    reason: str = Field(default="", max_length=1000)
+
+
+@router.post("/{cid}/finalize")
+def finalize(cid: UUID, req: Finalize, x_challenge_token: str = Header(default=""),
+             x_staff_token: str = Header(default="")):
+    with _locks[cid.int % len(_locks)]:
+        settings, store, _ = session(cid, x_challenge_token)
+        cid, aid = str(cid), str(req.attempt_id)
+        if req.source == "staff":
+            if not settings.staff_auth_token or not hmac.compare_digest(settings.staff_auth_token, x_staff_token):
+                raise HTTPException(403, "STAFF_AUTH_REQUIRED")
+            if not req.actor.strip() or not req.reason.strip():
+                raise HTTPException(400, "STAFF_ACTOR_AND_REASON_REQUIRED")
+        _, raw, mime = verify_image(store, cid, aid, req.generated_image)
+        return store.finalize(cid, aid, raw, mime, req.source, req.actor, req.reason)
+
+
+@router.get("/{cid}/receipt")
+def receipt(cid: UUID, x_challenge_token: str = Header(default="")):
+    _, store, _ = session(cid, x_challenge_token)
+    saved = store.receipt(str(cid))
+    if not saved:
+        raise HTTPException(404, "RECEIPT_NOT_FOUND")
+    return saved

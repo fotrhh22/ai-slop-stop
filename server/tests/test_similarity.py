@@ -117,7 +117,7 @@ class SimilarityTests(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertEqual(response.json()["similarity_provider"], "local")
             self.assertEqual(router.call_args.args[-1], 0.6)
-        with patch.object(main, "route_verdict") as router:
+        with patch.object(main, "settings", self.settings), patch.object(main, "route_verdict") as router:
             response = TestClient(main.app).post("/api/evaluate", json={**body, "target_image": "data:image/png;base64,YmFk"})
             self.assertEqual(response.status_code, 400)
             self.assertEqual(response.json()["detail"], "BAD_IMAGE")

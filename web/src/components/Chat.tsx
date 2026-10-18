@@ -10,6 +10,7 @@ interface Props {
   onUploadTarget: (dataUrl: string) => void;
   onTry: (attemptId: string) => void;
   onStaffPass: (attemptId: string) => void;
+  onReceiptRetry: (attemptId: string) => void;
 }
 
 export function Chat({
@@ -19,6 +20,7 @@ export function Chat({
   onUploadTarget,
   onTry,
   onStaffPass,
+  onReceiptRetry,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -48,6 +50,7 @@ export function Chat({
               staffMode={staffMode}
               onTry={onTry}
               onStaffPass={onStaffPass}
+              onReceiptRetry={onReceiptRetry}
             />
           ))}
           <div ref={endRef} />

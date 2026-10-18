@@ -6,6 +6,7 @@ interface Props {
   staffMode: boolean; // STAFF 모드일 때만 수동 PASS 전환 버튼 노출
   onTry: (id: string) => void;
   onStaffPass: (id: string) => void;
+  onReceiptRetry: (id: string) => void;
 }
 
 // 시도 카드: 프롬프트 -> Try -> 생성 이미지 -> 유사도/판정
@@ -15,6 +16,7 @@ export function AttemptCard({
   staffMode,
   onTry,
   onStaffPass,
+  onReceiptRetry,
 }: Props) {
   const generating = a.genStatus === "generating";
   const evaluating = a.evalStatus === "evaluating";
@@ -38,12 +40,18 @@ export function AttemptCard({
           </button>
           {/* STAFF 모드: 평가가 끝났고 아직 PASS 가 아닐 때 수동 전환 */}
           {staffMode && evaluated && (
-            <button className="btn-staff" onClick={() => onStaffPass(a.id)}>
+            <button className="btn-staff" disabled={busy} onClick={() => onStaffPass(a.id)}>
               STAFF · 수동 PASS
             </button>
           )}
         </div>
       )}
+
+      {a.receiptPending && <p role="status">성공 기록을 저장·확인하는 중…</p>}
+      {a.receiptError && <div className="receipt-save-error" role="alert">
+        <p>영수증 저장/확인 실패: {a.receiptError}</p>
+        {a.verdict === "PASS" && <button disabled={a.receiptPending} onClick={() => onReceiptRetry(a.id)}>저장 재시도 · 모델 재호출 없음</button>}
+      </div>}
 
       <div className="attempt-card__image">
         {generating ? (

@@ -6,10 +6,10 @@
 
 - `web/`: React + TypeScript + Vite 프런트엔드
 - `server/`: FastAPI, Gemini 이미지 생성·판정, 로컬 CPU CLIP ViT-B/32 유사도 계산
-- 현재 이미지와 챌린지 기록은 브라우저 메모리에만 유지되며 새로고침 시 초기화됩니다.
-- Supabase 저장, 호출·토큰 집계, Render/Vercel 배포 연결은 후속 작업입니다.
+- 실제 모드에서는 세션·프롬프트·모델 호출/토큰을 Supabase에 기록하고, 첫 PASS 이미지와 누적값을 저장해 영수증을 발급합니다.
+- 현재 화면 목록·세션 접근 토큰·FAIL 이미지는 브라우저 메모리에만 유지됩니다. 새로고침하면 UI 세션은 초기화되지만 DB 기록은 남습니다.
 
-Supabase 프로젝트 생성 후 실행할 SQL과 테이블·저장 정책 설명은 [supabase/README.md](supabase/README.md)에 있습니다. 스키마 준비와 앱 연동은 별도 단계입니다.
+Supabase 초기 SQL과 **영수증용 추가 SQL**의 실행 순서·테이블 설명은 [supabase/README.md](supabase/README.md)에 있습니다.
 
 ## 로컬 실행
 
@@ -58,7 +58,7 @@ npm run build
 
 실제 `.env` 파일, 비밀키, 가상환경, `node_modules`, 빌드 결과, 모델 캐시와 루트의 참고용 PDF/Word 문서는 제외합니다. 환경변수 예시와 `package-lock.json`은 포함합니다.
 
-현재 STAFF 전환은 인증 없는 로컬 UI 기능입니다. 공개 운영 전에 제한하거나 서버 인증을 구현해야 합니다. 로컬 API는 Vite 프록시를 사용하며 분리 배포는 `VITE_API_BASE`와 백엔드 `PUBLIC_APP_ORIGIN`을 설정합니다.
+STAFF 버튼은 운영자 토큰·이름·승인 사유를 입력한 뒤 서버 인증을 통과해야 실제 PASS를 저장합니다. 원래 Router 판정은 덮어쓰지 않습니다. 로컬 API는 Vite 프록시를 사용하며 분리 배포는 `VITE_API_BASE`와 백엔드 `PUBLIC_APP_ORIGIN`을 설정합니다.
 
 ## Render 무료 백엔드 배포
 
@@ -86,11 +86,23 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
 | `OMP_NUM_THREADS`, `MKL_NUM_THREADS` | `1` (Blueprint에 설정됨) |
 | `SUPABASE_URL` | 생성한 Supabase 프로젝트 URL |
 | `SUPABASE_SECRET_KEY` | 서버용 secret key 또는 legacy service-role key |
+| `STAFF_AUTH_TOKEN` | STAFF 승인용 긴 임의 문자열. Blueprint 신규 생성 시 자동 생성되며 기존 서비스는 직접 설정 |
 
 4. 먼저 **Render**에서 `/health` 응답과 실제 생성 → Try를 확인합니다. `PORT`는 Render가 제공합니다. `PUBLIC_APP_ORIGIN`은 아직 입력하지 않아도 기본 로컬 주소로 서버가 기동합니다. 이는 프런트의 브라우저 호출 허용 설정이며 모델 실행에 필요한 키가 아닙니다.
 5. 이후 **Vercel**에서 Root Directory=`web`, `VITE_USE_MOCK=false`, `VITE_API_BASE=https://실제-서비스.onrender.com`으로 설정 후 배포합니다. Vercel 주소가 정해지면 Render 환경변수에 `PUBLIC_APP_ORIGIN=https://실제-프런트.vercel.app`을 추가하고 재배포합니다. Origin 값 끝에는 `/`를 넣지 않습니다.
 
-Supabase 키를 설정해도 아직 PASS 기록은 저장되지 않습니다. 현재 코드에는 설정 로딩만 있고 세션 생성·Storage 업로드·호출/토큰 기록·성공 RPC 연동은 후속 구현입니다. CLIP은 로컬 계산이므로 외부 호출 토큰 집계 대상이 아닙니다.
+실제 모드는 Supabase URL·서버 키와 스키마/버킷 설정이 필요합니다. `202610190001_initial_schema.sql`을 이미 실행했다면 `202610190002_receipt_session_integrity.sql`만 추가 실행합니다. 새 DB는 두 파일을 순서대로 실행합니다. 기존 `/api/generate`, `/api/evaluate`는 DB 설정 시 비활성화되며 새 UI는 `/api/challenges/...` 세션 API를 사용하므로 백엔드와 프런트를 함께 업데이트해야 합니다.
+
+## PASS 영수증
+
+- Router PASS 또는 STAFF 승인 → 성공 이미지 업로드 → DB의 첫 PASS 확정 → 성공 행·호출 원장·Storage 이미지를 다시 읽어 대조 → 영수증 자동 표시 순서입니다.
+- 세션 ID, 영수증 ID, 성공 이미지·프롬프트 원문, PASS 출처, 생성/Router 호출 수, 모델별 입력·출력·추론·총 토큰을 표시합니다. FAIL과 자동 재시도도 누적합니다.
+- API 타임아웃 등 토큰을 확인할 수 없는 호출은 NULL로 남기고 영수증에 누락 건수를 표시합니다. 확인된 토큰 합계를 전체 사용량으로 단정하지 않습니다.
+- 저장 실패 시 PASS 카드에 저장 재시도를 표시합니다. 저장 재시도·영수증 다시 보기·인쇄는 유료 모델을 다시 호출하지 않습니다.
+- 영수증의 **인쇄 / PDF 저장** 버튼으로 브라우저 인쇄 대화상자를 엽니다. 프린터 자동 출력이나 물리 프린터 연동은 포함하지 않습니다.
+- Mock 영수증에는 DB 저장이 아닌 샘플이라고 표시하며 실제 측정값을 만들지 않습니다.
+- CLIP은 로컬 계산이므로 외부 API 토큰 집계 대상이 아닙니다.
+- 서버 중단이나 DB 장애로 `api_calls.pending`이 남으면 성공 확정을 차단합니다. 공급자 응답을 복구해 갱신하거나, 확인 불가능하면 관리자가 `status=unknown`, `finished_at=현재 시각`으로 정리해야 합니다. 사용량을 임의로 0으로 만들지 않습니다.
 
 검증 명령:
 

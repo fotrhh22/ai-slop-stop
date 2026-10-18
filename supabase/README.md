@@ -1,11 +1,11 @@
 # Supabase 프로젝트 설정과 DB 설명
 
-프로젝트 생성은 사용자가 진행합니다. 이 폴더는 스키마와 백엔드 연동 계약을 준비한 것이며, 현재 앱이 Supabase에 저장하도록 연결된 상태는 아닙니다.
+프로젝트 생성과 운영 DB의 SQL 실행은 사용자가 진행합니다. 앱에는 세션·호출/토큰 기록, 첫 PASS 저장과 영수증 조회가 연결되어 있습니다.
 
 ## 1. 프로젝트 생성 후 실행
 
 1. Supabase Dashboard에서 프로젝트 이름을 `ai-slop-stop`으로 설정합니다. 사용할 조직·요금제와 한국 사용자에게 가까운 리전을 선택하고 DB 비밀번호는 비밀번호 관리자에 보관합니다.
-2. SQL Editor에서 `migrations/202610190001_initial_schema.sql` 전체를 한 번 실행합니다. 신규 프로젝트용 SQL이며 반복 실행용이 아닙니다.
+2. 새 프로젝트는 `migrations/202610190001_initial_schema.sql` → `migrations/202610190002_receipt_session_integrity.sql` 순서로 실행합니다. 첫 파일을 이미 실행했다면 **두 번째 파일만** 추가 실행합니다. 두 파일 모두 반복 실행용이 아닙니다.
 3. Storage에서 다음 **비공개(private)** 버킷을 생성합니다. 두 버킷 모두 최대 파일 크기 10MB, 허용 MIME `image/png`, `image/jpeg`, `image/webp`를 설정합니다.
 
 | 버킷 | 객체 경로 예 | 저장 시점 |
@@ -15,14 +15,15 @@
 
 객체에 확장자가 없어도 실제 MIME을 업로드 시 지정하면 됩니다. 파일은 Storage API로 업로드하고 `storage.objects`에 SQL로 직접 삽입하지 않습니다. DB에는 영구 객체 경로만 저장하고, 조회 시 백엔드에서 짧은 유효기간의 signed URL을 발급합니다.
 
-4. 프로젝트 URL과 서버용 secret key 또는 legacy service-role key는 프로젝트 루트 `.env.local` 또는 Render의 백엔드 환경변수로만 설정합니다. 현재 서버는 다음 설정을 읽지만 실제 DB 저장 로직은 아직 연동되지 않았습니다.
+4. 프로젝트 URL과 서버용 secret key 또는 legacy service-role key는 프로젝트 루트 `.env`/`.env.local` 또는 Render의 백엔드 환경변수로만 설정합니다.
 
 ```dotenv
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_SECRET_KEY=YOUR_SERVER_ONLY_KEY
+STAFF_AUTH_TOKEN=YOUR_RANDOM_STAFF_APPROVAL_TOKEN
 ```
 
-실제 값을 GitHub나 프런트 `VITE_*` 환경변수에 넣지 않습니다. 로그인 없는 방문자도 FastAPI를 통해 이용하며 DB 직접 접근은 허용하지 않습니다. 세션 ID만으로 다른 사용자의 기록을 열 수 없도록 백엔드 연동 시 별도 세션 접근 토큰을 검증해야 합니다.
+실제 값을 GitHub나 프런트 `VITE_*` 환경변수에 넣지 않습니다. 로그인 없는 방문자도 FastAPI를 통해 이용하며 DB 직접 접근은 허용하지 않습니다. 서버는 세션 접근 토큰의 해시를 저장하고 `X-Challenge-Token`을 검증합니다. STAFF 요청은 별도로 `X-Staff-Token`을 서버 환경변수와 대조합니다.
 
 ## 2. 테이블 역할
 
@@ -37,7 +38,7 @@ SUPABASE_SECRET_KEY=YOUR_SERVER_ONLY_KEY
 
 성공 기록에는 세션 ID, 성공 이미지 경로, **프롬프트 원문**, `router/staff` 구분, 생성·Router·전체 호출 수, 모델별 토큰과 누락 수가 저장됩니다. SQL의 `COMMENT ON`으로 Dashboard에서도 테이블·핵심 컬럼 설명을 볼 수 있습니다.
 
-FAIL 시에도 `attempts`와 `api_calls`는 기록합니다. 단, FAIL 이미지는 Storage에 저장하지 않습니다. 첫 PASS 후 해당 세션은 종료되므로 추가 시도는 새 세션에서 시작합니다. 이전 UI의 PASS 후 계속 생성 동작은 백엔드 연동 시 이에 맞춰 변경해야 합니다.
+FAIL 시에도 `attempts`와 `api_calls`는 기록합니다. 단, FAIL 이미지는 Storage에 저장하지 않습니다. 첫 PASS 후 해당 세션은 종료되므로 추가 시도는 새 세션에서 시작합니다. `attempts.generated_image_sha256`으로 성공 이미지가 서버에서 생성된 원본인지 확인합니다.
 
 ## 3. 호출 수와 토큰의 정확한 의미
 

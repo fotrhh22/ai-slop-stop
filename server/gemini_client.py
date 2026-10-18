@@ -13,6 +13,7 @@ from google import genai
 from google.genai import types
 
 from .config import Settings
+from .persistence import PersistenceError
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "evaluate.md"
 
@@ -21,13 +22,16 @@ class GeminiError(Exception):
     pass
 
 
-def _with_retry(fn, attempts: int = 3, delay: float = 1.5):
+def _with_retry(fn, attempts: int = 3, delay: float = 1.5, recorder=None):
     """일시적 네트워크 오류(connection reset 등)에 한해 재시도."""
     last = None
     for i in range(attempts):
+        call_id = recorder.start() if recorder else None
         try:
-            return fn()
+            response = fn()
         except Exception as e:  # noqa: BLE001
+            if recorder:
+                recorder.finish(call_id, error=e)
             msg = str(e).lower()
             transient = any(
                 s in msg
@@ -37,37 +41,35 @@ def _with_retry(fn, attempts: int = 3, delay: float = 1.5):
             if not transient or i == attempts - 1:
                 raise
             time.sleep(delay * (i + 1))
+        else:
+            if recorder:
+                recorder.finish(call_id, response=response)
+            return response
     raise last  # pragma: no cover
 
 
 def _client(settings: Settings) -> genai.Client:
     if not settings.gemini_configured:
         raise GeminiError("GEMINI_API_KEY_MISSING")
-    return genai.Client(api_key=settings.gemini_api_key)
+    # SDK retries would bypass the per-request ledger; retries live in _with_retry.
+    return genai.Client(api_key=settings.gemini_api_key, http_options=types.HttpOptions(
+        retry_options=types.HttpRetryOptions(attempts=1)))
 
 
 def decode_data_url(data_url: str) -> tuple[bytes, str]:
     """이미지 소스를 (raw bytes, mime) 로 변환.
     - data:<mime>;base64,<...>  (업로드본 / 생성 이미지)
-    - http(s)://...             (기본 목표 이미지 등 원격 URL) — 서버가 받아온다
+    임의 원격 URL은 받지 않는다.
     """
     if data_url.startswith("data:"):
         try:
             header, b64 = data_url.split(",", 1)
             mime = header.split(":", 1)[1].split(";", 1)[0] or "image/png"
-            return base64.b64decode(b64), mime
+            if mime not in ("image/png", "image/jpeg", "image/webp"):
+                raise ValueError("unsupported image MIME")
+            return base64.b64decode(b64, validate=True), mime
         except Exception as e:  # noqa: BLE001
             raise GeminiError(f"BAD_DATA_URL: {e}") from e
-    if data_url.startswith("http://") or data_url.startswith("https://"):
-        try:
-            import httpx
-
-            r = httpx.get(data_url, timeout=20, follow_redirects=True)
-            r.raise_for_status()
-            mime = r.headers.get("content-type", "image/jpeg").split(";")[0]
-            return r.content, mime
-        except Exception as e:  # noqa: BLE001
-            raise GeminiError(f"FETCH_FAILED: {e}") from e
     raise GeminiError("UNSUPPORTED_IMAGE_SOURCE")
 
 
@@ -88,6 +90,7 @@ def route_verdict(
     generated_bytes: bytes,
     generated_mime: str,
     similarity: float,
+    recorder=None,
 ) -> dict:
     """두 이미지 + 유사도 점수를 Gemini Router 에 넘겨 PASS/FAIL 판정을 받는다."""
     client = _client(settings)
@@ -110,8 +113,10 @@ def route_verdict(
                     response_schema=_VERDICT_SCHEMA,
                     temperature=0.2,
                 ),
-            )
+            ), recorder=recorder
         )
+    except PersistenceError:
+        raise
     except Exception as e:  # noqa: BLE001
         raise GeminiError(f"ROUTER_FAILED: {type(e).__name__}: {e}") from e
 
@@ -127,7 +132,7 @@ def route_verdict(
     return {"verdict": verdict, "reason": reason}
 
 
-def generate_image(settings: Settings, prompt: str) -> str:
+def generate_image(settings: Settings, prompt: str, recorder=None) -> str:
     """프롬프트로 이미지를 생성해 data URL(base64) 로 반환."""
     client = _client(settings)
     try:
@@ -138,8 +143,10 @@ def generate_image(settings: Settings, prompt: str) -> str:
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"],
                 ),
-            )
+            ), recorder=recorder
         )
+    except PersistenceError:
+        raise
     except Exception as e:  # noqa: BLE001
         raise GeminiError(f"GENERATE_FAILED: {type(e).__name__}: {e}") from e
 

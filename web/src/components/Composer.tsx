@@ -14,7 +14,7 @@ export function Composer({ disabled, onSend }: Props) {
   const send = () => {
     const t = text.trim();
     if (!t || disabled) return;
-    onSend(t);
+    onSend(text);
     setText("");
     if (ref.current) ref.current.style.height = "auto";
   };

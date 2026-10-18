@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 from .config import load_settings
 from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
 from .similarity import MODEL_LABEL, SimilarityError, compute_similarity, model_loaded
+from .challenges import router as challenge_router
+from .persistence import PersistenceError
 
 settings = load_settings()
 
@@ -29,8 +31,15 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.public_app_origin],
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type"],
+    allow_headers=["Content-Type", "X-Challenge-Token", "X-Staff-Token"],
 )
+
+app.include_router(challenge_router)
+
+
+@app.exception_handler(PersistenceError)
+async def persistence_error(request: Request, exc: PersistenceError):
+    return JSONResponse(status_code=exc.status, content={"detail": str(exc)})
 
 # 아주 단순한 분당 호출 제한 (공개 운영 대비)
 _windows: dict[str, deque[float]] = defaultdict(deque)
@@ -68,6 +77,7 @@ def health() -> dict:
         "similarity_provider": "local",
         "similarity_model": MODEL_LABEL,
         "similarity_loaded": model_loaded(),
+        "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
     }
 
 
@@ -77,6 +87,8 @@ class GenerateRequest(BaseModel):
 
 @app.post("/api/generate")
 def api_generate(req: GenerateRequest) -> dict:
+    if settings.supabase_url and settings.supabase_secret_key:
+        return JSONResponse(status_code=400, content={"detail": "USE_CHALLENGE_SESSION_API"})
     try:
         image_url = generate_image(settings, req.prompt)
         return {"imageUrl": image_url}
@@ -92,6 +104,8 @@ class EvaluateRequest(BaseModel):
 
 @app.post("/api/evaluate")
 def api_evaluate(req: EvaluateRequest):
+    if settings.supabase_url and settings.supabase_secret_key:
+        return JSONResponse(status_code=400, content={"detail": "USE_CHALLENGE_SESSION_API"})
     # 1) 두 이미지 디코드
     try:
         target_bytes, target_mime = decode_data_url(req.target_image)

@@ -1157,3 +1157,35 @@ button {
   color: var(--accent);
   text-transform: uppercase;
 }
+
+/* PASS receipt: verified DB snapshot, printable without the surrounding chat. */
+.workflow-banner { margin: 8px 20px; padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+.workflow-banner button { margin-left: 12px; }
+.receipt-save-error { color: var(--red); padding: 10px 0; }
+.receipt-overlay { position: fixed; inset: 0; z-index: 100; overflow-y: auto; padding: 24px 12px; background: rgba(0,0,0,.8); }
+.receipt-paper { width: min(100%, 440px); margin: 0 auto; padding: 26px; background: #fffdf7; color: #25251f; border-radius: 4px; font: 13px/1.55 Pretendard, sans-serif; color-scheme: light; box-shadow: 0 12px 60px #0008; }
+.receipt-paper h1 { margin: 4px 0 16px; text-align: center; font-size: 28px; }
+.receipt-eyebrow { text-align: center; font-size: 10px; letter-spacing: .12em; }
+.receipt-paper h2 { padding-top: 16px; margin-top: 20px; border-top: 1px dashed #aaa; font-size: 14px; }
+.receipt-paper dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 6px 12px; }
+.receipt-paper dt { color: #666; }
+.receipt-paper dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.receipt-paper pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; padding: 12px; background: #f0eee7; }
+.receipt-image { width: 100%; max-height: 320px; object-fit: contain; display: block; margin-top: 20px; }
+.receipt-actions { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 24px; }
+.receipt-paper button, .workflow-banner button, .receipt-save-error button { border: 1px solid #888; border-radius: 6px; padding: 7px 10px; }
+.receipt-ok { color: #197041; }
+.receipt-warning { color: #8a4812; background: #fff0c6; padding: 9px; }
+.receipt-note { font-size: 11px; color: #666; }
+.receipt-model { margin-bottom: 16px; overflow-wrap: anywhere; }
+.receipt-call { overflow-wrap: anywhere; border-bottom: 1px dotted #ccc; font-size: 11px; }
+.staff-approval label { display: grid; gap: 6px; margin: 14px 0; }
+.staff-approval input, .staff-approval textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+@media print {
+  @page { margin: 8mm; }
+  body > * { display: none !important; }
+  body > .receipt-overlay { display: block !important; position: static; overflow: visible; padding: 0; background: white; }
+  .receipt-paper { width: 80mm; max-width: 100%; margin: 0; padding: 3mm; box-shadow: none; color: black; background: white; }
+  .receipt-actions { display: none !important; }
+  .receipt-model, .receipt-image { break-inside: avoid; }
+}

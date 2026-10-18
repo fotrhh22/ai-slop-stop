@@ -38,6 +38,7 @@ class Settings:
     supabase_url: str = ""
     supabase_secret_key: str = ""
     clip_cache_dir: str = ".cache/clip"
+    staff_auth_token: str = ""
 
     @property
     def gemini_configured(self) -> bool:
@@ -56,4 +57,5 @@ def load_settings() -> Settings:
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
         clip_cache_dir=os.getenv("CLIP_CACHE_DIR", ".cache/clip"),
+        staff_auth_token=os.getenv("STAFF_AUTH_TOKEN", ""),
     )
