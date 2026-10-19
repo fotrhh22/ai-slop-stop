@@ -146,7 +146,7 @@ export default function App() {
     const cid = active.id;
     const a = active.attempts.find((x) => x.id === aid);
     if (!a || a.genStatus !== "ready" || !a.imageUrl) return;
-    patchAttempt(cid, aid, (x) => ({ ...x, evalStatus: "evaluating" }));
+    patchAttempt(cid, aid, (x) => ({ ...x, evalStatus: "evaluating", evalError: undefined }));
     try {
       const r = await evaluate(active, a);
       patchAttempt(cid, aid, (x) => ({

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import type { Attempt } from "../types";
 
 interface Props {
@@ -20,6 +21,13 @@ export function AttemptCard({
 }: Props) {
   const generating = a.genStatus === "generating";
   const evaluating = a.evalStatus === "evaluating";
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!evaluating) { setElapsed(0); return; }
+    const start = Date.now();
+    const timer = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [evaluating]);
   const canAct = a.genStatus === "ready" && !busy;
   const evaluated = a.evalStatus === "done";
   const passed = evaluated && a.verdict === "PASS";
@@ -76,7 +84,7 @@ export function AttemptCard({
         <div className="attempt-card__verdict">
           <span className="k">판정</span>
           {a.evalStatus === "evaluating" ? (
-            <span className="v muted">평가 중…</span>
+            <span className="v muted">평가 중… {elapsed}초</span>
           ) : a.evalStatus === "error" ? (
             <span className="v muted">평가 오류 — 다시 Try</span>
           ) : evaluated && a.verdict ? (

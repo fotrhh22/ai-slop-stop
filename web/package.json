@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:evaluation": "node scripts/test-evaluation-client.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",

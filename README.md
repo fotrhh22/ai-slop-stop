@@ -91,7 +91,10 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
 ## 판정 대기 시간
 
 - Router에 보내는 사본은 긴 변을 최대 1024px로 줄이고 큰 PNG 등의 전송량을 JPEG 압축으로 낮춥니다. 작은 원본은 재인코딩하지 않습니다. 원본 해시와 성공 이미지 저장에는 원본을 사용합니다. 작은 글자·미세 디테일은 축소 과정에서 손실될 수 있습니다.
-- Gemini 3 Router에는 `thinking_level=LOW`를 지정해 기본 추론 강도로 인한 대기를 줄입니다. 이미지 생성 설정에는 적용하지 않습니다. 낮은 추론 강도의 판정 품질은 실제 목표 이미지로 확인해야 합니다.
+- 기본 Router는 `gemini-3.5-flash-lite` + `thinking_level=MINIMAL`입니다. 기존 `GEMINI_ROUTER_MODEL` 환경변수가 있으면 그 값이 우선하므로 Render에서 직접 바꿔야 합니다. 일반 Gemini 3 Flash를 선택하면 LOW를 사용합니다. 이미지 생성 모델 설정은 변경하지 않습니다. 낮은 추론 강도의 판정 품질은 실제 목표 이미지로 확인해야 합니다.
+- 새 UI는 `POST /evaluations`로 작업 ID를 받고 `GET /evaluations/{job_id}`로 2초마다 진행 상태를 확인합니다. 긴 Gemini 요청을 브라우저 연결 하나에 묶지 않습니다. 상태 조회는 DB·모델 호출 없이 서버의 완료 상태만 확인합니다. 시작 요청 재전송은 동일 작업 ID를 재사용합니다.
+- Router는 SDK 대기 제한 45초, 자동 재시도 0회입니다. 시간 초과는 평가 FAIL과 구분된 오류이며, 알 수 없는 토큰은 원장에 누락으로 남깁니다. 사용자가 다시 Try할 때만 새 판정을 요청합니다.
+- 추가 DB SQL·외부 큐 서비스는 없습니다. 현재 단일 Render 프로세스(`--workers 1`)에서 동시에 최대 2개 작업을 실행합니다. 진행 작업은 재배포·프로세스 재시작 시 중단되며 UI에 명시적 오류를 표시합니다. 완료된 판정·모델 호출 원장은 기존 DB에 저장됩니다. 프로세스 강제 종료로 남은 `api_calls.pending`은 아래 영수증 설명대로 별도 확인해야 합니다.
 - `gemini_api operation=router attempt=... elapsed_ms=...` 로그는 DB 원장 저장을 제외한 실제 SDK 요청 시간을 기록합니다. 앞선 `evaluation stage=router` 로그와 비교하면 DB/이미지 준비 시간과 공급자 응답 대기를 구분할 수 있습니다.
 - Supabase HTTP 연결을 재사용합니다.
 - 새 UI는 판정 저장 직후 PASS/FAIL을 표시하고, PASS 영수증 업로드·검증은 별도 요청으로 자동 진행합니다. 저장 실패는 영수증 재시도로 처리하며 Router를 다시 호출하지 않습니다.
@@ -111,6 +114,7 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
 
 ```sh
 python -m unittest discover -s server/tests -v
+(cd web && npm run test:evaluation && npm run build)
 render blueprints validate render.yaml --output json --confirm
 ```
 

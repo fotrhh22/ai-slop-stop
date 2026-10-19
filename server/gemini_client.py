@@ -126,16 +126,21 @@ def route_verdict(
                     response_mime_type="application/json",
                     response_schema=_VERDICT_SCHEMA,
                     temperature=0.2,
-                    # Gemini 3 defaults to extended reasoning. Classification does
-                    # not need that default; LOW is supported across Gemini 3.
-                    thinking_config=(types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW)
-                                     if settings.router_model.startswith("gemini-3") else None),
+                    # Flash-Lite supports MINIMAL; regular Gemini 3 uses LOW.
+                    thinking_config=(types.ThinkingConfig(
+                        thinking_level=(types.ThinkingLevel.MINIMAL if "flash-lite" in settings.router_model
+                                        else types.ThinkingLevel.LOW))
+                        if settings.router_model.startswith("gemini-3") else None),
+                    http_options=types.HttpOptions(timeout=45_000),
                 ),
-            ), recorder=recorder, label="router"
+            ), attempts=1, recorder=recorder, label="router"
         )
     except PersistenceError:
         raise
     except Exception as e:  # noqa: BLE001
+        message = str(e).lower()
+        if any(word in message for word in ("timeout", "timed out", "deadline_exceeded", "deadline exceeded")) or isinstance(e, TimeoutError):
+            raise GeminiError("ROUTER_TIMEOUT") from e
         raise GeminiError(f"ROUTER_FAILED: {type(e).__name__}: {e}") from e
 
     try:

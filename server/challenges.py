@@ -11,6 +11,7 @@ from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from .config import load_settings
+from .evaluation_jobs import jobs
 from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
 from .persistence import CallRecorder, PersistenceError, Store, digest
 from .images import ImageError, validate_image
@@ -139,6 +140,28 @@ def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="
             except PersistenceError as exc:
                 return {**result, "receipt_error": str(exc)}
         return result
+
+
+class StartEvaluation(Evaluate):
+    job_id: UUID
+
+
+@router.post("/{cid}/evaluations", status_code=202)
+def start_evaluation(cid: UUID, req: StartEvaluation, x_challenge_token: str = Header(default="")):
+    # Do not take the session lock here: a retransmitted request must return
+    # immediately even while the previous request is waiting on Gemini.
+    _, store, _ = session(cid, x_challenge_token)
+    store.attempt(str(cid), str(req.attempt_id))
+    evaluate_req = Evaluate(attempt_id=req.attempt_id, generated_image=req.generated_image, defer_receipt=True)
+    return jobs.start(str(req.job_id), str(cid), str(req.attempt_id), x_challenge_token,
+                      lambda: evaluate(cid, evaluate_req, x_challenge_token))
+
+
+@router.get("/{cid}/evaluations/{job_id}")
+def evaluation_status(cid: UUID, job_id: UUID, x_challenge_token: str = Header(default="")):
+    # The job remembers the hash of the already-authorized session token.
+    # Polling needs no DB query and cannot invoke a model.
+    return jobs.status(str(job_id), str(cid), x_challenge_token)
 
 
 class Finalize(Evaluate):

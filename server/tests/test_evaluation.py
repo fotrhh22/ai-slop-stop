@@ -45,6 +45,24 @@ class EvaluationTests(unittest.TestCase):
                     self.assertEqual(route_verdict(settings, self.raw, "image/png", self.raw, "image/png")["verdict"], verdict)
                 self.assertEqual(provider.call_args.kwargs["config"].thinking_config.thinking_level, "LOW")
 
+    def test_flash_lite_uses_minimal_thinking_and_request_deadline(self):
+        settings = Settings(**{**self.settings.__dict__, "router_model": "gemini-3.5-flash-lite"})
+        provider = Mock(return_value=NS(text=json.dumps(self.result)))
+        with patch("server.gemini_client._client", return_value=NS(models=NS(generate_content=provider))):
+            route_verdict(settings, self.raw, "image/png", self.raw, "image/png")
+        config = provider.call_args.kwargs["config"]
+        self.assertEqual(config.thinking_config.thinking_level, "MINIMAL")
+        self.assertEqual(config.http_options.timeout, 45_000)
+
+    def test_router_timeout_does_not_silently_retry(self):
+        provider, recorder = Mock(side_effect=TimeoutError("timed out")), Mock()
+        with patch("server.gemini_client._client", return_value=NS(models=NS(generate_content=provider))):
+            with self.assertRaisesRegex(GeminiError, "ROUTER_TIMEOUT"):
+                route_verdict(self.settings, self.raw, "image/png", self.raw, "image/png", recorder=recorder)
+        self.assertEqual(provider.call_count, 1)
+        self.assertEqual(recorder.start.call_count, 1)
+        self.assertIsInstance(recorder.finish.call_args.kwargs["error"], TimeoutError)
+
     def test_rejects_invalid_router_results(self):
         for value in ([], {**self.result, "verdict": "MAYBE"}, {**self.result, "criteria": {}},
                       {**self.result, "criteria": {**self.result["criteria"], "color": 0.95}}):

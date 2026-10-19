@@ -27,12 +27,7 @@ settings = load_settings()
 
 app = FastAPI(title="Image Challenge Backend", version="0.1.0")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[settings.public_app_origin],
-    allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-Challenge-Token"],
-)
+
 
 app.include_router(challenge_router)
 
@@ -50,12 +45,14 @@ async def rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
-        key = request.client.host if request.client else "unknown"
+        polling = request.method == "GET" and "/evaluations/" in request.url.path
+        key = ("poll:" if polling else "write:") + (request.client.host if request.client else "unknown")
         now = monotonic()
         w = _windows[key]
         while w and w[0] <= now - 60:
             w.popleft()
-        if len(w) >= settings.max_requests_per_minute:
+        limit = max(120, settings.max_requests_per_minute * 6) if polling else settings.max_requests_per_minute
+        if len(w) >= limit:
             return JSONResponse(status_code=429, content={"detail": "RATE_LIMITED"})
         w.append(now)
         if len(_windows) > 10_000:
@@ -129,3 +126,12 @@ def api_evaluate(req: EvaluateRequest):
         )
 
     return {**verdict, "router_model": settings.router_model}
+
+
+# Include ServerErrorMiddleware responses in CORS handling too.
+app = CORSMiddleware(
+    app,
+    allow_origins=[settings.public_app_origin],
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-Challenge-Token"],
+)
