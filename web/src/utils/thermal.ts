@@ -1,4 +1,13 @@
-export type ThermalMethod = "atkinson" | "floyd-steinberg" | "mean";
+import blueNoiseRanks from "./blue-noise-64.json";
+
+export type ThermalMethod = "atkinson" | "floyd-steinberg" | "ordered-bayer" | "ordered-blue-noise";
+// Standard 8x8 dispersed-dot Bayer ranks, tiled in printer-pixel coordinates.
+const bayerRanks = [
+  0,48,12,60,3,51,15,63, 32,16,44,28,35,19,47,31,
+  8,56,4,52,11,59,7,55, 40,24,36,20,43,27,39,23,
+  2,50,14,62,1,49,13,61, 34,18,46,30,33,17,45,29,
+  10,58,6,54,9,57,5,53, 42,26,38,22,41,25,37,21,
+];
 export interface ThermalOptions {
   widthDots: number;
   method: ThermalMethod;
@@ -14,20 +23,19 @@ export function monochromePixels(
 ): Uint8ClampedArray {
   if (!Number.isInteger(width) || !Number.isInteger(height) || width < 1 || height < 1
       || width * height > 7_200_000 || rgba.length !== width * height * 4) throw new Error("INVALID_IMAGE_SIZE");
-  if (!["atkinson", "floyd-steinberg", "mean"].includes(method)
+  if (!["atkinson", "floyd-steinberg", "ordered-bayer", "ordered-blue-noise"].includes(method)
       || !Number.isFinite(brightness) || brightness < 0.5 || brightness > 1.5
       || !Number.isFinite(contrast) || contrast < 0.5 || contrast > 2) throw new Error("INVALID_THERMAL_OPTIONS");
   const gray = new Float32Array(width * height);
-  let sum = 0, min = 255, max = 0;
   for (let i = 0; i < gray.length; i++) {
     const j = i * 4, alpha = rgba[j + 3] / 255;
     const luma = (0.2126 * rgba[j] + 0.7152 * rgba[j + 1] + 0.0722 * rgba[j + 2]) * alpha + 255 * (1 - alpha);
     const value = Math.max(0, Math.min(255, ((luma - 127.5) * contrast + 127.5) * brightness));
     gray[i] = value;
-    sum += value; min = Math.min(min, value); max = Math.max(max, value);
   }
-  // Constant white/black images must remain white/black in mean-threshold mode.
-  const threshold = method === "mean" && min !== max ? sum / gray.length : 127.5;
+  const orderedRanks = method === "ordered-bayer" ? bayerRanks
+    : method === "ordered-blue-noise" ? blueNoiseRanks : undefined;
+  const tileSize = method === "ordered-bayer" ? 8 : 64;
   const output = new Uint8ClampedArray(rgba.length);
   // [dx, dy, weight]. Atkinson intentionally diffuses only 6/8 of the error.
   const taps = method === "atkinson"
@@ -35,10 +43,13 @@ export function monochromePixels(
     : [[1, 0, 7 / 16], [-1, 1, 3 / 16], [0, 1, 5 / 16], [1, 1, 1 / 16]];
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
+      const threshold = orderedRanks
+        ? (orderedRanks[(y % tileSize) * tileSize + x % tileSize] + 0.5) * 255 / orderedRanks.length
+        : 127.5;
       const i = y * width + x, value = gray[i] >= threshold ? 255 : 0;
       output[i * 4] = output[i * 4 + 1] = output[i * 4 + 2] = value;
       output[i * 4 + 3] = 255;
-      if (method === "mean") continue;
+      if (orderedRanks) continue; // Ordered dithering never diffuses error to neighbours.
       const error = gray[i] - value;
       for (const [dx, dy, weight] of taps) {
         const nx = x + dx, ny = y + dy;

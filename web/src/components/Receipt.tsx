@@ -101,7 +101,8 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
           <select value={options.method} onChange={e => setOptions(o => ({ ...o, method: e.target.value as ThermalMethod }))}>
             <option value="atkinson">Atkinson · 기본</option>
             <option value="floyd-steinberg">Floyd–Steinberg · 오류 확산</option>
-            <option value="mean">평균 임계값 · 단순 흑백</option>
+            <option value="ordered-bayer">Ordered Bayer · 규칙 패턴</option>
+            <option value="ordered-blue-noise">Ordered Blue Noise · 미세 입자</option>
           </select>
         </label>
         <div className="receipt-thermal-settings">
