@@ -1,21 +1,10 @@
-import { useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import type { Receipt as ReceiptData } from "../types";
 
-export function Receipt({ receipt: r, onClose }: { receipt: ReceiptData; onClose: () => void }) {
-  const close = useRef<HTMLButtonElement>(null);
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    close.current?.focus();
-    const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", key);
-    return () => { window.removeEventListener("keydown", key); previous?.focus(); };
-  }, [onClose]);
-  return createPortal(<div className="receipt-overlay" role="dialog" aria-modal="true" aria-label="성공 영수증">
-    <article className="receipt-paper">
+export function Receipt({ receipt: r, onRefresh }: { receipt: ReceiptData; onRefresh: () => Promise<void> }) {
+  return <article className="receipt-paper" aria-label="성공 영수증">
       <div className="receipt-actions">
         <button onClick={() => window.print()}>인쇄 / PDF 저장</button>
-        <button ref={close} onClick={onClose}>닫기</button>
+        <button onClick={onRefresh}>DB 기록 새로고침</button>
       </div>
       <p className="receipt-eyebrow">AI SLOP STOP CHALLENGE</p>
       <h1>PASS 영수증</h1>
@@ -54,7 +43,6 @@ export function Receipt({ receipt: r, onClose }: { receipt: ReceiptData; onClose
         {Object.entries(r.verification).map(([name, ok]) => <p key={name}>{ok ? "✓" : "✗"} {name}</p>)}
         {r.calls.map(c => <p className="receipt-call" key={c.id}>{c.operation} · {c.model} · {c.status} · {c.total_tokens ?? "미확인"} tokens</p>)}
       </details>}
-      <p className="receipt-note">영수증을 다시 열거나 인쇄해도 모델을 호출하거나 성공 기록을 추가하지 않습니다.</p>
-    </article>
-  </div>, document.body);
+      <p className="receipt-note">영수증을 새로고침하거나 인쇄해도 모델을 호출하거나 성공 기록을 추가하지 않습니다.</p>
+    </article>;
 }

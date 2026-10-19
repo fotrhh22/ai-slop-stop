@@ -4,9 +4,8 @@ import { Chat } from "./components/Chat";
 import { Composer } from "./components/Composer";
 import { TargetImagePicker } from "./components/TargetImagePicker";
 import { MenuIcon } from "./components/icons";
-import type { Attempt, Challenge, Receipt as ReceiptData } from "./types";
+import type { Attempt, Challenge } from "./types";
 import { createChallenge, generateImage, evaluate, finalize, fetchReceipt } from "./api/client";
-import { Receipt } from "./components/Receipt";
 
 const uid = () => crypto.randomUUID();
 
@@ -33,7 +32,6 @@ export default function App() {
   const [staffMode, setStaffMode] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
-  const [receipt, setReceipt] = useState<ReceiptData | null>(null);
 
   const active = useMemo(
     () => challenges.find((c) => c.id === activeId) ?? null,
@@ -162,14 +160,12 @@ export default function App() {
       }));
       if (r.receipt) {
         patch(cid, c => ({ ...c, receipt: r.receipt }));
-        setReceipt(r.receipt);
       } else if (r.verdict === "PASS" && r.receipt_pending) {
         // Render the persisted verdict before waiting for Storage/receipt readback.
         try {
           const saved = await finalize(active, a);
           patch(cid, c => ({ ...c, receipt: saved }));
           patchAttempt(cid, aid, x => ({ ...x, receiptPending: false }));
-          setReceipt(saved);
         } catch (e) {
           patchAttempt(cid, aid, x => ({ ...x, receiptPending: false,
             receiptError: e instanceof Error ? e.message : "영수증 저장 실패" }));
@@ -195,7 +191,6 @@ export default function App() {
       patch(cid, c => ({ ...c, receipt: saved }));
       patchAttempt(cid, aid, a => ({ ...a, verdict: "PASS", staffOverride: saved.pass_source === "staff",
         evalStatus: "done", receiptPending: false }));
-      setReceipt(saved);
     } catch (e) {
       patchAttempt(cid, aid, a => ({ ...a, receiptPending: false,
         receiptError: e instanceof Error ? e.message : "영수증 저장 실패" }));
@@ -241,9 +236,7 @@ export default function App() {
 
         {creating && <p className="workflow-banner" role="status">목표 이미지와 세션을 저장하는 중…</p>}
         {error && <p className="workflow-banner is-error" role="alert">{error}</p>}
-        {active?.receipt && <div className="workflow-banner">PASS 저장 완료 · 새 챌린지를 시작할 수 있습니다.
-          <button onClick={async () => { try { setReceipt(await fetchReceipt(active)); }
-            catch (e) { setError(e instanceof Error ? e.message : "영수증 조회 실패"); } }}>영수증 다시 보기</button></div>}
+        {active?.receipt && <div className="workflow-banner">PASS 저장 완료 · 영수증은 채팅 아래에 표시됩니다.</div>}
 
         {active ? (
           <>
@@ -256,6 +249,15 @@ export default function App() {
               onTry={onTry}
               onStaffPass={aid => { if (staffMode) void saveReceipt(aid, true); }}
               onReceiptRetry={aid => { void saveReceipt(aid); }}
+              onReceiptRefresh={async () => {
+                const cid = active.id;
+                try {
+                  const saved = await fetchReceipt(active);
+                  patch(cid, c => ({ ...c, receipt: saved }));
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "영수증 조회 실패");
+                }
+              }}
             />
             <Composer disabled={busy || completed || creating} onSend={onSend} />
           </>
@@ -282,7 +284,6 @@ export default function App() {
           onConfirm={confirmTarget}
         />
       )}
-      {receipt && <Receipt receipt={receipt} onClose={() => setReceipt(null)} />}
     </div>
   );
 }

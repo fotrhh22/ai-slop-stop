@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { Challenge } from "../types";
+import { Receipt } from "./Receipt";
 import { AttemptCard } from "./AttemptCard";
 import { TargetImagePanel } from "./TargetImagePanel";
 
@@ -11,6 +12,7 @@ interface Props {
   onTry: (attemptId: string) => void;
   onStaffPass: (attemptId: string) => void;
   onReceiptRetry: (attemptId: string) => void;
+  onReceiptRefresh: () => Promise<void>;
 }
 
 export function Chat({
@@ -21,11 +23,17 @@ export function Chat({
   onTry,
   onStaffPass,
   onReceiptRetry,
+  onReceiptRefresh,
 }: Props) {
   const endRef = useRef<HTMLDivElement>(null);
+  const receiptRef = useRef<HTMLElement>(null);
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [challenge.attempts.length, busy]);
+    if (challenge.receipt) {
+      receiptRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [challenge.id, challenge.attempts.length, challenge.receipt?.id, busy]);
 
   return (
     <div className="chat__scroll">
@@ -53,6 +61,9 @@ export function Chat({
               onReceiptRetry={onReceiptRetry}
             />
           ))}
+          {challenge.receipt && <section className="receipt-message" ref={receiptRef}>
+            <Receipt receipt={challenge.receipt} onRefresh={onReceiptRefresh} />
+          </section>}
           <div ref={endRef} />
         </div>
       )}
