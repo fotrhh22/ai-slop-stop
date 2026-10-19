@@ -903,21 +903,14 @@ button {
   padding-top: 4px;
   border-top: 1px solid var(--border);
 }
-.attempt-card__score,
 .attempt-card__verdict {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.attempt-card__score .k,
 .attempt-card__verdict .k {
   color: var(--muted);
   min-width: 72px;
-}
-.attempt-card__score .v {
-  font-variant-numeric: tabular-nums;
-  font-weight: 700;
-  color: var(--text);
 }
 .attempt-card__verdict .v.muted {
   color: var(--muted);
@@ -1115,11 +1108,6 @@ button {
   border-radius: 999px;
   padding: 1px 8px;
 }
-.attempt-card__score .raw {
-  color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-}
 
 
 /* ===== 브랜드 (COSS × ANCHOR · SAVE THE PLANET) ===== */
@@ -1140,7 +1128,6 @@ button {
   text-align: center;
 }
 /* "by <모델>" 꼬리표 */
-.attempt-card__score .by,
 .attempt-card__verdict .by {
   font-size: 11px;
   color: var(--muted);
@@ -1188,4 +1175,15 @@ button {
   .receipt-paper { width: 80mm; max-width: 100%; margin: 0; padding: 3mm; box-shadow: none; color: black; background: white; }
   .receipt-actions { display: none !important; }
   .receipt-model, .receipt-image { break-inside: avoid; }
+}
+
+.attempt-card__criteria {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.attempt-card__criteria strong {
+  color: var(--text);
 }

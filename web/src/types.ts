@@ -2,6 +2,7 @@
 // 화면 상태는 브라우저, 실제 사용량/성공 영수증은 백엔드와 Supabase가 관리.
 
 export type Verdict = "PASS" | "FAIL";
+export type EvaluationCriteria = Record<"subject" | "composition" | "color" | "background", "MATCH" | "MISMATCH">;
 
 export interface Receipt {
   id: string;
@@ -38,9 +39,7 @@ export interface Attempt {
 
   // 평가(Try) 결과
   evalStatus: "none" | "evaluating" | "done" | "error";
-  similarity?: number; // 코사인 점수 (음수만 0으로 제한). 일치율 %가 아님.
-  similarityRaw?: number; // 원시 CLIP 코사인 (투명성)
-  similarityModel?: string;
+  criteria?: EvaluationCriteria; // Gemini의 항목별 정성 평가
   routerModel?: string;
   verdict?: Verdict; // Router 최종 판정 (또는 STAFF 수동 전환)
   reason?: string; // Router 판정 이유

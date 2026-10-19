@@ -3,7 +3,7 @@
 라우트:
   GET  /health           설정/키 상태
   POST /api/generate     프롬프트 -> Gemini 이미지 생성 -> { imageUrl }
-  POST /api/evaluate     (3단계) 목표+생성 이미지 -> 유사도 + Router PASS/FAIL
+  POST /api/evaluate     (3단계) 목표+생성 이미지 -> Gemini Router PASS/FAIL
 
 API 키는 서버에만 존재한다. 브라우저는 /api 만 호출한다.
 """
@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 
 from .config import load_settings
 from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
-from .similarity import MODEL_LABEL, SimilarityError, compute_similarity, model_loaded
+from .images import ImageError, validate_image
 from .challenges import router as challenge_router
 from .persistence import PersistenceError
 
@@ -74,9 +74,7 @@ def health() -> dict:
         "image_model": settings.image_model,
         "router_provider": settings.router_provider,
         "router_model": settings.router_model,
-        "similarity_provider": "local",
-        "similarity_model": MODEL_LABEL,
-        "similarity_loaded": model_loaded(),
+        "evaluation_method": "gemini_vision",
         "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
     }
 
@@ -113,18 +111,16 @@ def api_evaluate(req: EvaluateRequest):
     except GeminiError as e:
         return JSONResponse(status_code=400, content={"detail": str(e).split(":")[0]})
 
-    # 2) 로컬 CPU CLIP 임베딩 + 원시 코사인 유사도
     try:
-        sim = compute_similarity(target_bytes, gen_bytes, settings)
-    except SimilarityError as e:
-        code = str(e)
-        status = 400 if code in ("BAD_IMAGE", "IMAGE_TOO_LARGE") else 503
-        return JSONResponse(status_code=status, content={"detail": code})
+        validate_image(target_bytes)
+        validate_image(gen_bytes)
+    except ImageError as e:
+        return JSONResponse(status_code=400, content={"detail": str(e)})
 
-    # 3) Gemini Router 최종 판정 (PASS/FAIL + 이유). raw 코사인을 참고 신호로 전달.
+    # Gemini compares both images directly; no local model is loaded.
     try:
         verdict = route_verdict(
-            settings, target_bytes, target_mime, gen_bytes, gen_mime, sim["raw"]
+            settings, target_bytes, target_mime, gen_bytes, gen_mime
         )
     except GeminiError as e:
         return JSONResponse(
@@ -132,12 +128,4 @@ def api_evaluate(req: EvaluateRequest):
             content={"detail": str(e).split(":")[0], "message": str(e)},
         )
 
-    return {
-        "similarity": sim["score"],   # 음수만 0으로 제한한 코사인, 일치율이 아님
-        "similarity_raw": sim["raw"], # 원시 코사인 (투명성/디버그)
-        "verdict": verdict["verdict"],
-        "reason": verdict["reason"],
-        "similarity_model": sim["model"],
-        "similarity_provider": sim["provider"],
-        "router_model": settings.router_model,
-    }
+    return {**verdict, "router_model": settings.router_model}

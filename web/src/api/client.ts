@@ -1,13 +1,10 @@
-import type { Attempt, Challenge, Receipt, Verdict } from "../types";
+import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export interface EvaluateResult {
-  similarity: number;
-  similarity_raw?: number;
-  similarity_model?: string;
-  similarity_provider?: string;
+  criteria?: EvaluationCriteria;
   router_model?: string;
   verdict: Verdict;
   reason: string;
@@ -67,11 +64,11 @@ export async function evaluate(challenge: Challenge, attempt: Attempt): Promise<
   if (USE_MOCK) {
     await sleep(500);
     samples.get(challenge.id)!.routes += 1;
-    const similarity = Math.round((0.6 + Math.random() * 0.39) * 100) / 100;
-    const verdict = similarity >= 0.85 ? "PASS" : "FAIL";
-    return { similarity, similarity_raw: similarity, verdict,
+    const verdict = Math.random() >= 0.5 ? "PASS" : "FAIL";
+    return { verdict, criteria: { subject: "MATCH", composition: verdict === "PASS" ? "MATCH" : "MISMATCH",
+      color: "MATCH", background: verdict === "PASS" ? "MATCH" : "MISMATCH" },
       reason: verdict === "PASS" ? "주요 피사체와 구도가 충분히 유사합니다." : "배경과 구도를 조정해 보세요.",
-      similarity_model: "Mock", router_model: "Mock",
+      router_model: "Mock",
       ...(verdict === "PASS" ? { receipt: sampleReceipt(challenge, attempt, "router") } : {}) };
   }
   return req(`/api/challenges/${challenge.id}/evaluate`, {

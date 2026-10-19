@@ -1,6 +1,6 @@
 """Gemini 호출 래퍼.
 - generate_image: 프롬프트 -> 이미지(data URL)
-- route_verdict: 두 이미지 + 유사도 점수 -> PASS/FAIL + 이유 (Router)
+- route_verdict: 두 이미지 -> PASS/FAIL + 이유 (Router)
 """
 from __future__ import annotations
 
@@ -78,8 +78,14 @@ _VERDICT_SCHEMA = {
     "properties": {
         "verdict": {"type": "STRING", "enum": ["PASS", "FAIL"]},
         "reason": {"type": "STRING"},
+        "criteria": {
+            "type": "OBJECT",
+            "properties": {key: {"type": "STRING", "enum": ["MATCH", "MISMATCH"]}
+                           for key in ("subject", "composition", "color", "background")},
+            "required": ["subject", "composition", "color", "background"],
+        },
     },
-    "required": ["verdict", "reason"],
+    "required": ["verdict", "reason", "criteria"],
 }
 
 
@@ -89,10 +95,9 @@ def route_verdict(
     target_mime: str,
     generated_bytes: bytes,
     generated_mime: str,
-    similarity: float,
     recorder=None,
 ) -> dict:
-    """두 이미지 + 유사도 점수를 Gemini Router 에 넘겨 PASS/FAIL 판정을 받는다."""
+    """두 이미지를 Gemini Router 에 넘겨 PASS/FAIL 판정을 받는다."""
     client = _client(settings)
     system = _PROMPT_PATH.read_text(encoding="utf-8")
     try:
@@ -104,7 +109,6 @@ def route_verdict(
                     types.Part.from_bytes(data=target_bytes, mime_type=target_mime),
                     "GENERATED 이미지:",
                     types.Part.from_bytes(data=generated_bytes, mime_type=generated_mime),
-                    f"참고 이미지 임베딩 코사인 유사도 점수: {similarity} (-1~1, 높을수록 시각적으로 유사)",
                     "위 기준으로 PASS 또는 FAIL 을 판정하라.",
                 ],
                 config=types.GenerateContentConfig(
@@ -125,11 +129,18 @@ def route_verdict(
     except Exception as e:  # noqa: BLE001
         raise GeminiError(f"ROUTER_BAD_JSON: {e}") from e
 
-    verdict = str(data.get("verdict", "")).upper()
-    if verdict not in ("PASS", "FAIL"):
-        verdict = "FAIL"  # 예상 외 값은 안전하게 FAIL
-    reason = str(data.get("reason", "")).strip() or "판정 이유가 제공되지 않았습니다."
-    return {"verdict": verdict, "reason": reason}
+    if not isinstance(data, dict):
+        raise GeminiError("ROUTER_BAD_RESULT")
+    verdict = data.get("verdict")
+    reason = data.get("reason")
+    criteria = data.get("criteria")
+    keys = ("subject", "composition", "color", "background")
+    if (verdict not in ("PASS", "FAIL") or not isinstance(reason, str) or not reason.strip()
+            or not isinstance(criteria, dict)
+            or any(criteria.get(key) not in ("MATCH", "MISMATCH") for key in keys)):
+        raise GeminiError("ROUTER_BAD_RESULT")
+    return {"verdict": verdict, "reason": reason.strip(),
+            "criteria": {key: criteria[key] for key in keys}}
 
 
 def generate_image(settings: Settings, prompt: str, recorder=None) -> str:

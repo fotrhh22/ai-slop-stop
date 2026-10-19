@@ -1,5 +1,0 @@
-# Render Linux CPU wheels; local macOS uses requirements.txt instead.
---extra-index-url https://download.pytorch.org/whl/cpu
-torch==2.8.0+cpu
-torchvision==0.23.0+cpu
--r requirements.txt

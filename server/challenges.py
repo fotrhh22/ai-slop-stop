@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from .config import load_settings
 from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
 from .persistence import CallRecorder, PersistenceError, Store, digest
-from .similarity import SimilarityError, _read_image, compute_similarity
+from .images import ImageError, validate_image
 
 router = APIRouter(prefix="/api/challenges")
 _locks = [threading.Lock() for _ in range(64)]
@@ -27,9 +27,9 @@ def session(cid, token):
 def image(data_url):
     try:
         raw, mime = decode_data_url(data_url)
-        _read_image(raw)  # validate without loading CLIP
+        validate_image(raw)
         return raw, mime
-    except (GeminiError, SimilarityError) as exc:
+    except (GeminiError, ImageError) as exc:
         raise HTTPException(400, str(exc).split(":")[0]) from exc
 
 
@@ -105,20 +105,13 @@ def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="
             target = store.download("challenge-targets", challenge["target_image_path"])
             target_mime = "image/png" if target.startswith(b"\x89PNG") else "image/webp" if target[8:12] == b"WEBP" else "image/jpeg"
             try:
-                sim = compute_similarity(target, raw, settings)
-            except SimilarityError as exc:
-                raise HTTPException(503, str(exc)) from exc
-            try:
-                verdict = route_verdict(settings, target, target_mime, raw, mime, sim["raw"],
+                verdict = route_verdict(settings, target, target_mime, raw, mime,
                     recorder=CallRecorder(store, cid, aid, "router", settings.router_model))
             except GeminiError as exc:
                 raise HTTPException(502, str(exc).split(":")[0]) from exc
-            result = {"similarity": sim["score"], "similarity_raw": sim["raw"],
-                "similarity_model": sim["model"], "similarity_provider": sim["provider"],
-                "router_model": settings.router_model, **verdict}
+            result = {"router_model": settings.router_model, **verdict}
             store.update("attempts", aid, {"router_verdict": verdict["verdict"],
-                "router_reason": verdict["reason"], "similarity_raw": sim["raw"],
-                "similarity_display": sim["score"], "evaluation_result": result})
+                "router_reason": verdict["reason"], "evaluation_result": result})
         if result["verdict"] == "PASS":
             try:
                 return {**result, "receipt": store.finalize(cid, aid, raw, mime, "router")}

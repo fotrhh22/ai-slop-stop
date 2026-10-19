@@ -49,7 +49,7 @@ export function Receipt({ receipt: r, onClose }: { receipt: ReceiptData; onClose
           <dt>추론 토큰 합계</dt><dd>{u.known_thought_tokens?.toLocaleString()}</dd>
           <dt>공급자 총 토큰 합계</dt><dd>{u.known_total_tokens?.toLocaleString()}</dd></dl>
       </section>)}
-      <p className="receipt-note">CLIP은 로컬 계산이며 모델 API 호출 수에 포함하지 않습니다. 추론 토큰을 총 토큰에 다시 더하지 않습니다.</p>
+      <p className="receipt-note">이미지 생성과 Router의 실제 API 호출을 집계합니다. 추론 토큰을 총 토큰에 다시 더하지 않습니다.</p>
       {r.source === "supabase" && <details><summary>DB 검증 및 호출 원장</summary>
         {Object.entries(r.verification).map(([name, ok]) => <p key={name}>{ok ? "✓" : "✗"} {name}</p>)}
         {r.calls.map(c => <p className="receipt-call" key={c.id}>{c.operation} · {c.model} · {c.status} · {c.total_tokens ?? "미확인"} tokens</p>)}

@@ -5,7 +5,7 @@
 ## 1. 프로젝트 생성 후 실행
 
 1. Supabase Dashboard에서 프로젝트 이름을 `ai-slop-stop`으로 설정합니다. 사용할 조직·요금제와 한국 사용자에게 가까운 리전을 선택하고 DB 비밀번호는 비밀번호 관리자에 보관합니다.
-2. 새 프로젝트는 `migrations/202610190001_initial_schema.sql` → `migrations/202610190002_receipt_session_integrity.sql` 순서로 실행합니다. 첫 파일을 이미 실행했다면 **두 번째 파일만** 추가 실행합니다. 두 파일 모두 반복 실행용이 아닙니다.
+2. 새 프로젝트는 `migrations/202610190001_initial_schema.sql` → `migrations/202610190002_receipt_session_integrity.sql` → `migrations/202610190003_remove_similarity.sql` 순서로 실행합니다. 기존 두 파일을 실행했다면 **세 번째 파일만** 실행합니다. 세 번째 파일은 사용하지 않는 `attempts.similarity_raw`, `attempts.similarity_display`를 삭제합니다. 기존 유사도 수치는 삭제되며, `evaluation_result` JSON에 남은 과거 응답은 변경하지 않습니다. 새 평가는 숫자 유사도 없이 `criteria`에 정성 평가를 저장합니다. 첫 두 파일은 반복 실행용이 아닙니다.
 3. Storage에서 다음 **비공개(private)** 버킷을 생성합니다. 두 버킷 모두 최대 파일 크기 10MB, 허용 MIME `image/png`, `image/jpeg`, `image/webp`를 설정합니다.
 
 | 버킷 | 객체 경로 예 | 저장 시점 |
@@ -30,7 +30,7 @@ STAFF_AUTH_TOKEN=YOUR_RANDOM_STAFF_APPROVAL_TOKEN
 | 테이블 | 한 행의 의미 | 주요 컬럼 |
 |---|---|---|
 | `challenges` | 목표 이미지 하나에 대한 세션 | `id`, `target_image_path`, `status`, `created_at`, `completed_at` |
-| `attempts` | 입력 프롬프트로 생성한 시도 하나 | `challenge_id`, `prompt`, `generation_status`, `router_verdict`, `router_reason`, 유사도 |
+| `attempts` | 입력 프롬프트로 생성한 시도 하나 | `challenge_id`, `prompt`, `generation_status`, `router_verdict`, `router_reason`, `evaluation_result` (항목별 비교) |
 | `api_calls` | 공급자에게 실제 전송한 모델 요청 하나 | `attempt_id`, `operation`, `provider`, `model`, `status`, 토큰, `usage_metadata` |
 | `successes` | 세션의 첫 PASS와 그 순간 누적값 | `challenge_id`, `attempt_id`, `prompt`, `image_path`, `pass_source`, 모델별 호출·토큰 |
 
@@ -44,7 +44,7 @@ FAIL 시에도 `attempts`와 `api_calls`는 기록합니다. 단, FAIL 이미지
 
 - `generation_calls`: 실제 Gemini 이미지 생성 요청 수. SDK/래퍼가 재시도한 요청도 각각 포함합니다.
 - `router_calls`: 실제 Router 요청 수. 같은 이미지를 다시 Try하면 추가됩니다.
-- `model_calls_total`: 생성·Router 호출 수의 합. CLIP은 서버 내 CPU 계산이므로 외부 모델 호출·토큰 집계에 포함하지 않습니다.
+- `model_calls_total`: 생성·Router 호출 수의 합.
 - `failed_calls`: API 오류 수입니다. **Router가 정상 응답으로 FAIL을 판정한 경우는 호출 자체는 succeeded**이며 토큰은 그대로 누적됩니다.
 - `known_tokens_total`: 응답에서 확인한 `total_tokens`의 합입니다. 토큰을 알 수 없는 오류·타임아웃은 `NULL`과 누락 횟수로 남깁니다. 알려지지 않은 사용량을 0으로 확정하지 않습니다.
 - `tokens_by_model`: `gemini/실제모델ID` 키별 호출·알려진 토큰 합계와 누락 수입니다. 모델 ID는 설정값을 사용하고 표시용 이름을 하드코딩하지 않습니다.

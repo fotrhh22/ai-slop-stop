@@ -9,7 +9,7 @@ interface Props {
   onReceiptRetry: (id: string) => void;
 }
 
-// 시도 카드: 프롬프트 -> Try -> 생성 이미지 -> 유사도/판정
+// 시도 카드: 프롬프트 -> Try -> 생성 이미지 -> 항목별 비교/판정
 export function AttemptCard({
   attempt: a,
   busy,
@@ -66,18 +66,13 @@ export function AttemptCard({
       </div>
 
       <div className="attempt-card__result">
-        <div className="attempt-card__score">
-          <span className="k">유사도 점수</span>
-          <span className="v">
-            {evaluated && a.similarity !== undefined
-              ? a.similarity.toFixed(2)
-              : "--"}
-          </span>
-          {evaluated && a.similarityRaw !== undefined && (
-            <span className="raw">(raw {a.similarityRaw.toFixed(2)})</span>
-          )}
-          {evaluated && a.similarityModel && <span className="by">by {a.similarityModel}</span>}
-        </div>
+        {evaluated && a.criteria && (
+          <div className="attempt-card__criteria" aria-label="Gemini 항목별 비교">
+            {([['subject', '주요 피사체'], ['composition', '구도'], ['color', '색감'], ['background', '배경']] as const).map(([key, label]) => (
+              <span key={key}>{label}: <strong>{a.criteria![key] === 'MATCH' ? '유사' : '차이 있음'}</strong></span>
+            ))}
+          </div>
+        )}
         <div className="attempt-card__verdict">
           <span className="k">판정</span>
           {a.evalStatus === "evaluating" ? (

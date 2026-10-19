@@ -90,7 +90,6 @@ class ReceiptTests(unittest.TestCase):
         self.store = MemoryStore()
         self.raw = png()
         self.data = "data:image/png;base64," + base64.b64encode(self.raw).decode()
-        self.sim = {"raw": .6, "score": .6, "provider": "local", "model": "CLIP"}
         main._windows.clear()
         settings_patch = patch.object(main, "settings", self.settings)
         settings_patch.start()
@@ -108,11 +107,11 @@ class ReceiptTests(unittest.TestCase):
                 "thoughts_token_count": 10, "total_token_count": 100},
                 model_version="image-test" if generation else "router-test",
                 candidates=[NS(content=NS(parts=[NS(inline_data=NS(data=self.raw, mime_type="image/png"))]))],
-                text=json.dumps({"verdict": next(router_results) if not generation else "FAIL", "reason": "test"}))
+                text=json.dumps({"verdict": next(router_results) if not generation else "FAIL", "reason": "test",
+                    "criteria": {key: "MATCH" for key in ("subject", "composition", "color", "background")}}))
         fake_client = NS(models=NS(generate_content=Mock(side_effect=provider)))
         with patch.object(challenges, "load_settings", return_value=self.settings), \
              patch.object(challenges, "Store", return_value=self.store), \
-             patch.object(challenges, "compute_similarity", return_value=self.sim), \
              patch("server.gemini_client._client", return_value=fake_client), \
              patch("server.gemini_client.time.sleep"):
             client = TestClient(main.app)
@@ -164,11 +163,10 @@ class ReceiptTests(unittest.TestCase):
         self.store.tables["challenges"][0].update(id=cid, target_image_path=cid+"/target")
         self.store.insert("attempts", {"id": aid, "challenge_id": cid, "prompt": "cached"})
         self.store.update("attempts", aid, {"generation_status": "ready", "generated_image_sha256": digest(self.raw),
-            "router_verdict": "PASS", "evaluation_result": {"verdict": "PASS", "reason": "cached", "similarity": .6}})
+            "router_verdict": "PASS", "evaluation_result": {"verdict": "PASS", "reason": "cached"}})
         with patch.object(challenges, "load_settings", return_value=self.settings), \
              patch.object(challenges, "Store", return_value=self.store), \
              patch.object(challenges, "route_verdict") as provider, \
-             patch.object(challenges, "compute_similarity") as clip, \
              patch.object(self.store, "finalize", side_effect=[PersistenceError("SUPABASE_UNAVAILABLE"), {"id": "saved"}]):
             client = TestClient(main.app)
             url = f"/api/challenges/{cid}/evaluate"
@@ -178,7 +176,6 @@ class ReceiptTests(unittest.TestCase):
             second = client.post(url, **args).json()
             self.assertEqual(second["receipt"]["id"], "saved")
             provider.assert_not_called()
-            clip.assert_not_called()
 
     def test_no_provider_call_if_ledger_start_fails(self):
         recorder = Mock()

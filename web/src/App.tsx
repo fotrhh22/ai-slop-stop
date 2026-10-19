@@ -154,9 +154,7 @@ export default function App() {
       patchAttempt(cid, aid, (x) => ({
         ...x,
         evalStatus: "done",
-        similarity: r.similarity,
-        similarityRaw: r.similarity_raw,
-        similarityModel: r.similarity_model,
+        criteria: r.criteria,
         routerModel: r.router_model,
         verdict: r.verdict,
         reason: r.reason,
