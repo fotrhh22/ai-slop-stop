@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { fetchReceiptImage } from "../api/client";
 import { thermalPng, type ThermalMethod, type ThermalOptions } from "../utils/thermal";
+import { printReceipt } from "../utils/printReceipt";
 import type { Receipt as ReceiptData } from "../types";
 
 export function Receipt({ receipt: r, accessToken, onRefresh }: {
@@ -14,6 +15,9 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
   const [preview, setPreview] = useState<{ key: string; url?: string; error?: string }>({ key: "" });
   const [loadedUrl, setLoadedUrl] = useState("");
   const [colorError, setColorError] = useState(false);
+  const paper = useRef<HTMLElement>(null);
+  const [printing, setPrinting] = useState(false);
+  const [printError, setPrintError] = useState("");
   const original = useRef<{ id: string; blob: Blob }>();
   const imageKey = JSON.stringify([r.id, options]);
   const photoWidthMm = options.widthDots * 25.4 / dpi;
@@ -54,11 +58,19 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
     "--thermal-photo-width": `${photoWidthMm}mm`,
     "--thermal-side-padding": `${Math.max(0, (paperWidth - photoWidthMm) / 2)}mm`,
   } as CSSProperties;
-  return <article className="receipt-paper" aria-label="성공 영수증" data-print-mode={view} style={printStyle}>
+  const openPrint = async () => {
+    if (!paper.current) return;
+    setPrinting(true); setPrintError("");
+    try { await printReceipt(paper.current, paperWidth, photoWidthMm); }
+    catch { setPrintError("인쇄 준비에 실패했습니다. 이미지와 용지 설정을 확인하고 다시 시도해 주세요."); }
+    finally { setPrinting(false); }
+  };
+  return <article ref={paper} className="receipt-paper" aria-label="성공 영수증" data-print-mode={view} style={printStyle}>
     <div className="receipt-actions">
-      <button disabled={!imageReady} onClick={() => window.print()}>{view === "thermal" ? "열전사 인쇄 / PDF 저장" : "인쇄 / PDF 저장"}</button>
+      <button disabled={!imageReady || !!settingsError || printing} onClick={openPrint}>{view === "thermal" ? "열전사 인쇄 / PDF 저장" : "인쇄 / PDF 저장"}</button>
       <button onClick={onRefresh}>새로고침</button>
     </div>
+    {printError && <p className="receipt-print-error" role="alert">{printError}</p>}
     <p className="receipt-eyebrow">AI SLOP STOP CHALLENGE</p>
     <h1>PASS 영수증</h1>
     {r.source === "mock" ? <p className="receipt-warning">샘플 영수증</p>
@@ -72,15 +84,7 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
         <button aria-pressed={view === "color"} onClick={() => setView("color")}>컬러 원본</button>
         <button aria-pressed={view === "thermal"} onClick={() => setView("thermal")}>열전사 미리보기</button>
       </div>
-      {view === "thermal" && <>
-        <label>흑백 변환 방식
-          <select value={options.method} onChange={e => setOptions(o => ({ ...o, method: e.target.value as ThermalMethod }))}>
-            <option value="atkinson">Atkinson · 기본</option>
-            <option value="floyd-steinberg">Floyd–Steinberg · 오류 확산</option>
-            <option value="mean">평균 임계값 · 단순 흑백</option>
-          </select>
-        </label>
-        <div className="receipt-thermal-settings">
+      <div className="receipt-thermal-settings">
           <label>용지 폭<select value={paperWidth} onChange={e => {
             const width = Number(e.target.value); setPaperWidth(width);
             setDpi(203); setOptions(o => ({ ...o, widthDots: width === 58 ? 384 : 576 }));
@@ -90,6 +94,17 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
           <label>해상도<select value={dpi} onChange={e => setDpi(Number(e.target.value))}>
             <option value={203}>203 dpi</option><option value={300}>300 dpi</option>
           </select></label>
+      </div>
+      <p className="receipt-note">{paperWidth}mm 용지 · 내용 길이에 맞춘 PDF. 인쇄창에서 같은 용지와 배율 100%를 선택하고 머리글·바닥글을 꺼 주세요.</p>
+      {view === "thermal" && <>
+        <label>흑백 변환 방식
+          <select value={options.method} onChange={e => setOptions(o => ({ ...o, method: e.target.value as ThermalMethod }))}>
+            <option value="atkinson">Atkinson · 기본</option>
+            <option value="floyd-steinberg">Floyd–Steinberg · 오류 확산</option>
+            <option value="mean">평균 임계값 · 단순 흑백</option>
+          </select>
+        </label>
+        <div className="receipt-thermal-settings">
           <label>밝기 {options.brightness.toFixed(2)}<input type="range" min={0.5} max={1.5} step={0.05} value={options.brightness}
             onChange={e => setOptions(o => ({ ...o, brightness: Number(e.target.value) }))} /></label>
           <label>대비 {options.contrast.toFixed(2)}<input type="range" min={0.5} max={2} step={0.05} value={options.contrast}

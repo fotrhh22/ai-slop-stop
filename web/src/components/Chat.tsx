@@ -50,10 +50,11 @@ export function Chat({
         </div>
       ) : (
         <div className="attempt-list">
-          {challenge.attempts.map((a) => (
+          {challenge.attempts.map((a, index) => (
             <AttemptCard
               key={a.id}
               attempt={a}
+              number={index + 1}
               busy={busy}
               staffMode={staffMode}
               onTry={onTry}

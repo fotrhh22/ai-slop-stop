@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test:evaluation": "node scripts/test-evaluation-client.cjs",
-    "test:thermal": "node scripts/test-thermal.cjs"
+    "test:thermal": "node scripts/test-thermal.cjs",
+    "test:receipt-print": "node scripts/test-receipt-print.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",

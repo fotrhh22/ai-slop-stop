@@ -3,6 +3,7 @@ import type { Attempt } from "../types";
 
 interface Props {
   attempt: Attempt;
+  number: number;
   busy: boolean; // 다른 생성/평가 진행 중이면 중복 클릭 방지
   staffMode: boolean; // STAFF 모드일 때만 수동 PASS 전환 버튼 노출
   onTry: (id: string) => void;
@@ -13,6 +14,7 @@ interface Props {
 // 시도 카드: 프롬프트 -> Try -> 생성 이미지 -> 항목별 비교/판정
 export function AttemptCard({
   attempt: a,
+  number,
   busy,
   staffMode,
   onTry,
@@ -34,6 +36,7 @@ export function AttemptCard({
 
   return (
     <div className="attempt-card">
+      <div className="attempt-card__number">시도 {String(number).padStart(2, "0")}</div>
       <div className="attempt-card__prompt">{a.prompt}</div>
 
       {/* PASS 가 되면 Try/STAFF 버튼을 모두 숨긴다 */}
@@ -93,14 +96,13 @@ export function AttemptCard({
                 {a.verdict}
               </span>
               {a.staffOverride && <span className="staff-tag">STAFF 수동</span>}
-              {!a.staffOverride && a.routerModel && <span className="by">by {a.routerModel}</span>}
             </>
           ) : (
             <span className="v muted">평가 전</span>
           )}
         </div>
         {evaluated && a.reason && (
-          <div className="attempt-card__reason">이유: {a.reason}</div>
+          <div className="attempt-card__reason">{a.reason}</div>
         )}
         {a.evalStatus === "error" && a.evalError && (
           <div className="attempt-card__reason is-error">오류: {a.evalError}</div>

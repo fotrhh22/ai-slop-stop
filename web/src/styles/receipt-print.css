@@ -1,0 +1,18 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: white; color: black; }
+body { font: 10pt/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.receipt-paper { display: flow-root; width: var(--paper-width); padding: 3mm var(--side-padding); overflow-wrap: anywhere; }
+h1 { font-size: 20pt; text-align: center; margin: 2mm 0 5mm; }
+h2 { font-size: 11pt; border-top: .2mm dashed #777; padding-top: 4mm; margin: 5mm 0 3mm; }
+p { margin: 2mm 0; }
+.receipt-eyebrow { font-size: 7pt; text-align: center; letter-spacing: .08em; }
+dl { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 2mm; margin: 3mm 0; }
+dd { margin: 0; text-align: right; }
+pre { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; margin: 3mm 0; }
+.receipt-image { display: block; width: 100%; height: auto; margin: 4mm auto; }
+.receipt-image--thermal { image-rendering: pixelated; }
+.receipt-model-name, small, .receipt-note { display: block; font-size: 8pt; }
+.receipt-token-model { padding: 2mm 0; border-bottom: .2mm dotted #aaa; }
+.receipt-warning { font-weight: bold; }
+.receipt-actions, .receipt-photo-controls, .receipt-preview-status, .receipt-print-error { display: none; }
+@media print { .receipt-image, dl { break-inside: avoid; } }
