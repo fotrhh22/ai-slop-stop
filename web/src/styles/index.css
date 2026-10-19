@@ -1161,11 +1161,8 @@ button {
 .receipt-image { width: 100%; max-height: 320px; object-fit: contain; display: block; margin-top: 20px; }
 .receipt-actions { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 24px; }
 .receipt-paper button, .workflow-banner button, .receipt-save-error button { border: 1px solid #888; border-radius: 6px; padding: 7px 10px; }
-.receipt-ok { color: #197041; }
 .receipt-warning { color: #8a4812; background: #fff0c6; padding: 9px; }
 .receipt-note { font-size: 11px; color: #666; }
-.receipt-model { margin-bottom: 16px; overflow-wrap: anywhere; }
-.receipt-call { overflow-wrap: anywhere; border-bottom: 1px dotted #ccc; font-size: 11px; }
 .staff-approval label { display: grid; gap: 6px; margin: 14px 0; }
 .staff-approval input, .staff-approval textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
 @media print {
@@ -1179,7 +1176,7 @@ button {
   }
   .receipt-paper { width: 80mm; max-width: 100%; margin: 0; padding: 3mm; box-shadow: none; color: black; background: white; }
   .receipt-actions { display: none !important; }
-  .receipt-model, .receipt-image { break-inside: avoid; }
+  .receipt-image, .receipt-paper dl { break-inside: avoid; }
 }
 
 .attempt-card__criteria {
