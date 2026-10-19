@@ -159,7 +159,8 @@ class Store:
             raise PersistenceError("RECEIPT_IMAGE_URL_FAILED")
         if not image_url.startswith("https://"):
             image_url = self.base + ("" if image_url.startswith("/storage/v1/") else "/storage/v1") + image_url
-        return {**saved, "image_url": image_url, "verification": verification,
+        return {**saved, "router_reason": attempt.get("router_reason") if saved.get("pass_source") == "router" else None,
+                "image_url": image_url, "verification": verification,
                 "verified": all(verification.values()), "source": "supabase",
                 "usage_complete": saved["calls_without_total_tokens"] == 0,
                 "calls": [{k: c.get(k) for k in (

@@ -125,12 +125,13 @@ export async function generateImage(prompt: string, challenge: Challenge, attemp
   return req(`/api/challenges/${challenge.id}/generate`, { prompt, attempt_id: attemptId }, challenge.accessToken);
 }
 
-function sampleReceipt(challenge: Challenge, attempt: Attempt, source: "router" | "staff"): Receipt {
+function sampleReceipt(challenge: Challenge, attempt: Attempt, source: "router" | "staff", routerReason = attempt.reason): Receipt {
   const s = samples.get(challenge.id)!;
   if (s.receipt) return s.receipt;
   s.receipt = { id: crypto.randomUUID(), challenge_id: challenge.id, attempt_id: attempt.id,
     prompt: attempt.prompt, image_url: attempt.imageUrl!, pass_source: source,
     router_verdict: source === "router" ? "PASS" : attempt.verdict,
+    router_reason: source === "router" ? routerReason : undefined,
     created_at: new Date().toISOString(), generation_calls: s.generates, router_calls: s.routes,
     model_calls_total: s.generates + s.routes, failed_calls: 0, known_tokens_total: 0,
     calls_without_total_tokens: s.generates + s.routes, tokens_by_model: {},
@@ -143,11 +144,12 @@ export async function evaluate(challenge: Challenge, attempt: Attempt): Promise<
     await sleep(500);
     samples.get(challenge.id)!.routes += 1;
     const verdict = Math.random() >= 0.5 ? "PASS" : "FAIL";
+    const reason = verdict === "PASS" ? "주요 피사체와 구도가 충분히 유사합니다." : "배경과 구도를 조정해 보세요.";
     return { verdict, criteria: { subject: "MATCH", composition: verdict === "PASS" ? "MATCH" : "MISMATCH",
       color: "MATCH", background: verdict === "PASS" ? "MATCH" : "MISMATCH" },
-      reason: verdict === "PASS" ? "주요 피사체와 구도가 충분히 유사합니다." : "배경과 구도를 조정해 보세요.",
+      reason,
       router_model: "Mock",
-      ...(verdict === "PASS" ? { receipt: sampleReceipt(challenge, attempt, "router") } : {}) };
+      ...(verdict === "PASS" ? { receipt: sampleReceipt(challenge, attempt, "router", reason) } : {}) };
   }
   return waitForEvaluation(challenge, attempt);
 }

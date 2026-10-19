@@ -1163,6 +1163,9 @@ button {
 .receipt-paper button, .workflow-banner button, .receipt-save-error button { border: 1px solid #888; border-radius: 6px; padding: 7px 10px; }
 .receipt-warning { color: #8a4812; background: #fff0c6; padding: 9px; }
 .receipt-note { font-size: 11px; color: #666; }
+.receipt-reason { white-space: pre-wrap; overflow-wrap: anywhere; }
+.receipt-token-model { padding: 10px 0; margin: 0; border-bottom: 1px dotted #ccc; }
+.receipt-model-name { display: block; font-size: 11px; overflow-wrap: anywhere; }
 .staff-approval label { display: grid; gap: 6px; margin: 14px 0; }
 .staff-approval input, .staff-approval textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
 @media print {

@@ -14,6 +14,7 @@ export interface Receipt {
   staff_actor?: string;
   staff_reason?: string;
   router_verdict?: Verdict;
+  router_reason?: string | null;
   created_at: string;
   generation_calls: number;
   router_calls: number;
