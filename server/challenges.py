@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import hmac
+import logging
+from contextlib import contextmanager
+from time import perf_counter
 import threading
 from uuid import UUID
 
@@ -15,6 +18,17 @@ from .images import ImageError, validate_image
 
 router = APIRouter(prefix="/api/challenges")
 _locks = [threading.Lock() for _ in range(64)]
+_logger = logging.getLogger("uvicorn.error")
+
+
+@contextmanager
+def evaluation_stage(name):
+    start = perf_counter()
+    try:
+        yield
+    finally:
+        _logger.info("evaluation stage=%s elapsed_ms=%.0f", name, (perf_counter() - start) * 1000)
+
 
 
 def session(cid, token):
@@ -76,6 +90,7 @@ def generate(cid: UUID, req: Generate, x_challenge_token: str = Header(default="
 class Evaluate(BaseModel):
     attempt_id: UUID
     generated_image: str
+    defer_receipt: bool = False
 
 
 def verify_image(store, cid, aid, data_url):
@@ -89,9 +104,11 @@ def verify_image(store, cid, aid, data_url):
 @router.post("/{cid}/evaluate")
 def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="")):
     with _locks[cid.int % len(_locks)]:
-        settings, store, challenge = session(cid, x_challenge_token)
+        with evaluation_stage("authorize"):
+            settings, store, challenge = session(cid, x_challenge_token)
         cid, aid = str(cid), str(req.attempt_id)
-        attempt, raw, mime = verify_image(store, cid, aid, req.generated_image)
+        with evaluation_stage("verify_image"):
+            attempt, raw, mime = verify_image(store, cid, aid, req.generated_image)
         existing = store.receipt(cid) if challenge["status"] == "succeeded" else None
         if existing:
             if existing["attempt_id"] != aid:
@@ -102,17 +119,22 @@ def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="
         result = attempt.get("evaluation_result")
         # A failed success-save must not trigger another paid Router call.
         if attempt.get("router_verdict") != "PASS" or not result:
-            target = store.download("challenge-targets", challenge["target_image_path"])
+            with evaluation_stage("download_target"):
+                target = store.download("challenge-targets", challenge["target_image_path"])
             target_mime = "image/png" if target.startswith(b"\x89PNG") else "image/webp" if target[8:12] == b"WEBP" else "image/jpeg"
             try:
-                verdict = route_verdict(settings, target, target_mime, raw, mime,
-                    recorder=CallRecorder(store, cid, aid, "router", settings.router_model))
+                with evaluation_stage("router"):
+                    verdict = route_verdict(settings, target, target_mime, raw, mime,
+                        recorder=CallRecorder(store, cid, aid, "router", settings.router_model))
             except GeminiError as exc:
                 raise HTTPException(502, str(exc).split(":")[0]) from exc
             result = {"router_model": settings.router_model, **verdict}
-            store.update("attempts", aid, {"router_verdict": verdict["verdict"],
-                "router_reason": verdict["reason"], "evaluation_result": result})
+            with evaluation_stage("save_verdict"):
+                store.update("attempts", aid, {"router_verdict": verdict["verdict"],
+                    "router_reason": verdict["reason"], "evaluation_result": result})
         if result["verdict"] == "PASS":
+            if req.defer_receipt:
+                return {**result, "receipt_pending": True}
             try:
                 return {**result, "receipt": store.finalize(cid, aid, raw, mime, "router")}
             except PersistenceError as exc:

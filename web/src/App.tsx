@@ -160,10 +160,22 @@ export default function App() {
         reason: r.reason,
         staffOverride: false,
         receiptError: r.receipt_error,
+        receiptPending: r.receipt_pending,
       }));
       if (r.receipt) {
         patch(cid, c => ({ ...c, receipt: r.receipt }));
         setReceipt(r.receipt);
+      } else if (r.verdict === "PASS" && r.receipt_pending) {
+        // Render the persisted verdict before waiting for Storage/receipt readback.
+        try {
+          const saved = await finalize(active, a);
+          patch(cid, c => ({ ...c, receipt: saved }));
+          patchAttempt(cid, aid, x => ({ ...x, receiptPending: false }));
+          setReceipt(saved);
+        } catch (e) {
+          patchAttempt(cid, aid, x => ({ ...x, receiptPending: false,
+            receiptError: e instanceof Error ? e.message : "영수증 저장 실패" }));
+        }
       }
     } catch (e) {
       patchAttempt(cid, aid, (x) => ({

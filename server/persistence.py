@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+from functools import lru_cache
 from datetime import datetime, timezone
 from uuid import uuid4
 
@@ -22,6 +23,13 @@ def digest(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+@lru_cache(maxsize=1)
+def _http_client():
+    # httpx.Client is thread-safe; reuse TLS connections across workflow requests.
+    # Credentials remain per request so different Store instances cannot mix keys.
+    return httpx.Client(timeout=30)
+
+
 class Store:
     def __init__(self, settings: Settings):
         if not settings.supabase_url or not settings.supabase_secret_key:
@@ -34,7 +42,7 @@ class Store:
     def request(self, method, path, **kwargs):
         headers = {**self.headers, **kwargs.pop("headers", {})}
         try:
-            response = httpx.request(method, self.base + path, headers=headers, timeout=30, **kwargs)
+            response = _http_client().request(method, self.base + path, headers=headers, **kwargs)
             response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             try:

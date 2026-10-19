@@ -12,6 +12,7 @@ from pathlib import Path
 from google import genai
 from google.genai import types
 
+from .images import evaluation_image
 from .config import Settings
 from .persistence import PersistenceError
 
@@ -100,6 +101,8 @@ def route_verdict(
     """두 이미지를 Gemini Router 에 넘겨 PASS/FAIL 판정을 받는다."""
     client = _client(settings)
     system = _PROMPT_PATH.read_text(encoding="utf-8")
+    target_bytes, target_mime = evaluation_image(target_bytes, target_mime)
+    generated_bytes, generated_mime = evaluation_image(generated_bytes, generated_mime)
     try:
         resp = _with_retry(
             lambda: client.models.generate_content(

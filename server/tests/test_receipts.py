@@ -150,6 +150,31 @@ class ReceiptTests(unittest.TestCase):
     def test_router_pass_accumulates_failures_retries_and_missing_usage(self): self.run_workflow()
     def test_staff_pass_requires_auth_and_preserves_original_fail(self): self.run_workflow(staff=True)
 
+    def test_deferred_receipt_returns_saved_pass_before_finalize(self):
+        created = self.store.create_challenge(self.raw, "image/png")
+        cid, aid = created["id"], str(uuid4())
+        self.store.insert("attempts", {"id": aid, "challenge_id": cid, "prompt": "test"})
+        self.store.update("attempts", aid, {"generation_status": "ready", "generated_image_sha256": digest(self.raw)})
+        result = {"verdict": "PASS", "reason": "test", "criteria": {
+            key: "MATCH" for key in ("subject", "composition", "color", "background")}}
+        with patch.object(challenges, "load_settings", return_value=self.settings), \
+             patch.object(challenges, "Store", return_value=self.store), \
+             patch.object(challenges, "route_verdict", return_value=result) as provider, \
+             patch.object(self.store, "finalize", return_value={"id": "saved"}) as save:
+            client = TestClient(main.app)
+            headers = {"X-Challenge-Token": "session-token"}
+            response = client.post(f"/api/challenges/{cid}/evaluate", headers=headers,
+                json={"attempt_id": aid, "generated_image": self.data, "defer_receipt": True})
+            self.assertEqual(response.status_code, 200, response.text)
+            self.assertTrue(response.json()["receipt_pending"])
+            self.assertEqual(self.store.attempt(cid, aid)["router_verdict"], "PASS")
+            save.assert_not_called()
+            saved = client.post(f"/api/challenges/{cid}/finalize", headers=headers,
+                json={"attempt_id": aid, "generated_image": self.data, "source": "router"})
+            self.assertEqual(saved.json()["id"], "saved")
+            self.assertEqual(provider.call_count, 1)
+            save.assert_called_once()
+
     def test_usage_write_failure_does_not_retry_paid_request(self):
         recorder = Mock()
         recorder.finish.side_effect = PersistenceError("SUPABASE_UNAVAILABLE")

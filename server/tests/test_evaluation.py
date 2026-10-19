@@ -11,7 +11,7 @@ from PIL import Image
 from server import main
 from server.config import Settings
 from server.gemini_client import GeminiError, route_verdict
-from server.images import ImageError, validate_image
+from server.images import ImageError, evaluation_image, validate_image
 
 
 class EvaluationTests(unittest.TestCase):
@@ -51,6 +51,32 @@ class EvaluationTests(unittest.TestCase):
         with patch("server.images._MAX_PIXELS", 16):
             with self.assertRaisesRegex(ImageError, "IMAGE_TOO_LARGE"):
                 validate_image(self.raw)
+
+    def test_large_router_image_is_bounded_and_original_unchanged(self):
+        out = io.BytesIO()
+        Image.new("RGBA", (2048, 1024), (255, 0, 0, 0)).save(out, format="PNG")
+        original = out.getvalue()
+        resized, mime = evaluation_image(original, "image/png")
+        self.assertEqual(mime, "image/jpeg")
+        with Image.open(io.BytesIO(resized)) as image:
+            self.assertEqual(image.size, (1024, 512))
+            self.assertTrue(all(channel >= 250 for channel in image.getpixel((0, 0))))
+        with Image.open(io.BytesIO(original)) as image:
+            self.assertEqual(image.size, (2048, 1024))
+
+    def test_large_png_payload_is_compressed_without_resizing(self):
+        out = io.BytesIO()
+        Image.effect_noise((512, 512), 100).convert("RGB").save(out, format="PNG")
+        original = out.getvalue()
+        self.assertGreater(len(original), 300_000)
+        compressed, mime = evaluation_image(original, "image/png")
+        self.assertEqual(mime, "image/jpeg")
+        self.assertLess(len(compressed), len(original))
+        with Image.open(io.BytesIO(compressed)) as image:
+            self.assertEqual(image.size, (512, 512))
+
+    def test_small_router_image_is_not_reencoded(self):
+        self.assertEqual(evaluation_image(self.raw, "image/png"), (self.raw, "image/png"))
 
     def test_health_reports_direct_evaluation(self):
         with patch.object(main, "settings", self.settings):

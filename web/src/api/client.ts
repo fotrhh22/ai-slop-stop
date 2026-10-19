@@ -10,6 +10,7 @@ export interface EvaluateResult {
   reason: string;
   receipt?: Receipt;
   receipt_error?: string;
+  receipt_pending?: boolean;
 }
 
 async function req<T>(path: string, body?: unknown, token?: string, staffToken?: string): Promise<T> {
@@ -72,7 +73,7 @@ export async function evaluate(challenge: Challenge, attempt: Attempt): Promise<
       ...(verdict === "PASS" ? { receipt: sampleReceipt(challenge, attempt, "router") } : {}) };
   }
   return req(`/api/challenges/${challenge.id}/evaluate`, {
-    attempt_id: attempt.id, generated_image: attempt.imageUrl,
+    attempt_id: attempt.id, generated_image: attempt.imageUrl, defer_receipt: true,
   }, challenge.accessToken);
 }
 
