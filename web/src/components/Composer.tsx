@@ -3,11 +3,12 @@ import { SendIcon } from "./icons";
 
 interface Props {
   disabled?: boolean;
+  modelName: string;
   onSend: (text: string) => void;
 }
 
 // 하단 입력창: Enter 전송, Shift+Enter 줄바꿈, 높이 자동
-export function Composer({ disabled, onSend }: Props) {
+export function Composer({ disabled, onSend, modelName }: Props) {
   const [text, setText] = useState("");
   const ref = useRef<HTMLTextAreaElement>(null);
 
@@ -40,7 +41,7 @@ export function Composer({ disabled, onSend }: Props) {
           }}
         />
         <div className="composer__model" title="이미지 생성 모델">
-          <span>gemini-2.5-flash-image</span>
+          <span>{modelName}</span>
         </div>
         <button
           className="composer__send"

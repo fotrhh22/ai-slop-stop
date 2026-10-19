@@ -5,7 +5,7 @@ import { Composer } from "./components/Composer";
 import { TargetImagePicker } from "./components/TargetImagePicker";
 import { MenuIcon } from "./components/icons";
 import type { Attempt, Challenge } from "./types";
-import { createChallenge, generateImage, evaluate, finalize, fetchReceipt } from "./api/client";
+import { createChallenge, generateImage, evaluate, finalize, fetchReceipt, fetchImageModel } from "./api/client";
 
 const uid = () => crypto.randomUUID();
 
@@ -32,6 +32,13 @@ export default function App() {
   const [staffMode, setStaffMode] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [imageModel, setImageModel] = useState("Gemini Flash");
+
+  useEffect(() => {
+    let mounted = true;
+    fetchImageModel().then(model => { if (mounted) setImageModel(model); }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
 
   const active = useMemo(
     () => challenges.find((c) => c.id === activeId) ?? null,
@@ -129,7 +136,9 @@ export default function App() {
       patchAttempt(cid, aid, (a) => ({
         ...a,
         genStatus: "error",
-        genError: e instanceof Error ? e.message : "GENERATE_FAILED",
+        genError: e instanceof Error && e.message === "GENERATE_TIMEOUT"
+          ? "Gemini 이미지 생성 대기 시간이 초과되었습니다."
+          : e instanceof Error ? e.message : "GENERATE_FAILED",
       }));
     }
   };
@@ -259,7 +268,7 @@ export default function App() {
                 }
               }}
             />
-            <Composer disabled={busy || completed || creating} onSend={onSend} />
+            <Composer disabled={busy || completed || creating} onSend={onSend} modelName={imageModel} />
           </>
         ) : (
           <div className="chat__scroll">

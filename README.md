@@ -88,6 +88,10 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
 
 실제 모드는 Supabase URL·서버 키와 스키마/버킷 설정이 필요합니다. 기존 초기/영수증 SQL을 실행했다면 `202610190003_remove_similarity.sql`만 추가 실행합니다. 새 DB는 migrations의 세 파일을 번호순으로 실행합니다. 세 번째 파일은 `attempts.similarity_raw`, `attempts.similarity_display` 컬럼을 삭제하며, 새 백엔드는 컬럼 삭제 전후 모두 작동합니다. 기존 `/api/generate`, `/api/evaluate`는 DB 설정 시 비활성화되며 새 UI는 `/api/challenges/...` 세션 API를 사용하므로 백엔드와 프런트를 함께 업데이트해야 합니다.
 
+## 이미지 생성 대기 시간
+
+기본 이미지 생성 모델은 `gemini-3.1-flash-lite-image`이며 최소 추론과 기본 1K 출력을 사용합니다. 기존 Render 서비스는 `GEMINI_IMAGE_MODEL` 환경변수도 직접 변경해야 합니다. 입력창 모델명은 `/health`에서 읽어 실제 서버 설정을 표시합니다. 이미지 생성 요청은 SDK 대기 제한 60초, 자동 재시도 0회로 처리합니다. 오류·시간 초과는 원장에 기록하며 사용자가 프롬프트를 다시 입력할 때 새 시도를 만듭니다. 모델 전환 후의 실제 속도와 생성 품질은 배포 환경에서 확인해야 합니다.
+
 ## 판정 대기 시간
 
 - Router에 보내는 사본은 긴 변을 최대 1024px로 줄이고 큰 PNG 등의 전송량을 JPEG 압축으로 낮춥니다. 작은 원본은 재인코딩하지 않습니다. 원본 해시와 성공 이미지 저장에는 원본을 사용합니다. 작은 글자·미세 디테일은 축소 과정에서 손실될 수 있습니다.

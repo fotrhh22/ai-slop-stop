@@ -46,7 +46,7 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
-        image_model=os.getenv("GEMINI_IMAGE_MODEL", "gemini-2.5-flash-image"),
+        image_model=os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image"),
         router_model=os.getenv("GEMINI_ROUTER_MODEL", "gemini-3.5-flash-lite"),
         router_provider=os.getenv("ROUTER_PROVIDER", "gemini").lower(),
         public_app_origin=os.getenv("PUBLIC_APP_ORIGIN", "http://127.0.0.1:5173"),

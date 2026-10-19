@@ -172,12 +172,19 @@ def generate_image(settings: Settings, prompt: str, recorder=None) -> str:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"],
+                    thinking_config=(types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL)
+                                     if settings.image_model in ("gemini-3.1-flash-image", "gemini-3.1-flash-lite-image")
+                                     else None),
+                    http_options=types.HttpOptions(timeout=60_000),
                 ),
-            ), recorder=recorder, label="generate"
+            ), attempts=1, recorder=recorder, label="generate"
         )
     except PersistenceError:
         raise
     except Exception as e:  # noqa: BLE001
+        message = str(e).lower()
+        if any(word in message for word in ("timeout", "timed out", "deadline_exceeded", "deadline exceeded")) or isinstance(e, TimeoutError):
+            raise GeminiError("GENERATE_TIMEOUT") from e
         raise GeminiError(f"GENERATE_FAILED: {type(e).__name__}: {e}") from e
 
     texts: list[str] = []

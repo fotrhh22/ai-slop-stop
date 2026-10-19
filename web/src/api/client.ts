@@ -102,6 +102,12 @@ async function waitForEvaluation(challenge: Challenge, attempt: Attempt): Promis
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const samples = new Map<string, { generates: number; routes: number; receipt?: Receipt }>();
 
+export async function fetchImageModel(): Promise<string> {
+  if (USE_MOCK) return "Mock";
+  const health = await req<{ image_model: string }>("/health", undefined, undefined, 15_000);
+  return health.image_model;
+}
+
 export async function createChallenge(targetImage: string): Promise<{id: string; accessToken: string}> {
   if (!USE_MOCK) return req("/api/challenges", { target_image: targetImage });
   const id = crypto.randomUUID();

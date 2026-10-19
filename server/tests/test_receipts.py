@@ -118,6 +118,10 @@ class ReceiptTests(unittest.TestCase):
             created = client.post("/api/challenges", json={"target_image": self.data}).json()
             cid = created["id"]
             headers = {"X-Challenge-Token": "session-token"}
+            # Failed generation stays in the ledger; retry is an explicit new attempt.
+            failed = client.post(f"/api/challenges/{cid}/generate", json={
+                "attempt_id": str(uuid4()), "prompt": "failed request"}, headers=headers)
+            self.assertEqual(failed.status_code, 502, failed.text)
             for _ in range(3):
                 aid = str(uuid4())
                 prompt = "  exact prompt\nsecond line  "
@@ -136,7 +140,7 @@ class ReceiptTests(unittest.TestCase):
             else:
                 saved = response.json()["receipt"]
             self.assertEqual(saved["prompt"], prompt)
-            self.assertEqual(saved["generation_calls"], 4)  # 3 generations + retry
+            self.assertEqual(saved["generation_calls"], 4)  # 3 generations + failed request
             self.assertEqual(saved["router_calls"], 3)  # both FAILs counted
             self.assertEqual(saved["model_calls_total"], 7)
             self.assertEqual(saved["known_tokens_total"], 600)

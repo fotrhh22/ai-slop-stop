@@ -10,7 +10,7 @@ from PIL import Image
 
 from server import main
 from server.config import Settings
-from server.gemini_client import GeminiError, route_verdict
+from server.gemini_client import GeminiError, generate_image, route_verdict
 from server.images import ImageError, evaluation_image, validate_image
 
 
@@ -59,6 +59,27 @@ class EvaluationTests(unittest.TestCase):
         with patch("server.gemini_client._client", return_value=NS(models=NS(generate_content=provider))):
             with self.assertRaisesRegex(GeminiError, "ROUTER_TIMEOUT"):
                 route_verdict(self.settings, self.raw, "image/png", self.raw, "image/png", recorder=recorder)
+        self.assertEqual(provider.call_count, 1)
+        self.assertEqual(recorder.start.call_count, 1)
+        self.assertIsInstance(recorder.finish.call_args.kwargs["error"], TimeoutError)
+
+    def test_fast_image_generation_uses_minimal_thinking_and_original_prompt(self):
+        settings = Settings(**{**self.settings.__dict__, "image_model": "gemini-3.1-flash-lite-image"})
+        provider = Mock(return_value=NS(candidates=[NS(content=NS(parts=[NS(
+            inline_data=NS(data=self.raw, mime_type="image/png"))]))]))
+        prompt = "  흰 배경의 사과\n  "
+        with patch("server.gemini_client._client", return_value=NS(models=NS(generate_content=provider))):
+            self.assertTrue(generate_image(settings, prompt).startswith("data:image/png;base64,"))
+        kwargs = provider.call_args.kwargs
+        self.assertEqual(kwargs["contents"], prompt)
+        self.assertEqual(kwargs["config"].thinking_config.thinking_level, "MINIMAL")
+        self.assertEqual(kwargs["config"].http_options.timeout, 60_000)
+
+    def test_image_timeout_is_recorded_without_automatic_retry(self):
+        provider, recorder = Mock(side_effect=TimeoutError("timed out")), Mock()
+        with patch("server.gemini_client._client", return_value=NS(models=NS(generate_content=provider))):
+            with self.assertRaisesRegex(GeminiError, "GENERATE_TIMEOUT"):
+                generate_image(self.settings, "test", recorder=recorder)
         self.assertEqual(provider.call_count, 1)
         self.assertEqual(recorder.start.call_count, 1)
         self.assertIsInstance(recorder.finish.call_args.kwargs["error"], TimeoutError)
