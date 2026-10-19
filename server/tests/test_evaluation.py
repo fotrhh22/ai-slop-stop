@@ -35,6 +35,16 @@ class EvaluationTests(unittest.TestCase):
         self.assertTrue(all(part.inline_data.data == self.raw for part in parts))
         self.assertFalse(any("코사인" in part or "점수" in part for part in contents if isinstance(part, str)))
 
+    def test_gemini3_router_uses_low_thinking_for_both_verdicts(self):
+        settings = Settings(**{**self.settings.__dict__, "router_model": "gemini-3.8-flash"})
+        for verdict in ("PASS", "FAIL"):
+            with self.subTest(verdict=verdict):
+                result = {**self.result, "verdict": verdict}
+                provider = Mock(return_value=NS(text=json.dumps(result)))
+                with patch("server.gemini_client._client", return_value=NS(models=NS(generate_content=provider))):
+                    self.assertEqual(route_verdict(settings, self.raw, "image/png", self.raw, "image/png")["verdict"], verdict)
+                self.assertEqual(provider.call_args.kwargs["config"].thinking_config.thinking_level, "LOW")
+
     def test_rejects_invalid_router_results(self):
         for value in ([], {**self.result, "verdict": "MAYBE"}, {**self.result, "criteria": {}},
                       {**self.result, "criteria": {**self.result["criteria"], "color": 0.95}}):

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -17,19 +18,25 @@ from .config import Settings
 from .persistence import PersistenceError
 
 _PROMPT_PATH = Path(__file__).resolve().parent / "prompts" / "evaluate.md"
+_logger = logging.getLogger("uvicorn.error")
 
 
 class GeminiError(Exception):
     pass
 
 
-def _with_retry(fn, attempts: int = 3, delay: float = 1.5, recorder=None):
+def _with_retry(fn, attempts: int = 3, delay: float = 1.5, recorder=None, label="model"):
     """일시적 네트워크 오류(connection reset 등)에 한해 재시도."""
     last = None
     for i in range(attempts):
         call_id = recorder.start() if recorder else None
         try:
-            response = fn()
+            started = time.perf_counter()
+            try:
+                response = fn()
+            finally:
+                _logger.info("gemini_api operation=%s attempt=%d elapsed_ms=%.0f",
+                             label, i + 1, (time.perf_counter() - started) * 1000)
         except Exception as e:  # noqa: BLE001
             if recorder:
                 recorder.finish(call_id, error=e)
@@ -119,8 +126,12 @@ def route_verdict(
                     response_mime_type="application/json",
                     response_schema=_VERDICT_SCHEMA,
                     temperature=0.2,
+                    # Gemini 3 defaults to extended reasoning. Classification does
+                    # not need that default; LOW is supported across Gemini 3.
+                    thinking_config=(types.ThinkingConfig(thinking_level=types.ThinkingLevel.LOW)
+                                     if settings.router_model.startswith("gemini-3") else None),
                 ),
-            ), recorder=recorder
+            ), recorder=recorder, label="router"
         )
     except PersistenceError:
         raise
@@ -157,7 +168,7 @@ def generate_image(settings: Settings, prompt: str, recorder=None) -> str:
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE"],
                 ),
-            ), recorder=recorder
+            ), recorder=recorder, label="generate"
         )
     except PersistenceError:
         raise

@@ -92,6 +92,8 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
 ## 판정 대기 시간
 
 - Router에 보내는 사본은 긴 변을 최대 1024px로 줄이고 큰 PNG 등의 전송량을 JPEG 압축으로 낮춥니다. 작은 원본은 재인코딩하지 않습니다. 원본 해시와 성공 이미지 저장에는 원본을 사용합니다. 작은 글자·미세 디테일은 축소 과정에서 손실될 수 있습니다.
+- Gemini 3 Router에는 `thinking_level=LOW`를 지정해 기본 추론 강도로 인한 대기를 줄입니다. 이미지 생성 설정에는 적용하지 않습니다. 낮은 추론 강도의 판정 품질은 실제 목표 이미지로 확인해야 합니다.
+- `gemini_api operation=router attempt=... elapsed_ms=...` 로그는 DB 원장 저장을 제외한 실제 SDK 요청 시간을 기록합니다. 앞선 `evaluation stage=router` 로그와 비교하면 DB/이미지 준비 시간과 공급자 응답 대기를 구분할 수 있습니다.
 - Supabase HTTP 연결을 재사용합니다.
 - 새 UI는 판정 저장 직후 PASS/FAIL을 표시하고, PASS 영수증 업로드·검증은 별도 요청으로 자동 진행합니다. 저장 실패는 영수증 재시도로 처리하며 Router를 다시 호출하지 않습니다.
 - Render 로그의 `evaluation stage=... elapsed_ms=...`로 authorize, verify_image, download_target, router, save_verdict 시간을 구분합니다. router 시간은 이미지 준비·호출 원장 기록·Gemini 재시도까지 포함합니다. 운영 응답 시간은 별도 측정해야 합니다.
