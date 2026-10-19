@@ -123,6 +123,8 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
     <h2>성공까지 누적 사용량</h2>
     <dl>
       <dt>이미지 생성 요청</dt><dd>{r.generation_calls.toLocaleString("ko-KR")}회</dd>
+      <dt>평균 프롬프트 글자수<br /><small>공백 포함 · 모든 생성 시도</small></dt>
+      <dd>{r.average_prompt_length == null ? "—" : `${r.average_prompt_length.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}자`}</dd>
       <dt>판정 요청</dt><dd>{r.router_calls.toLocaleString("ko-KR")}회</dd>
       <dt>{r.usage_complete ? "총 사용 토큰" : "확인된 사용 토큰"}</dt>
       <dd>{r.known_tokens_total.toLocaleString("ko-KR")}</dd>

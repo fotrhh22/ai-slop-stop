@@ -16,6 +16,7 @@ export interface Receipt {
   router_verdict?: Verdict;
   router_reason?: string | null;
   created_at: string;
+  average_prompt_length?: number | null;
   generation_calls: number;
   router_calls: number;
   model_calls_total: number;

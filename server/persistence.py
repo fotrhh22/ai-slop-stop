@@ -122,6 +122,17 @@ class Store:
             return None
         saved = rows[0]
         attempt = self.attempt(cid, saved["attempt_id"])
+        # One prompt per submitted generation attempt; FAIL/error attempts count too.
+        # Retries of evaluation do not add another prompt. Keep PostgREST pagination.
+        prompt_lengths, offset = [], 0
+        while True:
+            page = self.rows("attempts", challenge_id="eq." + cid, select="prompt",
+                             order="id.asc", limit="500", offset=str(offset))
+            prompt_lengths.extend(len(row["prompt"]) for row in page)
+            if len(page) < 500:
+                break
+            offset += len(page)
+        average_prompt_length = sum(prompt_lengths) / len(prompt_lengths) if prompt_lengths else None
         calls = self.calls(cid)
         image = self.download("challenge-successes", saved["image_path"])
         verification = {
@@ -160,6 +171,7 @@ class Store:
         if not image_url.startswith("https://"):
             image_url = self.base + ("" if image_url.startswith("/storage/v1/") else "/storage/v1") + image_url
         return {**saved, "router_reason": attempt.get("router_reason") if saved.get("pass_source") == "router" else None,
+                "average_prompt_length": average_prompt_length,
                 "image_url": image_url, "verification": verification,
                 "verified": all(verification.values()), "source": "supabase",
                 "usage_complete": saved["calls_without_total_tokens"] == 0,

@@ -272,12 +272,16 @@ class ReceiptTests(unittest.TestCase):
                  "known_tokens_total": 100, "calls_without_total_tokens": 0, "tokens_by_model": {"gemini/image-test": usage},
                  "pass_source": "router"}
         def rows(table, **filters):
+            if table == "attempts" and filters.get("select") == "prompt":
+                # Includes failed attempts, whitespace, Korean and non-BMP characters.
+                return [{"prompt": "가 나"}, {"prompt": "😀ab "}]
             return [saved] if table == "successes" else [{"prompt": "original", "generated_image_sha256": digest(self.raw),
                                                         "router_reason": "피사체와 구도가 일치합니다."}]
         with patch.object(store, "rows", side_effect=rows), patch.object(store, "calls", return_value=calls), \
              patch.object(store, "download", return_value=self.raw), patch.object(store, "request", return_value=NS(json=lambda: {"signedURL": "/object/sign/test"})):
             receipt = store.receipt(cid)
             self.assertTrue(receipt["verified"])
+            self.assertEqual(receipt["average_prompt_length"], 3.5)
             self.assertEqual(receipt["router_reason"], "피사체와 구도가 일치합니다.")
             saved["pass_source"] = "staff"
             self.assertIsNone(store.receipt(cid)["router_reason"])

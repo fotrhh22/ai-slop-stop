@@ -100,7 +100,7 @@ async function waitForEvaluation(challenge: Challenge, attempt: Attempt): Promis
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const samples = new Map<string, { generates: number; routes: number; receipt?: Receipt }>();
+const samples = new Map<string, { generates: number; routes: number; promptLengths: number[]; receipt?: Receipt }>();
 
 export async function fetchImageModel(): Promise<string> {
   if (USE_MOCK) return "Mock";
@@ -111,7 +111,7 @@ export async function fetchImageModel(): Promise<string> {
 export async function createChallenge(targetImage: string): Promise<{id: string; accessToken: string}> {
   if (!USE_MOCK) return req("/api/challenges", { target_image: targetImage });
   const id = crypto.randomUUID();
-  samples.set(id, { generates: 0, routes: 0 });
+  samples.set(id, { generates: 0, routes: 0, promptLengths: [] });
   return { id, accessToken: "mock" };
 }
 
@@ -120,6 +120,7 @@ export async function generateImage(prompt: string, challenge: Challenge, attemp
     await sleep(500);
     const s = samples.get(challenge.id)!;
     s.generates += 1;
+    s.promptLengths.push(Array.from(prompt).length);
     return { imageUrl: `https://picsum.photos/seed/${encodeURIComponent(attemptId)}/512/512` };
   }
   return req(`/api/challenges/${challenge.id}/generate`, { prompt, attempt_id: attemptId }, challenge.accessToken);
@@ -132,6 +133,7 @@ function sampleReceipt(challenge: Challenge, attempt: Attempt, source: "router" 
     prompt: attempt.prompt, image_url: attempt.imageUrl!, pass_source: source,
     router_verdict: source === "router" ? "PASS" : attempt.verdict,
     router_reason: source === "router" ? routerReason : undefined,
+    average_prompt_length: s.promptLengths.length ? s.promptLengths.reduce((sum, n) => sum + n, 0) / s.promptLengths.length : null,
     created_at: new Date().toISOString(), generation_calls: s.generates, router_calls: s.routes,
     model_calls_total: s.generates + s.routes, failed_calls: 0, known_tokens_total: 0,
     calls_without_total_tokens: s.generates + s.routes, tokens_by_model: {},
