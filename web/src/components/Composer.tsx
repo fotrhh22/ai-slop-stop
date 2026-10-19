@@ -40,7 +40,7 @@ export function Composer({ disabled, onSend }: Props) {
           }}
         />
         <div className="composer__model" title="이미지 생성 모델">
-          이미지 생성 모델: <span>gemini-2.5-flash-image</span>
+          <span>gemini-2.5-flash-image</span>
         </div>
         <button
           className="composer__send"
