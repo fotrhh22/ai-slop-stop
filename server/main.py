@@ -31,7 +31,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[settings.public_app_origin],
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-Challenge-Token", "X-Staff-Token"],
+    allow_headers=["Content-Type", "X-Challenge-Token"],
 )
 
 app.include_router(challenge_router)

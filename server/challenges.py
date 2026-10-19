@@ -1,7 +1,6 @@
 """Persisted challenge workflow. Single Render worker serializes each session."""
 from __future__ import annotations
 
-import hmac
 import logging
 from contextlib import contextmanager
 from time import perf_counter
@@ -144,23 +143,19 @@ def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="
 
 class Finalize(Evaluate):
     source: str = Field(pattern="^(router|staff)$")
-    actor: str = Field(default="", max_length=100)
-    reason: str = Field(default="", max_length=1000)
 
 
 @router.post("/{cid}/finalize")
-def finalize(cid: UUID, req: Finalize, x_challenge_token: str = Header(default=""),
-             x_staff_token: str = Header(default="")):
+def finalize(cid: UUID, req: Finalize, x_challenge_token: str = Header(default="")):
     with _locks[cid.int % len(_locks)]:
-        settings, store, _ = session(cid, x_challenge_token)
+        _, store, _ = session(cid, x_challenge_token)
         cid, aid = str(cid), str(req.attempt_id)
-        if req.source == "staff":
-            if not settings.staff_auth_token or not hmac.compare_digest(settings.staff_auth_token, x_staff_token):
-                raise HTTPException(403, "STAFF_AUTH_REQUIRED")
-            if not req.actor.strip() or not req.reason.strip():
-                raise HTTPException(400, "STAFF_ACTOR_AND_REASON_REQUIRED")
         _, raw, mime = verify_image(store, cid, aid, req.generated_image)
-        return store.finalize(cid, aid, raw, mime, req.source, req.actor, req.reason)
+        # Public STAFF action: no operator authentication or approval form.
+        # Supply truthful defaults for the existing receipt schema, not a user identity.
+        actor = "이름 미입력" if req.source == "staff" else None
+        reason = "STAFF 버튼으로 수동 승인" if req.source == "staff" else None
+        return store.finalize(cid, aid, raw, mime, req.source, actor, reason)
 
 
 @router.get("/{cid}/receipt")

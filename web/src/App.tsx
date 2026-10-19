@@ -7,7 +7,6 @@ import { MenuIcon } from "./components/icons";
 import type { Attempt, Challenge, Receipt as ReceiptData } from "./types";
 import { createChallenge, generateImage, evaluate, finalize, fetchReceipt } from "./api/client";
 import { Receipt } from "./components/Receipt";
-import { StaffApproval } from "./components/StaffApproval";
 
 const uid = () => crypto.randomUUID();
 
@@ -30,12 +29,11 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // 목표 이미지 선택 모달 표시 여부 (새 챌린지 시작 시 필수 선행 단계)
   const [showPicker, setShowPicker] = useState(false);
-  // STAFF 모드: 수동 PASS 전환 버튼 노출 (운영자 전용)
+  // STAFF 모드: 입력 조건 없이 수동 PASS 전환 버튼 노출
   const [staffMode, setStaffMode] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const [receipt, setReceipt] = useState<ReceiptData | null>(null);
-  const [staffAttempt, setStaffAttempt] = useState<string | null>(null);
 
   const active = useMemo(
     () => challenges.find((c) => c.id === activeId) ?? null,
@@ -186,7 +184,7 @@ export default function App() {
     }
   };
 
-  const saveReceipt = async (aid: string, staff?: {token: string; actor: string; reason: string}) => {
+  const saveReceipt = async (aid: string, staff = false) => {
     if (!active || busy) return;
     const cid = active.id;
     const attempt = active.attempts.find(a => a.id === aid);
@@ -201,7 +199,6 @@ export default function App() {
     } catch (e) {
       patchAttempt(cid, aid, a => ({ ...a, receiptPending: false,
         receiptError: e instanceof Error ? e.message : "영수증 저장 실패" }));
-      if (staff) throw e;
     }
   };
 
@@ -257,7 +254,7 @@ export default function App() {
               staffMode={staffMode}
               onUploadTarget={startNewChallenge}
               onTry={onTry}
-              onStaffPass={setStaffAttempt}
+              onStaffPass={aid => { if (staffMode) void saveReceipt(aid, true); }}
               onReceiptRetry={aid => { void saveReceipt(aid); }}
             />
             <Composer disabled={busy || completed || creating} onSend={onSend} />
@@ -285,8 +282,6 @@ export default function App() {
           onConfirm={confirmTarget}
         />
       )}
-      {staffAttempt && <StaffApproval onClose={() => setStaffAttempt(null)}
-        onApprove={staff => saveReceipt(staffAttempt, staff)} />}
       {receipt && <Receipt receipt={receipt} onClose={() => setReceipt(null)} />}
     </div>
   );

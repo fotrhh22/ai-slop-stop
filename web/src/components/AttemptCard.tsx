@@ -38,8 +38,8 @@ export function AttemptCard({
           >
             {evaluating ? "평가 중…" : "Try · 평가하기"}
           </button>
-          {/* STAFF 모드: 평가가 끝났고 아직 PASS 가 아닐 때 수동 전환 */}
-          {staffMode && evaluated && (
+          {/* STAFF 모드: 생성 완료 후 평가 여부와 관계없이 수동 전환 */}
+          {staffMode && a.genStatus === "ready" && (
             <button className="btn-staff" disabled={busy} onClick={() => onStaffPass(a.id)}>
               STAFF · 수동 PASS
             </button>

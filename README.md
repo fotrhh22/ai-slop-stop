@@ -56,7 +56,7 @@ npm run build
 
 실제 `.env` 파일, 비밀키, 가상환경, `node_modules`, 빌드 결과, 모델 캐시와 루트의 참고용 PDF/Word 문서는 제외합니다. 환경변수 예시와 `package-lock.json`은 포함합니다.
 
-STAFF 버튼은 운영자 토큰·이름·승인 사유를 입력한 뒤 서버 인증을 통과해야 실제 PASS를 저장합니다. 원래 Router 판정은 덮어쓰지 않습니다. 로컬 API는 Vite 프록시를 사용하며 분리 배포는 `VITE_API_BASE`와 백엔드 `PUBLIC_APP_ORIGIN`을 설정합니다.
+STAFF ON이면 생성된 이미지를 평가 전·FAIL 여부와 관계없이 버튼 한 번으로 수동 PASS 처리합니다. 추가 인증이나 입력 폼은 없습니다. DB 영수증의 이름은 `이름 미입력`, 사유는 `STAFF 버튼으로 수동 승인`으로 기록합니다. 원래 Router 판정은 덮어쓰지 않습니다. 로컬 API는 Vite 프록시를 사용하며 분리 배포는 `VITE_API_BASE`와 백엔드 `PUBLIC_APP_ORIGIN`을 설정합니다.
 
 ## Render 무료 백엔드 배포
 
@@ -82,7 +82,6 @@ python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
 | `GEMINI_ROUTER_MODEL` | 계정에서 사용 가능한 이미지 판정 모델 ID |
 | `SUPABASE_URL` | 생성한 Supabase 프로젝트 URL |
 | `SUPABASE_SECRET_KEY` | 서버용 secret key 또는 legacy service-role key |
-| `STAFF_AUTH_TOKEN` | STAFF 승인용 긴 임의 문자열. Blueprint 신규 생성 시 자동 생성되며 기존 서비스는 직접 설정 |
 
 4. 먼저 **Render**에서 `/health` 응답과 실제 생성 → Try를 확인합니다. `PORT`는 Render가 제공합니다. `PUBLIC_APP_ORIGIN`은 아직 입력하지 않아도 기본 로컬 주소로 서버가 기동합니다. 이는 프런트의 브라우저 호출 허용 설정이며 모델 실행에 필요한 키가 아닙니다.
 5. 이후 **Vercel**에서 Root Directory=`web`, `VITE_USE_MOCK=false`, `VITE_API_BASE=https://실제-서비스.onrender.com`으로 설정 후 배포합니다. Vercel 주소가 정해지면 Render 환경변수에 `PUBLIC_APP_ORIGIN=https://실제-프런트.vercel.app`을 추가하고 재배포합니다. Origin 값 끝에는 `/`를 넣지 않습니다.

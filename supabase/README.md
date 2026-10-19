@@ -20,10 +20,9 @@
 ```dotenv
 SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
 SUPABASE_SECRET_KEY=YOUR_SERVER_ONLY_KEY
-STAFF_AUTH_TOKEN=YOUR_RANDOM_STAFF_APPROVAL_TOKEN
 ```
 
-실제 값을 GitHub나 프런트 `VITE_*` 환경변수에 넣지 않습니다. 로그인 없는 방문자도 FastAPI를 통해 이용하며 DB 직접 접근은 허용하지 않습니다. 서버는 세션 접근 토큰의 해시를 저장하고 `X-Challenge-Token`을 검증합니다. STAFF 요청은 별도로 `X-Staff-Token`을 서버 환경변수와 대조합니다.
+실제 값을 GitHub나 프런트 `VITE_*` 환경변수에 넣지 않습니다. 로그인 없는 방문자도 FastAPI를 통해 이용하며 DB 직접 접근은 허용하지 않습니다. 서버는 세션 접근 토큰의 해시를 저장하고 `X-Challenge-Token`을 검증합니다. STAFF 수동 PASS는 공개 기능으로 추가 인증이나 입력을 요구하지 않습니다.
 
 ## 2. 테이블 역할
 
@@ -73,7 +72,7 @@ FAIL 시에도 `attempts`와 `api_calls`는 기록합니다. 단, FAIL 이미지
 }
 ```
 
-STAFF인 경우 `p_pass_source=staff`와 `p_staff_actor`, `p_staff_reason`을 전달합니다. **이 인자들은 인증이 아닙니다.** 서버가 운영자 권한을 먼저 검증해야 합니다. Router 경로는 attempts의 원본 판정이 PASS인 경우만 허용합니다.
+STAFF인 경우 `p_pass_source=staff`와 `p_staff_actor`, `p_staff_reason`을 전달합니다. 서버가 `p_staff_actor=이름 미입력`, `p_staff_reason=STAFF 버튼으로 수동 승인`을 자동 전달하므로 추가 입력과 SQL 변경은 필요하지 않습니다. Router 경로는 attempts의 원본 판정이 PASS인 경우만 허용합니다.
 
 ## 5. 동시 요청·실패 처리
 
@@ -82,7 +81,7 @@ STAFF인 경우 `p_pass_source=staff`와 `p_staff_actor`, `p_staff_reason`을 �
 - 세션당 성공은 UNIQUE 제약으로 한 번만 저장합니다. 함수 재호출은 기존 첫 성공을 반환합니다. 반환된 `attempt_id`를 기준으로 최종 성공을 표시합니다.
 - Storage 업로드와 DB 트랜잭션은 원자적이지 않습니다. 업로드 후 DB 실패 시 같은 경로를 재사용해 RPC를 재시도합니다. 경쟁에서 선택되지 않은 업로드는 정리 대상으로 관리합니다.
 - pending/unknown/usage 누락이 있으면 비용을 완전히 확인했다고 표시하지 않습니다.
-- RLS를 켜고 anon/authenticated 접근 및 RPC 실행을 막습니다. 서버용 키는 RLS를 우회하므로 세션 소유권, STAFF 권한, 입력 검증은 FastAPI에서 수행해야 합니다.
+- RLS를 켜고 anon/authenticated 접근 및 RPC 실행을 막습니다. 서버용 키는 RLS를 우회하므로 세션 소유권과 입력 검증은 FastAPI에서 수행해야 합니다.
 
 ## 6. 확인 SQL
 

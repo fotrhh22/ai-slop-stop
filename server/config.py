@@ -37,7 +37,6 @@ class Settings:
     port: int
     supabase_url: str = ""
     supabase_secret_key: str = ""
-    staff_auth_token: str = ""
 
     @property
     def gemini_configured(self) -> bool:
@@ -55,5 +54,4 @@ def load_settings() -> Settings:
         port=int(os.getenv("PORT", "8000")),
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
-        staff_auth_token=os.getenv("STAFF_AUTH_TOKEN", ""),
     )

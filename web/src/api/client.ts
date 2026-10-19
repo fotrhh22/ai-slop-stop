@@ -13,11 +13,10 @@ export interface EvaluateResult {
   receipt_pending?: boolean;
 }
 
-async function req<T>(path: string, body?: unknown, token?: string, staffToken?: string): Promise<T> {
+async function req<T>(path: string, body?: unknown, token?: string): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     method: body === undefined ? "GET" : "POST",
-    headers: { "Content-Type": "application/json", ...(token ? { "X-Challenge-Token": token } : {}),
-      ...(staffToken ? { "X-Staff-Token": staffToken } : {}) },
+    headers: { "Content-Type": "application/json", ...(token ? { "X-Challenge-Token": token } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!res.ok) {
@@ -78,11 +77,10 @@ export async function evaluate(challenge: Challenge, attempt: Attempt): Promise<
 }
 
 export async function finalize(challenge: Challenge, attempt: Attempt,
-  staff?: { token: string; actor: string; reason: string }): Promise<Receipt> {
+  staff = false): Promise<Receipt> {
   if (USE_MOCK) return sampleReceipt(challenge, attempt, staff ? "staff" : "router");
   return req(`/api/challenges/${challenge.id}/finalize`, { attempt_id: attempt.id,
-    generated_image: attempt.imageUrl, source: staff ? "staff" : "router",
-    actor: staff?.actor ?? "", reason: staff?.reason ?? "" }, challenge.accessToken, staff?.token);
+    generated_image: attempt.imageUrl, source: staff ? "staff" : "router" }, challenge.accessToken);
 }
 
 export async function fetchReceipt(challenge: Challenge): Promise<Receipt> {

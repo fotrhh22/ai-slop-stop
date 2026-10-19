@@ -29,5 +29,3 @@ services:
         sync: false
       - key: SUPABASE_SECRET_KEY
         sync: false
-      - key: STAFF_AUTH_TOKEN
-        generateValue: true

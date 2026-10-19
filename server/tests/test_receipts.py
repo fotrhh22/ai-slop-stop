@@ -72,7 +72,7 @@ class MemoryStore:
         attempt = self.attempt(cid, aid)
         calls = self.rows("api_calls", challenge_id="eq." + cid)
         saved = self.insert("successes", {"challenge_id": cid, "attempt_id": aid,
-            "prompt": attempt["prompt"], "pass_source": source, "router_verdict": attempt["router_verdict"],
+            "prompt": attempt["prompt"], "pass_source": source, "router_verdict": attempt.get("router_verdict"), "staff_actor": actor, "staff_reason": reason,
             "generation_calls": sum(c["operation"] == "generate" for c in calls),
             "router_calls": sum(c["operation"] == "router" for c in calls),
             "model_calls_total": len(calls), "known_tokens_total": sum(c.get("total_tokens") or 0 for c in calls),
@@ -86,7 +86,7 @@ class ReceiptTests(unittest.TestCase):
     def setUp(self):
         self.settings = Settings(gemini_api_key="fake", image_model="image-test", router_model="router-test",
             router_provider="gemini", public_app_origin="http://127.0.0.1:5173", max_requests_per_minute=1000,
-            port=8000, staff_auth_token="staff-secret")
+            port=8000)
         self.store = MemoryStore()
         self.raw = png()
         self.data = "data:image/png;base64," + base64.b64encode(self.raw).decode()
@@ -126,12 +126,13 @@ class ReceiptTests(unittest.TestCase):
                 response = client.post(f"/api/challenges/{cid}/evaluate", json={"attempt_id": aid, "generated_image": self.data}, headers=headers)
                 self.assertEqual(response.status_code, 200, response.text)
             if staff:
-                body = {"attempt_id": aid, "generated_image": self.data, "source": "staff", "actor": "operator", "reason": "reviewed"}
-                denied = client.post(f"/api/challenges/{cid}/finalize", json=body, headers=headers)
-                self.assertEqual(denied.status_code, 403)
-                response = client.post(f"/api/challenges/{cid}/finalize", json=body, headers={**headers, "X-Staff-Token": "staff-secret"})
+                body = {"attempt_id": aid, "generated_image": self.data, "source": "staff"}
+                response = client.post(f"/api/challenges/{cid}/finalize", json=body, headers=headers)
+                self.assertEqual(response.status_code, 200, response.text)
                 saved = response.json()
                 self.assertEqual(saved["router_verdict"], "FAIL")
+                self.assertEqual(saved["staff_actor"], "이름 미입력")
+                self.assertEqual(saved["staff_reason"], "STAFF 버튼으로 수동 승인")
             else:
                 saved = response.json()["receipt"]
             self.assertEqual(saved["prompt"], prompt)
@@ -148,7 +149,27 @@ class ReceiptTests(unittest.TestCase):
             self.assertEqual(self.store.finalizations, 1)
 
     def test_router_pass_accumulates_failures_retries_and_missing_usage(self): self.run_workflow()
-    def test_staff_pass_requires_auth_and_preserves_original_fail(self): self.run_workflow(staff=True)
+    def test_staff_pass_without_extra_input_preserves_original_fail(self): self.run_workflow(staff=True)
+
+    def test_staff_pass_before_try_without_credentials_or_form(self):
+        created = self.store.create_challenge(self.raw, "image/png")
+        cid, aid = created["id"], str(uuid4())
+        self.store.insert("attempts", {"id": aid, "challenge_id": cid, "prompt": "unrated"})
+        self.store.update("attempts", aid, {"generation_status": "ready", "generated_image_sha256": digest(self.raw)})
+        with patch.object(challenges, "load_settings", return_value=self.settings), \
+             patch.object(challenges, "Store", return_value=self.store), \
+             patch.object(challenges, "route_verdict") as provider:
+            client = TestClient(main.app)
+            body = {"attempt_id": aid, "generated_image": self.data, "source": "staff"}
+            url = f"/api/challenges/{cid}/finalize"
+            self.assertEqual(client.post(url, json=body).status_code, 403)
+            saved = client.post(url, json=body, headers={"X-Challenge-Token": "session-token"})
+            self.assertEqual(saved.status_code, 200, saved.text)
+            self.assertEqual(saved.json()["pass_source"], "staff")
+            self.assertIsNone(saved.json()["router_verdict"])
+            self.assertEqual(saved.json()["router_calls"], 0)
+            self.assertEqual(saved.json()["staff_reason"], "STAFF 버튼으로 수동 승인")
+            provider.assert_not_called()
 
     def test_deferred_receipt_returns_saved_pass_before_finalize(self):
         created = self.store.create_challenge(self.raw, "image/png")
