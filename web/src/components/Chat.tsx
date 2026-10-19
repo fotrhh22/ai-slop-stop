@@ -62,7 +62,7 @@ export function Chat({
             />
           ))}
           {challenge.receipt && <section className="receipt-message" ref={receiptRef}>
-            <Receipt receipt={challenge.receipt} onRefresh={onReceiptRefresh} />
+            <Receipt receipt={challenge.receipt} accessToken={challenge.accessToken} onRefresh={onReceiptRefresh} />
           </section>}
           <div ref={endRef} />
         </div>

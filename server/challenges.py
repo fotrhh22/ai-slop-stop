@@ -8,6 +8,7 @@ import threading
 from uuid import UUID
 
 from fastapi import APIRouter, Header, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .config import load_settings
@@ -188,3 +189,18 @@ def receipt(cid: UUID, x_challenge_token: str = Header(default="")):
     if not saved:
         raise HTTPException(404, "RECEIPT_NOT_FOUND")
     return saved
+
+
+@router.get("/{cid}/receipt/image")
+def receipt_image(cid: UUID, x_challenge_token: str = Header(default="")):
+    # Download only the stored success image, never a browser-supplied remote URL.
+    _, store, _ = session(cid, x_challenge_token)
+    saved = store.rows("successes", challenge_id="eq." + str(cid))
+    if not saved:
+        raise HTTPException(404, "RECEIPT_NOT_FOUND")
+    attempt = store.attempt(str(cid), saved[0]["attempt_id"])
+    raw = store.download("challenge-successes", saved[0]["image_path"])
+    if digest(raw) != attempt.get("generated_image_sha256"):
+        raise HTTPException(409, "SUCCESS_IMAGE_MISMATCH")
+    mime = "image/png" if raw.startswith(b"\x89PNG") else "image/webp" if raw[8:12] == b"WEBP" else "image/jpeg"
+    return Response(raw, media_type=mime, headers={"Cache-Control": "no-store"})

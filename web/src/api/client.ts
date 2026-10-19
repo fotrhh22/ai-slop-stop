@@ -165,3 +165,13 @@ export async function fetchReceipt(challenge: Challenge): Promise<Receipt> {
   if (USE_MOCK) return samples.get(challenge.id)!.receipt!;
   return req(`/api/challenges/${challenge.id}/receipt`, undefined, challenge.accessToken);
 }
+
+
+export async function fetchReceiptImage(receipt: Receipt, token: string, signal: AbortSignal): Promise<Blob> {
+  // The API route avoids signed-image URL expiry and cross-origin canvas issues.
+  const url = receipt.source === "mock" ? receipt.image_url : `${API_BASE}/api/challenges/${receipt.challenge_id}/receipt/image`;
+  const res = await fetch(url, { signal, cache: "no-store",
+    ...(receipt.source === "mock" ? {} : { headers: { "X-Challenge-Token": token } }) });
+  if (!res.ok) throw new Error("출력 이미지를 불러오지 못했습니다. 영수증을 새로고침해 주세요.");
+  return res.blob();
+}

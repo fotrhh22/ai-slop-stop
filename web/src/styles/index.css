@@ -1159,17 +1159,29 @@ button {
 .receipt-paper dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .receipt-paper pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; padding: 12px; background: #f0eee7; }
 .receipt-image { width: 100%; max-height: 320px; object-fit: contain; display: block; margin-top: 20px; }
-.receipt-actions { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 24px; }
+.receipt-actions { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 24px; }
 .receipt-paper button, .workflow-banner button, .receipt-save-error button { border: 1px solid #888; border-radius: 6px; padding: 7px 10px; }
 .receipt-warning { color: #8a4812; background: #fff0c6; padding: 9px; }
 .receipt-note { font-size: 11px; color: #666; }
 .receipt-reason { white-space: pre-wrap; overflow-wrap: anywhere; }
+.receipt-photo-controls { margin-top: 20px; display: grid; gap: 12px; }
+.receipt-photo-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+.receipt-photo-tabs button[aria-pressed="true"] { background: #25251f; color: white; }
+.receipt-photo-controls label { display: grid; gap: 4px; color: #444; min-width: 0; }
+.receipt-photo-controls input, .receipt-photo-controls select { width: 100%; min-width: 0; color: #25251f; background: white; border: 1px solid #aaa; border-radius: 4px; padding: 6px; font: inherit; }
+.receipt-photo-controls input[type="range"] { padding: 0; }
+.receipt-thermal-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.receipt-image--thermal { image-rendering: pixelated; }
+.receipt-download { color: #25251f; text-decoration: underline; }
+.receipt-preview-status { color: #555; font-size: 12px; }
+.receipt-preview-status button { margin-left: 8px; }
+.receipt-paper button:disabled { opacity: .5; cursor: wait; }
 .receipt-token-model { padding: 10px 0; margin: 0; border-bottom: 1px dotted #ccc; }
 .receipt-model-name { display: block; font-size: 11px; overflow-wrap: anywhere; }
 .staff-approval label { display: grid; gap: 6px; margin: 14px 0; }
 .staff-approval input, .staff-approval textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
 @media print {
-  @page { margin: 8mm; }
+  @page { margin: 0; }
   html, body, #root { height: auto !important; background: white; }
   body > :not(#root), .app > :not(.chat), .chat > :not(.chat__scroll),
   .chat__scroll > :not(.attempt-list), .attempt-list > :not(.receipt-message) { display: none !important; }
@@ -1178,7 +1190,12 @@ button {
     overflow: visible !important; padding: 0; margin: 0;
   }
   .receipt-paper { width: 80mm; max-width: 100%; margin: 0; padding: 3mm; box-shadow: none; color: black; background: white; }
-  .receipt-actions { display: none !important; }
+  .receipt-actions, .receipt-photo-controls, .receipt-preview-status { display: none !important; }
+  .receipt-image { max-height: none; height: auto; }
+  .receipt-paper[data-print-mode="thermal"] { width: var(--thermal-paper-width); padding: 3mm var(--thermal-side-padding); }
+  .receipt-paper[data-print-mode="thermal"] .receipt-image { width: var(--thermal-photo-width); max-width: none; }
+  .receipt-paper dt, .receipt-note { color: black; }
+  .receipt-paper pre, .receipt-warning { background: white; }
   .receipt-image, .receipt-paper dl { break-inside: avoid; }
 }
 

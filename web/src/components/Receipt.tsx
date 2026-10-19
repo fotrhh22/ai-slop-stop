@@ -1,9 +1,62 @@
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { fetchReceiptImage } from "../api/client";
+import { thermalPng, type ThermalMethod, type ThermalOptions } from "../utils/thermal";
 import type { Receipt as ReceiptData } from "../types";
 
-export function Receipt({ receipt: r, onRefresh }: { receipt: ReceiptData; onRefresh: () => Promise<void> }) {
-  return <article className="receipt-paper" aria-label="성공 영수증">
+export function Receipt({ receipt: r, accessToken, onRefresh }: {
+  receipt: ReceiptData; accessToken: string; onRefresh: () => Promise<void>;
+}) {
+  const [view, setView] = useState<"color" | "thermal">("color");
+  const [paperWidth, setPaperWidth] = useState(80);
+  const [dpi, setDpi] = useState(203);
+  const [options, setOptions] = useState<ThermalOptions>({ widthDots: 576, method: "atkinson", brightness: 1, contrast: 1 });
+  const [retry, setRetry] = useState(0);
+  const [preview, setPreview] = useState<{ key: string; url?: string; error?: string }>({ key: "" });
+  const [loadedUrl, setLoadedUrl] = useState("");
+  const [colorError, setColorError] = useState(false);
+  const original = useRef<{ id: string; blob: Blob }>();
+  const imageKey = JSON.stringify([r.id, options]);
+  const photoWidthMm = options.widthDots * 25.4 / dpi;
+  const settingsError = !Number.isInteger(options.widthDots) || options.widthDots < 128 || options.widthDots > 1200 || options.widthDots % 8 !== 0
+    ? "인쇄 폭은 128~1200 사이의 8배수로 입력해 주세요."
+    : photoWidthMm > paperWidth - 2 ? "선택한 용지에 비해 인쇄 폭이 큽니다. 도트 폭 또는 해상도를 확인해 주세요." : "";
+
+  useEffect(() => {
+    if (view !== "thermal" || settingsError) return;
+    let active = true, objectUrl: string | undefined;
+    const controller = new AbortController();
+    setPreview({ key: imageKey });
+    const timer = setTimeout(async () => {
+      try {
+        const blob = original.current?.id === r.id ? original.current.blob
+          : await fetchReceiptImage(r, accessToken, controller.signal);
+        if (!active) return;
+        original.current = { id: r.id, blob };
+        const monochrome = await thermalPng(blob, options);
+        if (!active) return;
+        objectUrl = URL.createObjectURL(monochrome);
+        setPreview({ key: imageKey, url: objectUrl });
+      } catch (e) {
+        if (active) setPreview({ key: imageKey, error: e instanceof Error ? e.message : "열전사 미리보기 생성 실패" });
+      }
+    }, 250);
+    return () => {
+      active = false; clearTimeout(timer); controller.abort();
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [view, imageKey, accessToken, settingsError, retry]);
+
+  const current = preview.key === imageKey ? preview : undefined;
+  const imageUrl = view === "color" ? r.image_url : !settingsError && !current?.error ? current?.url : undefined;
+  const imageReady = !!imageUrl && loadedUrl === imageUrl;
+  const printStyle = {
+    "--thermal-paper-width": `${paperWidth}mm`,
+    "--thermal-photo-width": `${photoWidthMm}mm`,
+    "--thermal-side-padding": `${Math.max(0, (paperWidth - photoWidthMm) / 2)}mm`,
+  } as CSSProperties;
+  return <article className="receipt-paper" aria-label="성공 영수증" data-print-mode={view} style={printStyle}>
     <div className="receipt-actions">
-      <button onClick={() => window.print()}>인쇄 / PDF 저장</button>
+      <button disabled={!imageReady} onClick={() => window.print()}>{view === "thermal" ? "열전사 인쇄 / PDF 저장" : "인쇄 / PDF 저장"}</button>
       <button onClick={onRefresh}>새로고침</button>
     </div>
     <p className="receipt-eyebrow">AI SLOP STOP CHALLENGE</p>
@@ -14,7 +67,53 @@ export function Receipt({ receipt: r, onRefresh }: { receipt: ReceiptData; onRef
       <dt>성공 시각</dt><dd>{new Date(r.created_at).toLocaleString("ko-KR", { timeZone: "Asia/Seoul" })}</dd>
       <dt>승인 방식</dt><dd>{r.pass_source === "staff" ? "STAFF 수동 승인" : "AI 판정"}</dd>
     </dl>
-    <img className="receipt-image" src={r.image_url} alt="PASS 받은 생성 이미지" />
+    <div className="receipt-photo-controls">
+      <div className="receipt-photo-tabs" role="group" aria-label="영수증 사진 표시 방식">
+        <button aria-pressed={view === "color"} onClick={() => setView("color")}>컬러 원본</button>
+        <button aria-pressed={view === "thermal"} onClick={() => setView("thermal")}>열전사 미리보기</button>
+      </div>
+      {view === "thermal" && <>
+        <label>흑백 변환 방식
+          <select value={options.method} onChange={e => setOptions(o => ({ ...o, method: e.target.value as ThermalMethod }))}>
+            <option value="atkinson">Atkinson · 기본</option>
+            <option value="floyd-steinberg">Floyd–Steinberg · 오류 확산</option>
+            <option value="mean">평균 임계값 · 단순 흑백</option>
+          </select>
+        </label>
+        <div className="receipt-thermal-settings">
+          <label>용지 폭<select value={paperWidth} onChange={e => {
+            const width = Number(e.target.value); setPaperWidth(width);
+            setDpi(203); setOptions(o => ({ ...o, widthDots: width === 58 ? 384 : 576 }));
+          }}><option value={80}>80 mm</option><option value={58}>58 mm</option></select></label>
+          <label>인쇄 폭 (dots)<input type="number" min={128} max={1200} step={8} value={options.widthDots}
+            onChange={e => setOptions(o => ({ ...o, widthDots: Number(e.target.value) }))} /></label>
+          <label>해상도<select value={dpi} onChange={e => setDpi(Number(e.target.value))}>
+            <option value={203}>203 dpi</option><option value={300}>300 dpi</option>
+          </select></label>
+          <label>밝기 {options.brightness.toFixed(2)}<input type="range" min={0.5} max={1.5} step={0.05} value={options.brightness}
+            onChange={e => setOptions(o => ({ ...o, brightness: Number(e.target.value) }))} /></label>
+          <label>대비 {options.contrast.toFixed(2)}<input type="range" min={0.5} max={2} step={0.05} value={options.contrast}
+            onChange={e => setOptions(o => ({ ...o, contrast: Number(e.target.value) }))} /></label>
+        </div>
+        <p className="receipt-note">프린터의 실제 인쇄 폭·해상도에 맞추고 인쇄 배율은 100%로 설정해 주세요. 밝은 픽셀은 흰색으로 표현합니다.</p>
+        {current?.url && !settingsError && <a className="receipt-download" href={current.url}
+          download={`thermal-receipt-${options.method}-${options.widthDots}px.png`}>흑백 PNG 저장</a>}
+      </>}
+    </div>
+    {imageUrl ? <img className={"receipt-image" + (view === "thermal" ? " receipt-image--thermal" : "")} src={imageUrl}
+      alt={view === "thermal" ? `${options.method} 방식의 열전사 출력 미리보기` : "PASS 받은 생성 이미지"}
+      onLoad={() => { setLoadedUrl(imageUrl); setColorError(false); }}
+      onError={() => {
+        setLoadedUrl("");
+        if (view === "thermal") setPreview({ key: imageKey, error: "흑백 이미지를 표시하지 못했습니다." });
+        else setColorError(true);
+      }} /> : null}
+    {view === "color" && colorError && <p className="receipt-preview-status" role="alert">원본 이미지를 불러오지 못했습니다. 새로고침해 주세요.</p>}
+    {view === "thermal" && <div className="receipt-preview-status" aria-live="polite">
+      {settingsError || current?.error ? <p role="alert">{settingsError || current?.error}
+        {current?.error && <button onClick={() => setRetry(n => n + 1)}>다시 만들기</button>}</p>
+        : !imageUrl ? <p role="status">열전사 이미지 준비 중…</p> : <p>{options.widthDots} dots · {dpi} dpi · {options.method}</p>}
+    </div>}
     <h2>성공 프롬프트</h2>
     <pre>{r.prompt}</pre>
     {r.pass_source === "router" && r.router_reason && <>
