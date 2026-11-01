@@ -26,7 +26,7 @@ export async function printReceipt(source: HTMLElement, widthMm: number, content
     doc.open(); doc.write("<!doctype html><html lang='ko'><head><title>AI SLOP STOP 영수증</title></head><body></body></html>"); doc.close();
     const style = doc.createElement("style"); style.textContent = receiptCss; doc.head.append(style);
     const copy = source.cloneNode(true) as HTMLElement;
-    copy.querySelectorAll(".receipt-actions, .receipt-photo-controls, .receipt-preview-status, .receipt-print-error").forEach(el => el.remove());
+    copy.querySelectorAll(".receipt-actions, .receipt-photo-controls, .receipt-preview-status, .receipt-print-error, .receipt-device-status").forEach(el => el.remove());
     copy.style.setProperty("--paper-width", `${widthMm}mm`);
     copy.style.setProperty("--side-padding", `${(widthMm - contentWidthMm) / 2}mm`);
     doc.body.append(copy);

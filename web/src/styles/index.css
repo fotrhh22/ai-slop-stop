@@ -1270,3 +1270,10 @@ button {
   .receipt-paper { padding: 18px; }
   .attempt-card__result { column-gap: 10px; }
 }
+
+.print-station { margin: 12px 18px; padding: 12px 0; border-top: 1px solid var(--border, #d7ddd5); font-size: 13px; }
+.print-station summary { cursor: pointer; font-weight: 600; }
+.print-station p { margin: 10px 0; line-height: 1.5; }
+.print-station label { display: block; }
+.print-station input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 10px; }
+.receipt-device-status { padding: 12px 0; border-bottom: 1px solid #ccc; font-size: 14px; line-height: 1.5; }

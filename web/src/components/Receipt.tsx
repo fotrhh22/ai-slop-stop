@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { fetchReceiptImage } from "../api/client";
 import { thermalPng, type ThermalMethod, type ThermalOptions } from "../utils/thermal";
+import { ReceiptPrintStatus } from "./ReceiptPrintStatus";
 import { printReceipt } from "../utils/printReceipt";
 import type { Receipt as ReceiptData } from "../types";
 
@@ -8,9 +9,9 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
   receipt: ReceiptData; accessToken: string; onRefresh: () => Promise<void>;
 }) {
   const [view, setView] = useState<"color" | "thermal">("color");
-  const [paperWidth, setPaperWidth] = useState(80);
+  const [paperWidth, setPaperWidth] = useState(58);
   const [dpi, setDpi] = useState(203);
-  const [options, setOptions] = useState<ThermalOptions>({ widthDots: 576, method: "atkinson", brightness: 1, contrast: 1 });
+  const [options, setOptions] = useState<ThermalOptions>({ widthDots: 384, method: "atkinson", brightness: 1, contrast: 1 });
   const [retry, setRetry] = useState(0);
   const [preview, setPreview] = useState<{ key: string; url?: string; error?: string }>({ key: "" });
   const [loadedUrl, setLoadedUrl] = useState("");
@@ -66,6 +67,7 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
     finally { setPrinting(false); }
   };
   return <article ref={paper} className="receipt-paper" aria-label="성공 영수증" data-print-mode={view} style={printStyle}>
+    {r.source !== "mock" && <ReceiptPrintStatus challengeId={r.challenge_id} accessToken={accessToken} />}
     <div className="receipt-actions">
       <button disabled={!imageReady || !!settingsError || printing} onClick={openPrint}>{view === "thermal" ? "열전사 인쇄 / PDF 저장" : "인쇄 / PDF 저장"}</button>
       <button onClick={onRefresh}>새로고침</button>

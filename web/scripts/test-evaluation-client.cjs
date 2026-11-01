@@ -7,12 +7,12 @@ const source = fs.readFileSync('src/api/client.ts', 'utf8')
   .replaceAll('import.meta.env', '({ VITE_USE_MOCK: "false", VITE_API_BASE: "https://api.test" })');
 const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 
-function client(fetch) {
+function client(fetch, stationToken = "") {
   const exports = {};
   // Scheduled waits are immediate; request abort timers must not fire early.
   const schedule = (fn, ms) => ms < 5000 ? setTimeout(fn, 0) : setTimeout(fn, ms);
-  new Function('exports', 'fetch', 'crypto', 'setTimeout', 'clearTimeout', code)(
-    exports, fetch, { randomUUID }, schedule, clearTimeout);
+  new Function('exports', 'fetch', 'crypto', 'setTimeout', 'clearTimeout', 'require', code)(
+    exports, fetch, { randomUUID }, schedule, clearTimeout, () => ({ pairingToken: () => stationToken }));
   return exports;
 }
 const response = (body, status = 200) => ({ ok: status < 400, status, json: async () => body });
@@ -51,6 +51,11 @@ async function main() {
     verdict: 'PASS', reason: '일치합니다.', receipt_pending: true,
   } }, 202));
   assert.equal((await passApi.evaluate(challenge, attempt)).receipt_pending, true);
+  let createHeaders;
+  await client(async (_url, options) => { createHeaders = options.headers; return response({id:'id', accessToken:'token'}); }, 'booth-secret').createChallenge('data:image/png;base64,test');
+  assert.equal(createHeaders['X-Print-Station-Token'], 'booth-secret');
+  await client(async (_url, options) => { createHeaders = options.headers; return response({id:'id', accessToken:'token'}); }).createChallenge('data:image/png;base64,test');
+  assert.equal(createHeaders['X-Print-Station-Token'], undefined);
   console.log('Evaluation client: lost start response, polling recovery, timeout, PASS handoff passed');
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

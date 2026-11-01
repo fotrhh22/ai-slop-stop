@@ -83,12 +83,14 @@ class Store:
     def download(self, bucket, path):
         return self.request("GET", f"/storage/v1/object/authenticated/{bucket}/{path}").content
 
-    def create_challenge(self, raw, mime):
+    def create_challenge(self, raw, mime, print_station_id=None):
         cid, token = str(uuid4()), secrets.token_urlsafe(32)
         path = cid + "/target"
         self.upload("challenge-targets", path, raw, mime)
-        self.insert("challenges", {"id": cid, "target_image_path": path,
-                                   "access_token_hash": digest(token.encode())})
+        data = {"id": cid, "target_image_path": path, "access_token_hash": digest(token.encode())}
+        if print_station_id:
+            data["print_station_id"] = print_station_id
+        self.insert("challenges", data)
         return {"id": cid, "accessToken": token}
 
     def authorize(self, cid, token):

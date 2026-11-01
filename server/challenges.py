@@ -12,6 +12,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .config import load_settings
+from .printing import booth_station
 from .evaluation_jobs import jobs
 from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
 from .persistence import CallRecorder, PersistenceError, Store, digest
@@ -53,8 +54,11 @@ class CreateChallenge(BaseModel):
 
 
 @router.post("")
-def create(req: CreateChallenge):
+def create(req: CreateChallenge, x_print_station_token: str = Header(default="")):
     raw, mime = image(req.target_image)
+    station = booth_station(x_print_station_token)
+    if station:
+        return Store(load_settings()).create_challenge(raw, mime, print_station_id=station)
     return Store(load_settings()).create_challenge(raw, mime)
 
 
@@ -204,3 +208,13 @@ def receipt_image(cid: UUID, x_challenge_token: str = Header(default="")):
         raise HTTPException(409, "SUCCESS_IMAGE_MISMATCH")
     mime = "image/png" if raw.startswith(b"\x89PNG") else "image/webp" if raw[8:12] == b"WEBP" else "image/jpeg"
     return Response(raw, media_type=mime, headers={"Cache-Control": "no-store"})
+
+
+@router.get("/{cid}/print-job")
+def print_job_status(cid: UUID, x_challenge_token: str = Header(default="")):
+    _, store, challenge = session(cid, x_challenge_token)
+    if not challenge.get("print_station_id"):
+        return {"enabled": False, "job": None}
+    rows = store.rows("print_jobs", challenge_id="eq." + str(cid),
+        order="created_at.desc", limit="1", select="id,status,error_code,cups_job_id,created_at")
+    return {"enabled": True, "job": rows[0] if rows else None}

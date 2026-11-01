@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { PrintStation } from "./PrintStation";
 import type { Challenge } from "../types";
 import { MoreIcon, TrashIcon, PencilIcon } from "./icons";
 
@@ -62,6 +63,7 @@ export function Sidebar({
         + 새 챌린지
       </button>
 
+      <PrintStation />
       <div className="sidebar__section">챌린지</div>
       <nav className="sidebar__list">
         {challenges.map((c) => (

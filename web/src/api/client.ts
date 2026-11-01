@@ -1,3 +1,4 @@
+import { pairingToken } from "./printing";
 import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
@@ -17,13 +18,13 @@ class ApiError extends Error {
   constructor(message: string, readonly status: number) { super(message); }
 }
 
-async function req<T>(path: string, body?: unknown, token?: string, timeoutMs?: number): Promise<T> {
+async function req<T>(path: string, body?: unknown, token?: string, timeoutMs?: number, extraHeaders: Record<string, string> = {}): Promise<T> {
   const controller = new AbortController();
   const timer = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : undefined;
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       method: body === undefined ? "GET" : "POST",
-      headers: { "Content-Type": "application/json", ...(token ? { "X-Challenge-Token": token } : {}) },
+      headers: { ...extraHeaders, "Content-Type": "application/json", ...(token ? { "X-Challenge-Token": token } : {}) },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: controller.signal,
       cache: "no-store",
@@ -109,7 +110,11 @@ export async function fetchImageModel(): Promise<string> {
 }
 
 export async function createChallenge(targetImage: string): Promise<{id: string; accessToken: string}> {
-  if (!USE_MOCK) return req("/api/challenges", { target_image: targetImage });
+  if (!USE_MOCK) {
+    const token = pairingToken();
+    return req("/api/challenges", { target_image: targetImage }, undefined, 60_000,
+      token ? { "X-Print-Station-Token": token } : {});
+  }
   const id = crypto.randomUUID();
   samples.set(id, { generates: 0, routes: 0, promptLengths: [] });
   return { id, accessToken: "mock" };

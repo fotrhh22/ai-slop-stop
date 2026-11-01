@@ -16,3 +16,5 @@ pre { font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; margin: 3mm
 .receipt-warning { font-weight: bold; }
 .receipt-actions, .receipt-photo-controls, .receipt-preview-status, .receipt-print-error { display: none; }
 @media print { .receipt-image, dl { break-inside: avoid; } }
+
+@media print { .receipt-device-status { display: none !important; } }

@@ -22,6 +22,7 @@ from .gemini_client import GeminiError, decode_data_url, generate_image, route_v
 from .images import ImageError, validate_image
 from .challenges import router as challenge_router
 from .persistence import PersistenceError
+from .printing import router as printing_router
 
 settings = load_settings()
 
@@ -30,6 +31,7 @@ app = FastAPI(title="Image Challenge Backend", version="0.1.0")
 
 
 app.include_router(challenge_router)
+app.include_router(printing_router)
 
 
 @app.exception_handler(PersistenceError)
@@ -45,7 +47,7 @@ async def rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
-        polling = request.method == "GET" and "/evaluations/" in request.url.path
+        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith("/api/printing/")
         key = ("poll:" if polling else "write:") + (request.client.host if request.client else "unknown")
         now = monotonic()
         w = _windows[key]
@@ -133,5 +135,5 @@ app = CORSMiddleware(
     app,
     allow_origins=[settings.public_app_origin],
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "X-Challenge-Token"],
+    allow_headers=["Content-Type", "X-Challenge-Token", "X-Print-Station-Token", "X-Print-Worker-Token"],
 )

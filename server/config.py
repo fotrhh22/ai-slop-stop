@@ -38,6 +38,10 @@ class Settings:
     supabase_url: str = ""
     supabase_secret_key: str = ""
 
+    print_station_id: str = "booth-1"
+    print_pairing_token: str = ""
+    print_worker_token: str = ""
+
     @property
     def gemini_configured(self) -> bool:
         return bool(self.gemini_api_key)
@@ -52,6 +56,9 @@ def load_settings() -> Settings:
         public_app_origin=os.getenv("PUBLIC_APP_ORIGIN", "http://127.0.0.1:5173"),
         max_requests_per_minute=int(os.getenv("RATE_LIMIT_PER_MIN", "20")),
         port=int(os.getenv("PORT", "8000")),
+        print_station_id=os.getenv("PRINT_STATION_ID", "booth-1"),
+        print_pairing_token=os.getenv("PRINT_PAIRING_TOKEN", ""),
+        print_worker_token=os.getenv("PRINT_WORKER_TOKEN", ""),
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
     )
