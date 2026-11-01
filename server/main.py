@@ -23,6 +23,7 @@ from .images import ImageError, validate_image
 from .challenges import router as challenge_router
 from .persistence import PersistenceError
 from .printing import router as printing_router
+from .clip_bridge import router as clip_router, evaluate_with_clip
 
 settings = load_settings()
 
@@ -32,6 +33,7 @@ app = FastAPI(title="Image Challenge Backend", version="0.1.0")
 
 app.include_router(challenge_router)
 app.include_router(printing_router)
+app.include_router(clip_router)
 
 
 @app.exception_handler(PersistenceError)
@@ -47,7 +49,7 @@ async def rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
-        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith("/api/printing/")
+        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/"))
         key = ("poll:" if polling else "write:") + (request.client.host if request.client else "unknown")
         now = monotonic()
         w = _windows[key]
@@ -74,6 +76,7 @@ def health() -> dict:
         "router_provider": settings.router_provider,
         "router_model": settings.router_model,
         "evaluation_method": "gemini_vision",
+        "clip_mode": settings.clip_mode,
         "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
     }
 
@@ -116,10 +119,9 @@ def api_evaluate(req: EvaluateRequest):
     except ImageError as e:
         return JSONResponse(status_code=400, content={"detail": str(e)})
 
-    # Gemini compares both images directly; no local model is loaded.
     try:
-        verdict = route_verdict(
-            settings, target_bytes, target_mime, gen_bytes, gen_mime
+        verdict = evaluate_with_clip(
+            settings, target_bytes, target_mime, gen_bytes, gen_mime, route_verdict
         )
     except GeminiError as e:
         return JSONResponse(
@@ -127,7 +129,7 @@ def api_evaluate(req: EvaluateRequest):
             content={"detail": str(e).split(":")[0], "message": str(e)},
         )
 
-    return {**verdict, "router_model": settings.router_model}
+    return {**verdict, "router_model": settings.router_model if verdict.get("router_called", True) else None}
 
 
 # Include ServerErrorMiddleware responses in CORS handling too.

@@ -152,7 +152,7 @@ export default function App() {
         ...x,
         evalStatus: "done",
         criteria: r.criteria,
-        routerModel: r.router_model,
+        routerModel: r.router_model ?? undefined,
         verdict: r.verdict,
         reason: r.reason,
         staffOverride: false,

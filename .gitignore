@@ -15,6 +15,7 @@ dist/
 
 # python / model caches
 .venv/
+.bootstrap/
 venv/
 __pycache__/
 *.py[cod]
