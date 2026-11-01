@@ -87,8 +87,11 @@ def main():
             parser.error("Use HTTPS except for localhost")
     encoder = Encoder(args.device, os.getenv("CLIP_CACHE_DIR", ".cache/clip"))
     if args.compare:
+        from server.images import evaluation_image
         start = time.perf_counter()
-        score = encoder.compare(*(Path(p).read_bytes() for p in args.compare))
+        # Match Render's transport transform before calibrating a gate threshold.
+        # The MIME output is unused by the encoder, which decodes image bytes itself.
+        score = encoder.compare(*(evaluation_image(Path(p).read_bytes(), "")[0] for p in args.compare))
         print(json.dumps({"model": MODEL, "pipeline": PIPELINE, "device": encoder.device,
                           "cosine": score, "elapsed_ms": (time.perf_counter() - start) * 1000}))
         return

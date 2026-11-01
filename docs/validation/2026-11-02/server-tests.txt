@@ -1,0 +1,57 @@
+/Users/hunhokang/Downloads/clips/ai-slop-stop/.venv/lib/python3.11/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+test_capacity_lease_and_idempotency (test_clip_bridge.ClipBridgeTests.test_capacity_lease_and_idempotency) ... ok
+test_gate_skips_paid_call_only_below_threshold (test_clip_bridge.ClipBridgeTests.test_gate_skips_paid_call_only_below_threshold) ... ok
+test_missing_gate_threshold_is_configuration_error (test_clip_bridge.ClipBridgeTests.test_missing_gate_threshold_is_configuration_error) ... ok
+test_observe_never_skips_llm (test_clip_bridge.ClipBridgeTests.test_observe_never_skips_llm) ... ok
+test_off_does_not_dispatch (test_clip_bridge.ClipBridgeTests.test_off_does_not_dispatch) ... ok
+test_outbound_worker_roundtrip_before_llm (test_clip_bridge.ClipBridgeTests.test_outbound_worker_roundtrip_before_llm) ... ok
+test_timeout_cleans_images_and_late_result_rejected (test_clip_bridge.ClipBridgeTests.test_timeout_cleans_images_and_late_result_rejected) ... ok
+test_timeout_fallback_and_required (test_clip_bridge.ClipBridgeTests.test_timeout_fallback_and_required) ... ok
+test_worker_auth_and_invalid_result (test_clip_bridge.ClipBridgeTests.test_worker_auth_and_invalid_result) ... ok
+test_clip_polling_does_not_exhaust_ui_or_print_bucket (test_clip_review.ReviewTests.test_clip_polling_does_not_exhaust_ui_or_print_bucket) ... ok
+test_compare_uses_same_transport_as_server (test_clip_review.ReviewTests.test_compare_uses_same_transport_as_server) ... ok
+test_exhausted_claim_bucket_does_not_block_result_submission (test_clip_review.ReviewTests.test_exhausted_claim_bucket_does_not_block_result_submission) ... ok
+test_real_async_gate_saves_fail_then_staff_without_paid_call (test_clip_review.ReviewTests.test_real_async_gate_saves_fail_then_staff_without_paid_call) ... ok
+test_fast_image_generation_uses_minimal_thinking_and_original_prompt (test_evaluation.EvaluationTests.test_fast_image_generation_uses_minimal_thinking_and_original_prompt) ... ok
+test_flash_lite_uses_minimal_thinking_and_request_deadline (test_evaluation.EvaluationTests.test_flash_lite_uses_minimal_thinking_and_request_deadline) ... ok
+test_gemini3_router_uses_low_thinking_for_both_verdicts (test_evaluation.EvaluationTests.test_gemini3_router_uses_low_thinking_for_both_verdicts) ... ok
+test_health_reports_direct_evaluation (test_evaluation.EvaluationTests.test_health_reports_direct_evaluation) ... ok
+test_image_timeout_is_recorded_without_automatic_retry (test_evaluation.EvaluationTests.test_image_timeout_is_recorded_without_automatic_retry) ... ok
+test_invalid_image_is_rejected (test_evaluation.EvaluationTests.test_invalid_image_is_rejected) ... ok
+test_large_png_payload_is_compressed_without_resizing (test_evaluation.EvaluationTests.test_large_png_payload_is_compressed_without_resizing) ... ok
+test_large_router_image_is_bounded_and_original_unchanged (test_evaluation.EvaluationTests.test_large_router_image_is_bounded_and_original_unchanged) ... ok
+test_oversized_image_is_rejected (test_evaluation.EvaluationTests.test_oversized_image_is_rejected) ... ok
+test_rejects_invalid_router_results (test_evaluation.EvaluationTests.test_rejects_invalid_router_results) ... ok
+test_router_timeout_does_not_silently_retry (test_evaluation.EvaluationTests.test_router_timeout_does_not_silently_retry) ... ok
+test_sends_two_images_without_numeric_similarity (test_evaluation.EvaluationTests.test_sends_two_images_without_numeric_similarity) ... ok
+test_small_router_image_is_not_reencoded (test_evaluation.EvaluationTests.test_small_router_image_is_not_reencoded) ... ok
+test_capacity_is_bounded (test_evaluation_jobs.EvaluationJobTests.test_capacity_is_bounded) ... ok
+test_lost_job_is_explicitly_interrupted (test_evaluation_jobs.EvaluationJobTests.test_lost_job_is_explicitly_interrupted) ... ok
+test_pass_job_defers_receipt (test_evaluation_jobs.EvaluationJobTests.test_pass_job_defers_receipt) ... ok
+test_provider_timeout_is_error_not_a_fail_verdict (test_evaluation_jobs.EvaluationJobTests.test_provider_timeout_is_error_not_a_fail_verdict) ... ok
+test_slow_fail_returns_start_and_status_without_waiting_or_repeating_call (test_evaluation_jobs.EvaluationJobTests.test_slow_fail_returns_start_and_status_without_waiting_or_repeating_call) ... ok
+test_unhandled_server_error_keeps_cors_header (test_evaluation_jobs.EvaluationJobTests.test_unhandled_server_error_keeps_cors_header) ... ok
+test_claim_uses_database_atomic_rpc (test_printing.PrintingTests.test_claim_uses_database_atomic_rpc) ... ok
+test_expired_or_wrong_lease_cannot_fetch_image (test_printing.PrintingTests.test_expired_or_wrong_lease_cannot_fetch_image) ... ok
+test_ongoing_job_cannot_be_reprinted (test_printing.PrintingTests.test_ongoing_job_cannot_be_reprinted) ... ok
+test_pairing_does_not_expose_worker_secret (test_printing.PrintingTests.test_pairing_does_not_expose_worker_secret) ... ok
+test_pairing_secret_cannot_claim_jobs (test_printing.PrintingTests.test_pairing_secret_cannot_claim_jobs) ... ok
+test_public_cannot_claim (test_printing.PrintingTests.test_public_cannot_claim) ... ok
+test_sent_requires_spool_job_id (test_printing.PrintingTests.test_sent_requires_spool_job_id) ... ok
+test_unpaired_challenge_has_no_print_query (test_printing.PrintingTests.test_unpaired_challenge_has_no_print_query) ... ok
+test_unverified_receipt_cannot_print (test_printing.PrintingTests.test_unverified_receipt_cannot_print) ... ok
+test_deferred_receipt_returns_saved_pass_before_finalize (test_receipts.ReceiptTests.test_deferred_receipt_returns_saved_pass_before_finalize) ... ok
+test_no_provider_call_if_ledger_start_fails (test_receipts.ReceiptTests.test_no_provider_call_if_ledger_start_fails) ... ok
+test_pending_receipt_retry_reuses_cached_router_pass (test_receipts.ReceiptTests.test_pending_receipt_retry_reuses_cached_router_pass) ... ok
+test_print_source_requires_session_and_uses_unchanged_success_image (test_receipts.ReceiptTests.test_print_source_requires_session_and_uses_unchanged_success_image) ... ok
+test_receipt_checks_actual_image_and_per_model_usage (test_receipts.ReceiptTests.test_receipt_checks_actual_image_and_per_model_usage) ... ok
+test_router_pass_accumulates_failures_retries_and_missing_usage (test_receipts.ReceiptTests.test_router_pass_accumulates_failures_retries_and_missing_usage) ... ok
+test_staff_pass_before_try_without_credentials_or_form (test_receipts.ReceiptTests.test_staff_pass_before_try_without_credentials_or_form) ... ok
+test_staff_pass_without_extra_input_preserves_original_fail (test_receipts.ReceiptTests.test_staff_pass_without_extra_input_preserves_original_fail) ... ok
+test_usage_write_failure_does_not_retry_paid_request (test_receipts.ReceiptTests.test_usage_write_failure_does_not_retry_paid_request) ... ok
+
+----------------------------------------------------------------------
+Ran 50 tests in 0.999s
+
+OK

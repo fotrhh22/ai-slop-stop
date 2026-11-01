@@ -50,7 +50,13 @@ async def rate_limit(request: Request, call_next):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
         polling = (request.method == "GET" and ("/evaluations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/"))
-        key = ("poll:" if polling else "write:") + (request.client.host if request.client else "unknown")
+        # Outbound CLIP polling must not consume the booth browser/print quota.
+        # Keep result submissions separate so busy claim polling cannot block completion.
+        if request.url.path.startswith("/api/clip-worker/"):
+            bucket = "clip-claim:" if request.url.path.endswith("/claim") else "clip-result:"
+        else:
+            bucket = "poll:" if polling else "write:"
+        key = bucket + (request.client.host if request.client else "unknown")
         now = monotonic()
         w = _windows[key]
         while w and w[0] <= now - 60:

@@ -1,0 +1,185 @@
+{
+  "images": [
+    {
+      "file": "dog.jpg",
+      "sha256": "f3f87bb8ab3c26c7ecfd3ac60421d7f32b0503d1d6c5baf8bac42ed93d86351a",
+      "original_size": [
+        1546,
+        1213
+      ],
+      "transport_size": [
+        1024,
+        803
+      ],
+      "original_bytes": 661378,
+      "transport_bytes": 169889
+    },
+    {
+      "file": "bus.jpg",
+      "sha256": "c02019c4979c191eb739ddd944445ef408dad5679acab6fd520ef9d434bfbc63",
+      "original_size": [
+        810,
+        1080
+      ],
+      "transport_size": [
+        768,
+        1024
+      ],
+      "original_bytes": 137419,
+      "transport_bytes": 235053
+    }
+  ],
+  "cases": [
+    {
+      "name": "sequential_real_worker",
+      "passed": true,
+      "latency": {
+        "n": 3,
+        "median_ms": 1045.34,
+        "p95_ms": 1326.93,
+        "min_ms": 972.13,
+        "max_ms": 1326.93
+      }
+    },
+    {
+      "name": "concurrent_two_real_worker",
+      "passed": true,
+      "latencies_ms": [
+        1045.53,
+        2037.22
+      ],
+      "stub_calls": 5
+    },
+    {
+      "name": "kill_after_real_claim_required",
+      "passed": true,
+      "error": "CLIP_TIMEOUT",
+      "latency_ms": 2125.54,
+      "pending_after": 0
+    },
+    {
+      "name": "restart_recovers_next_request",
+      "passed": true,
+      "latency_ms": 1230.62
+    },
+    {
+      "name": "worker_offline_fallback",
+      "passed": true,
+      "latency_ms": 586.14,
+      "similarity": {
+        "status": "unavailable",
+        "error": "CLIP_TIMEOUT",
+        "roundtrip_ms": 566.0
+      }
+    },
+    {
+      "name": "late_result_rejected",
+      "passed": true,
+      "status_code": 409,
+      "error": "CLIP_TIMEOUT",
+      "latency_ms": 636.21
+    },
+    {
+      "name": "duplicate_and_conflict",
+      "passed": true,
+      "statuses": [
+        200,
+        200,
+        409,
+        409
+      ]
+    },
+    {
+      "name": "no_paid_or_external_db_calls",
+      "passed": true,
+      "paid_calls": 0,
+      "stub_calls": 8,
+      "pending_tasks": 0
+    }
+  ],
+  "memory_before": {
+    "memory_pressure": {
+      "exit_code": 0,
+      "output": "The system has 17179869184 (1048576 pages with a page size of 16384).\nSystem-wide memory free percentage: 58%",
+      "error": ""
+    },
+    "pressure_level": {
+      "exit_code": 0,
+      "output": "1",
+      "error": ""
+    },
+    "swap": {
+      "exit_code": 0,
+      "output": "vm.swapusage: total = 1024.00M  used = 1.38M  free = 1022.62M  (encrypted)",
+      "error": ""
+    },
+    "vm_stat": {
+      "exit_code": 0,
+      "output": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                              148610.\nPages active:                            225557.\nPages inactive:                          222772.\nPages speculative:                         2007.\nPages throttled:                              0.\nPages wired down:                        118738.\nPages purgeable:                           1698.\n\"Translation faults\":               13956109394.\nPages copy-on-write:                  553309027.\nPages zero filled:                   9812471990.\nPages reactivated:                     23136498.\nPages purged:                           1671803.\nFile-backed pages:                       182278.\nAnonymous pages:                         268058.\nPages stored in compressor:              804859.\nPages occupied by compressor:            297684.\nDecompressions:                         5488230.\nCompressions:                           7093192.\nPageins:                               70368290.\nPageouts:                                562317.\nSwapins:                                     32.\nSwapouts:                                    88.",
+      "error": ""
+    }
+  },
+  "memory_with_worker": {
+    "memory_pressure": {
+      "exit_code": 0,
+      "output": "The system has 17179869184 (1048576 pages with a page size of 16384).\nSystem-wide memory free percentage: 57%",
+      "error": ""
+    },
+    "pressure_level": {
+      "exit_code": 0,
+      "output": "1",
+      "error": ""
+    },
+    "swap": {
+      "exit_code": 0,
+      "output": "vm.swapusage: total = 1024.00M  used = 1.38M  free = 1022.62M  (encrypted)",
+      "error": ""
+    },
+    "vm_stat": {
+      "exit_code": 0,
+      "output": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                3917.\nPages active:                            294493.\nPages inactive:                          281340.\nPages speculative:                          534.\nPages throttled:                              0.\nPages wired down:                        117157.\nPages purgeable:                           2515.\n\"Translation faults\":               13956328949.\nPages copy-on-write:                  553311923.\nPages zero filled:                   9812734901.\nPages reactivated:                     23143358.\nPages purged:                           1671816.\nFile-backed pages:                       179162.\nAnonymous pages:                         397205.\nPages stored in compressor:              851977.\nPages occupied by compressor:            317929.\nDecompressions:                         5489873.\nCompressions:                           7141960.\nPageins:                               70369078.\nPageouts:                                562581.\nSwapins:                                     32.\nSwapouts:                                    88.",
+      "error": ""
+    }
+  },
+  "workers": [
+    {
+      "caffeinate_pid": 20017,
+      "model_pid": 20017,
+      "ready_rss_mib": 1037.77,
+      "active_rss_mib": 1159.53
+    },
+    {
+      "caffeinate_pid": 20029,
+      "model_pid": 20029,
+      "ready_rss_mib": 1096.2
+    },
+    {
+      "caffeinate_pid": 20034,
+      "model_pid": 20034,
+      "ready_rss_mib": 1050.89,
+      "active_rss_mib": 1183.2
+    }
+  ],
+  "memory_after_worker_exit": {
+    "memory_pressure": {
+      "exit_code": 0,
+      "output": "The system has 17179869184 (1048576 pages with a page size of 16384).\nSystem-wide memory free percentage: 57%",
+      "error": ""
+    },
+    "pressure_level": {
+      "exit_code": 0,
+      "output": "1",
+      "error": ""
+    },
+    "swap": {
+      "exit_code": 0,
+      "output": "vm.swapusage: total = 1024.00M  used = 1.38M  free = 1022.62M  (encrypted)",
+      "error": ""
+    },
+    "vm_stat": {
+      "exit_code": 0,
+      "output": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                              177174.\nPages active:                            203431.\nPages inactive:                          201542.\nPages speculative:                         1112.\nPages throttled:                              0.\nPages wired down:                        114334.\nPages purgeable:                           1272.\n\"Translation faults\":               13956744508.\nPages copy-on-write:                  553316489.\nPages zero filled:                   9813244983.\nPages reactivated:                     23143446.\nPages purged:                           1673091.\nFile-backed pages:                       179828.\nAnonymous pages:                         226257.\nPages stored in compressor:              850973.\nPages occupied by compressor:            317719.\nDecompressions:                         5490530.\nCompressions:                           7141960.\nPageins:                               70369559.\nPageouts:                                562581.\nSwapins:                                     32.\nSwapouts:                                    88.",
+      "error": ""
+    }
+  }
+}

@@ -1,0 +1,20 @@
+[
+  {
+    "file": "dog.jpg",
+    "source": "https://raw.githubusercontent.com/pytorch/hub/master/images/dog.jpg",
+    "sha256": "f3f87bb8ab3c26c7ecfd3ac60421d7f32b0503d1d6c5baf8bac42ed93d86351a",
+    "size": [
+      1546,
+      1213
+    ]
+  },
+  {
+    "file": "bus.jpg",
+    "source": "https://raw.githubusercontent.com/ultralytics/assets/main/im/bus.jpg",
+    "sha256": "c02019c4979c191eb739ddd944445ef408dad5679acab6fd520ef9d434bfbc63",
+    "size": [
+      810,
+      1080
+    ]
+  }
+]
