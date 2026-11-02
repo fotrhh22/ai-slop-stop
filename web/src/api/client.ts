@@ -1,5 +1,5 @@
 import { pairingToken } from "./printing";
-import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria } from "../types";
+import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, ClipSimilarity } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -7,7 +7,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 export interface EvaluateResult {
   criteria?: EvaluationCriteria;
   router_model?: string | null;
-  similarity?: { cosine?: number; model?: string; pipeline?: string; status?: string; error?: string; elapsed_ms?: number; roundtrip_ms: number };
+  similarity?: ClipSimilarity;
   router_called?: boolean;
   evaluation_source?: "clip_gate" | "gemini_vision";
   verdict: Verdict;

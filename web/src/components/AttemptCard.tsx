@@ -104,6 +104,17 @@ export function AttemptCard({
         {evaluated && a.reason && (
           <div className="attempt-card__reason">{a.reason}</div>
         )}
+        {evaluated && a.similarity && (
+          <div className="attempt-card__similarity">
+            <span>CLIP 코사인 유사도 </span>
+            <strong>{a.similarity.status !== "unavailable"
+              && typeof a.similarity.cosine === "number"
+              && Number.isFinite(a.similarity.cosine)
+              && a.similarity.cosine >= -1 && a.similarity.cosine <= 1
+              ? a.similarity.cosine.toFixed(2) : "측정 불가"}</strong>
+            <span className="attempt-card__similarity-note">보조 지표 · 성공 확률이 아닙니다</span>
+          </div>
+        )}
         {a.evalStatus === "error" && a.evalError && (
           <div className="attempt-card__reason is-error">오류: {a.evalError}</div>
         )}
