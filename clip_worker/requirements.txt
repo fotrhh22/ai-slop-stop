@@ -1,0 +1,6 @@
+torch>=2.2,<3
+torchvision>=0.17,<1
+numpy<3
+pillow>=10,<13
+httpx>=0.27,<1
+clip @ git+https://github.com/openai/CLIP.git@d05afc436d78f1c48dc0dbf8e5980a9d471f35f6

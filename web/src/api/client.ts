@@ -6,7 +6,10 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 
 export interface EvaluateResult {
   criteria?: EvaluationCriteria;
-  router_model?: string;
+  router_model?: string | null;
+  similarity?: { cosine?: number; model?: string; pipeline?: string; status?: string; error?: string; elapsed_ms?: number; roundtrip_ms: number };
+  router_called?: boolean;
+  evaluation_source?: "clip_gate" | "gemini_vision";
   verdict: Verdict;
   reason: string;
   receipt?: Receipt;
@@ -60,6 +63,10 @@ function evaluationError(code: string) {
   const messages: Record<string, string> = {
     ROUTER_TIMEOUT: "Gemini 판정 응답 대기 시간이 초과되었습니다. 다시 Try해 주세요.",
     ROUTER_FAILED: "Gemini 판정 요청에 실패했습니다. 다시 Try해 주세요.",
+    CLIP_TIMEOUT: "로컬 이미지 비교 컴퓨터가 응답하지 않습니다. 워커 실행 상태를 확인해 주세요.",
+    CLIP_WORKER_FAILED: "로컬 이미지 비교에 실패했습니다. 워커 로그를 확인해 주세요.",
+    CLIP_BUSY: "로컬 이미지 비교가 진행 중입니다. 잠시 후 다시 Try해 주세요.",
+    CLIP_BAD_CONFIG: "로컬 이미지 비교 서버 설정을 확인해 주세요.",
     EVALUATION_BUSY: "판정 요청이 몰려 있습니다. 잠시 후 다시 Try해 주세요.",
     EVALUATION_INTERRUPTED: "서버가 재시작되어 판정 상태를 확인할 수 없습니다. 다시 Try해 주세요.",
     API_CONNECTION_FAILED: "서버 연결이 끊겨 판정 상태를 확인하지 못했습니다. 다시 Try해 주세요.",
