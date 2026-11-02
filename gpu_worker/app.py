@@ -81,28 +81,28 @@ class GenerateRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
 
 
-class SDXLRunner:
+class FluxRunner:
     def __init__(self):
         # Imports stay out of the HTTP module so CPU-only contract tests can run.
         import torch
         import pynvml
-        from diffusers import StableDiffusionXLPipeline
+        from diffusers import Flux2KleinPipeline
         from zeus.monitor import ZeusMonitor
         self.torch = torch
-        self.model_id = os.environ.get("GPU_IMAGE_MODEL", "stabilityai/stable-diffusion-xl-base-1.0")
+        self.model_id = os.environ.get("GPU_IMAGE_MODEL", "black-forest-labs/FLUX.2-klein-4B")
         self.revision = os.environ.get("GPU_MODEL_REVISION", "")
         if not re.fullmatch(r"[a-f0-9]{40}", self.revision):
             raise RuntimeError("GPU_MODEL_REVISION must be an immutable Hugging Face commit SHA")
         if torch.cuda.device_count() != 1:
             raise RuntimeError("Expose exactly one dedicated GPU with CUDA_VISIBLE_DEVICES")
         self.width = self.height = 1024
-        self.steps = 30
-        self.pipe = StableDiffusionXLPipeline.from_pretrained(self.model_id,
-            revision=self.revision, torch_dtype=torch.float16, use_safetensors=True).to("cuda")
+        self.steps = 4
+        self.pipe = Flux2KleinPipeline.from_pretrained(self.model_id,
+            revision=self.revision, torch_dtype=torch.bfloat16, use_safetensors=True).to("cuda")
         self.pipe.set_progress_bar_config(disable=True)
         # Warm-up is outside every participant's measurement window.
         with torch.inference_mode():
-            self.pipe("a red bicycle", width=self.width, height=self.height, num_inference_steps=2)
+            self.pipe("a red bicycle", width=self.width, height=self.height, num_inference_steps=4, guidance_scale=1.0)
         torch.cuda.synchronize()
         self.monitor = ZeusMonitor(gpu_indices=[0])
         pynvml.nvmlInit()
@@ -120,7 +120,7 @@ class SDXLRunner:
         # Establish energy-counter support before marking the worker ready.
         self.monitor.begin_window("probe")
         with torch.inference_mode():
-            self.pipe("a red bicycle", width=1024, height=1024, num_inference_steps=5)
+            self.pipe("a red bicycle", width=1024, height=1024, num_inference_steps=4, guidance_scale=1.0)
         probe = self.monitor.end_window("probe")
         if not math.isfinite(probe.total_energy) or probe.total_energy <= 0:
             raise RuntimeError("GPU energy probe failed; do not serve unverified telemetry")
@@ -135,7 +135,7 @@ class SDXLRunner:
             window_open = True
             with self.torch.inference_mode():
                 image = self.pipe(request.prompt, width=self.width, height=self.height,
-                    num_inference_steps=self.steps, guidance_scale=5.0,
+                    num_inference_steps=self.steps, guidance_scale=1.0,
                     generator=self.torch.Generator(device="cuda").manual_seed(seed)).images[0]
         except Exception:
             error = "GPU_GENERATION_FAILED"
@@ -169,7 +169,107 @@ class SDXLRunner:
                 "image_sha256": hashlib.sha256(raw).hexdigest()}
 
 
-def create_app(runner=None, ledger_path=None, api_key=None):
+class RouteRequest(BaseModel):
+    request_id: UUID
+    target_image: str = Field(max_length=4_000_000)
+    generated_image: str = Field(max_length=4_000_000)
+
+
+class QwenRunner:
+    def __init__(self):
+        import torch
+        from transformers import AutoProcessor, Qwen3_5ForConditionalGeneration
+        from zeus.monitor import ZeusMonitor
+        self.torch = torch
+        self.model_id = os.environ.get("GPU_ROUTER_MODEL", "Qwen/Qwen3.5-4B")
+        self.revision = os.environ.get("GPU_ROUTER_REVISION", "")
+        if not re.fullmatch(r"[a-f0-9]{40}", self.revision):
+            raise RuntimeError("GPU_ROUTER_REVISION must be an immutable model commit SHA")
+        self.processor = AutoProcessor.from_pretrained(self.model_id, revision=self.revision)
+        self.model = Qwen3_5ForConditionalGeneration.from_pretrained(self.model_id,
+            revision=self.revision, torch_dtype=torch.bfloat16, attn_implementation="sdpa").to("cuda").eval()
+        self.monitor = ZeusMonitor(gpu_indices=[0])
+        self.system = (Path(__file__).resolve().parents[1] / "server/prompts/evaluate.md").read_text()
+        self.system += '\nJSON 형식: {"verdict":"PASS 또는 FAIL","reason":"한국어 한 문장","criteria":{"subject":"MATCH 또는 MISMATCH","composition":"MATCH 또는 MISMATCH","color":"MATCH 또는 MISMATCH","background":"MATCH 또는 MISMATCH"}}'
+        # Use the actual resident Flux GPU's identity; startup uses one CUDA device.
+        self.gpu_uuid = str(torch.cuda.get_device_properties(0).uuid)
+        if not self.gpu_uuid.startswith("GPU-"):
+            self.gpu_uuid = "GPU-" + self.gpu_uuid
+        self.gpu_name = torch.cuda.get_device_name(0)
+        self.zeus_version = version("zeus")
+        from PIL import Image
+        out = io.BytesIO()
+        Image.new("RGB", (128, 128), "red").save(out, format="PNG")
+        data = "data:image/png;base64," + base64.b64encode(out.getvalue()).decode()
+        # Warm up forward/decode and probe real telemetry outside participant calls.
+        sample = self.run(RouteRequest(request_id=UUID(int=0), target_image=data, generated_image=data))
+        if not sample.get("energy") or sample["energy"]["status"] != "measured" or sample["status"] != "succeeded":
+            raise RuntimeError("Qwen warmup/verdict/energy probe failed")
+
+    @staticmethod
+    def decode_image(data):
+        from server.images import validate_image
+        header, content = data.split(",", 1)
+        if header not in ("data:image/png;base64", "data:image/jpeg;base64", "data:image/webp;base64"):
+            raise ValueError("unsupported image source")
+        raw = base64.b64decode(content, validate=True)
+        if len(raw) > 3_000_000:
+            raise ValueError("image too large")
+        image = validate_image(raw)
+        image.thumbnail((512, 512))
+        return image
+
+    def run(self, request):
+        from server.energy import RouterEnergyMeasurement
+        from server.verdict import Verdict
+        target, generated = self.decode_image(request.target_image), self.decode_image(request.generated_image)
+        messages = [{"role": "system", "content": self.system}, {"role": "user", "content": [
+            {"type": "text", "text": "TARGET:"}, {"type": "image", "image": target},
+            {"type": "text", "text": "GENERATED:"}, {"type": "image", "image": generated},
+            {"type": "text", "text": "지정 JSON만 출력하라."}]}]
+        rid, start, wall = str(request.request_id), utcnow(), perf_counter()
+        measured, output, inputs, error, opened = None, None, None, None, False
+        try:
+            self.monitor.begin_window(rid)
+            opened = True
+            inputs = self.processor.apply_chat_template(messages, tokenize=True, add_generation_prompt=True,
+                return_dict=True, return_tensors="pt", enable_thinking=False).to("cuda")
+            with self.torch.inference_mode():
+                output = self.model.generate(**inputs, max_new_tokens=256, do_sample=False, use_cache=True)
+        except Exception:
+            error = "GPU_ROUTER_FAILED"
+            log.exception("Qwen inference failed request_id=%s", rid)
+        finally:
+            if opened:
+                try:
+                    measured = self.monitor.end_window(rid)
+                except Exception:
+                    log.exception("Qwen telemetry failed request_id=%s", rid)
+        end, duration = utcnow(), perf_counter() - wall
+        input_count = int(inputs["input_ids"].shape[-1]) if inputs is not None else None
+        output_count = int(output.shape[-1]) - input_count if output is not None else None
+        value = measured.total_energy if measured else None
+        valid = value is not None and math.isfinite(value) and value > 0
+        energy = RouterEnergyMeasurement(measurement_id=request.request_id,
+            status="measured" if valid else "unavailable", energy_j=value if valid else None,
+            duration_s=measured.time if measured else duration,
+            reason=None if valid else "ENERGY_COUNTER_UNAVAILABLE_OR_WINDOW_TOO_SHORT",
+            gpu_name=self.gpu_name, gpu_uuid=self.gpu_uuid, model_id=self.model_id,
+            model_revision=self.revision, zeus_version=self.zeus_version,
+            started_at=start, finished_at=end, input_tokens=input_count, output_tokens=output_count)
+        verdict = None
+        if not error:
+            try:
+                text = self.processor.decode(output[0][input_count:], skip_special_tokens=True)
+                verdict = Verdict.model_validate_json(text).model_dump()
+            except Exception:
+                error = "GPU_ROUTER_BAD_JSON"
+        return {"request_id": rid, "status": "failed" if error else "succeeded",
+                "energy": energy.model_dump(mode="json"), "verdict": verdict,
+                "error": error, "input_tokens": input_count, "output_tokens": output_count}
+
+
+def create_app(runner=None, ledger_path=None, api_key=None, judge=None):
     key = api_key if api_key is not None else os.environ.get("GPU_API_KEY", "")
     lock = threading.Lock()
 
@@ -186,7 +286,8 @@ def create_app(runner=None, ledger_path=None, api_key=None):
             except BlockingIOError as exc:
                 raise RuntimeError("GPU worker already running; use --workers 1") from exc
             app.state.ledger = RequestLedger(path)
-            app.state.runner = runner or SDXLRunner()
+            app.state.runner = runner or FluxRunner()
+            app.state.judge = judge if judge is not None else (QwenRunner() if runner is None else None)
             yield
 
     app = FastAPI(title="AI SLOP STOP GPU worker", lifespan=lifespan)
@@ -197,14 +298,16 @@ def create_app(runner=None, ledger_path=None, api_key=None):
 
     @app.get("/health", dependencies=[Depends(authorize)])
     def health():
-        return {"ok": True, "provider": "zeus", "scope": "gpu_board_generation_window"}
+        return {"ok": True, "provider": "zeus", "router_ready": app.state.judge is not None,
+                "image_model": getattr(app.state.runner, "model_id", "test"),
+                "router_model": getattr(app.state.judge, "model_id", None)}
 
     @app.post("/v1/generate", dependencies=[Depends(authorize)])
     def generate(request: GenerateRequest):
         rid = str(request.request_id)
         if not request.prompt.strip():
             raise HTTPException(400, "EMPTY_PROMPT")
-        fingerprint = hashlib.sha256(request.prompt.encode()).hexdigest()
+        fingerprint = hashlib.sha256(("generate:" + request.prompt).encode()).hexdigest()
         cached = app.state.ledger.existing(rid, fingerprint)
         if cached:
             return cached
@@ -219,6 +322,32 @@ def create_app(runner=None, ledger_path=None, api_key=None):
                 result = app.state.runner.run(request)
             except Exception:
                 log.exception("Worker failed request_id=%s", rid)
+                result = {"request_id": rid, "status": "unknown", "error": "GPU_RESULT_UNCONFIRMED"}
+            app.state.ledger.finish(rid, result)
+            return result
+        finally:
+            lock.release()
+
+    @app.post("/v1/route", dependencies=[Depends(authorize)])
+    def route(request: RouteRequest):
+        if app.state.judge is None:
+            raise HTTPException(503, "GPU_ROUTER_NOT_READY")
+        rid = str(request.request_id)
+        fingerprint = hashlib.sha256(("route:" + request.target_image + ":" + request.generated_image).encode()).hexdigest()
+        cached = app.state.ledger.existing(rid, fingerprint)
+        if cached:
+            return cached
+        if not lock.acquire(blocking=False):
+            raise HTTPException(429, "GPU_BUSY")
+        try:
+            cached = app.state.ledger.existing(rid, fingerprint)
+            if cached:
+                return cached
+            app.state.ledger.start(rid, fingerprint)
+            try:
+                result = app.state.judge.run(request)
+            except Exception:
+                log.exception("Router failed request_id=%s", rid)
                 result = {"request_id": rid, "status": "unknown", "error": "GPU_RESULT_UNCONFIRMED"}
             app.state.ledger.finish(rid, result)
             return result

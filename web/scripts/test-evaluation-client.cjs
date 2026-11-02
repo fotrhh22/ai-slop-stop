@@ -44,7 +44,7 @@ async function main() {
     requests++;
     return response({ job_id: 'job', status: 'error', error: 'ROUTER_TIMEOUT' }, 202);
   });
-  await assert.rejects(timeoutApi.evaluate(challenge, attempt), /Gemini 판정 응답 대기 시간/);
+  await assert.rejects(timeoutApi.evaluate(challenge, attempt), /AI 판정 응답 대기 시간/);
   assert.equal(requests, 1, 'provider timeout must not start another paid evaluation');
 
   const passApi = client(async () => response({ job_id: 'job', status: 'done', result: {

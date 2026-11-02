@@ -99,7 +99,11 @@ def render_receipt(receipt,image_bytes,font_path=None):
         wh=energy.get('energy_wh')
         page.text(f'{wh:.4f} Wh' if isinstance(wh,(int,float)) else '미계측',30)
         page.text(f"계측 {energy.get('measured_generation_calls',0)}회 / 미계측 {energy.get('unmeasured_generation_calls',0)}회",18)
-        page.text('생성 구간 GPU / 유휴 소비 포함\nAI 판정·CPU·냉각·네트워크 제외\n미계측은 0이 아님',18)
+        router_wh=energy.get('router_energy_wh')
+        total_wh=energy.get('total_gpu_energy_wh')
+        page.text(f'판정 GPU: {router_wh:.4f} Wh' if isinstance(router_wh,(int,float)) else '판정 GPU: 미계측',18)
+        page.text(f'GPU 합계: {total_wh:.4f} Wh' if isinstance(total_wh,(int,float)) else 'GPU 합계: 미계측',22)
+        page.text('상주 모델 유휴 소비 포함\nCLIP·CPU·냉각·네트워크 제외\n미계측은 0이 아님',18)
     page.rule();page.text('모델별 사용 토큰',24)
     models=receipt.get('tokens_by_model',{})
     for name,usage in sorted(models.items(),key=lambda x:(-bool(x[1].get('generation_calls')),x[0])):

@@ -1,92 +1,73 @@
-# RunPod 이미지 생성·Zeus 계측 전환 계획 및 실행 절차
+# FLUX.2 Klein 4B + Qwen3.5-4B 전환 실행 계획
 
-작성일: 2026-11-02 (Asia/Seoul)
-기준: GitHub `fotrhh22/ai-slop-stop`, `533d69f` (CLIP worker 병합 이후).
-작업 브랜치: `codex/zeus-gpu-migration`. 운영 배포·DB 변경·유료 GPU 생성은 아직 하지 않았다.
+갱신: 2026-11-03 (Asia/Seoul). 브랜치 `codex/zeus-gpu-migration`.
+기준 GitHub commit `533d69f` 이후의 별도 작업본이다. 원래 작업 폴더의 미커밋 UI 변경은 건드리지 않는다.
 
-## 1. 전환 범위와 현재 상태
+## 현재 상태: 코드 준비와 실제 구축은 다르다
 
-1차에서는 **이미지 생성만 Gemini → 직접 운영하는 RunPod API**로 바꾼다.
-기존 Gemini Router와 CLIP worker, 세션/첫 PASS 영수증, Supabase Storage, 자동 인쇄 구조를 유지한다.
-Gemini를 완전히 제거하는 단계가 아니다. 이미지 판정까지 원격 VLM으로 바꾸려면 품질·VRAM·판정 기준을 별도로 검증해야 한다.
+이전 작업은 SDXL 생성 코드·Zeus 계측·백엔드 원장·화면 표시의 로컬 구현이었다.
+이번 변경은 생성 모델을 **FLUX.2 Klein 4B distilled**, 판정을 **Qwen3.5-4B 비추론 모드**로 바꾸는 코드다.
+GPU 대여·모델 다운로드·실제 CUDA/NVML 실행·DB SQL 적용·운영 배포를 수행하지 않았다.
+따라서 **계측값 검증만 남은 완성 시스템이 아니다. 모델 런타임과 실제 서비스 연결 검증도 남아 있다.**
 
-| 구성 | 현재 운영 | 전환 작업본 |
+| 구성 | 준비된 내용 | 미확인 부분 |
 |---|---|---|
-| 프런트 | Vercel React/Vite | 유지. 생성 작업 접수 후 polling, Wh 표시 추가 |
-| 업무 API | Render FastAPI | 유지. 이미지 공급자 스위치, 원격 GPU 호출 추가 |
-| 이미지 생성 | Gemini 이미지 API | RunPod GPU Pod 1개 / GPU 1장 / Diffusers |
-| 판정 | CLIP + Gemini Router | 최신 GitHub 로직 유지 |
-| 소비량 | API 사용 토큰 | 생성 GPU의 Zeus 계측 J + Wh, 토큰은 별도 기록 |
-| 보존 | Supabase 시도·호출·성공 원장 | 호출별 `energy_measurement` JSON 추가 |
-| 인쇄 | 기존 프린터 브리지 | 실측 확인분·미계측 생성 횟수 추가 |
+| GPU 생성 | Flux2KleinPipeline, BF16, 1024², 4 steps, CFG 1 | 실제 설치·VRAM·한국어 품질·지연 |
+| GPU 판정 | Qwen3_5ForConditionalGeneration, BF16, 두 이미지, thinking off, 출력 상한 256 tokens | 실제 실행·JSON 준수율·판정 품질·지연 |
+| 계측 | 생성/판정 각각 Zeus window, J 저장·Wh 환산 | 인스턴스 NVML 지원·counter 동작·반복성 |
+| GPU API | Bearer 인증, 단일 실행 잠금, 요청 ID 영속화·중복 방지 | RunPod proxy·장시간 운영 |
+| 백엔드 | 공급자 분기, 호출 원장, 작업 polling, 실패/unknown 처리 | 운영 DB·Render 연결 |
+| 영수증 | 생성 Wh·판정 Wh·GPU 확인 합계, 미계측 횟수 | 실제 웹 흐름·프린터 출력 |
 
-코드는 로컬 계약·회귀 테스트를 위한 구현이다. GPU 실행, 실제 NVML 접근, 클라우드 HTTP proxy 대기 제한,
-SQL 적용, 실물 프린터 출력까지 검증되었다는 뜻은 아니다. `/health`의 `gpu_configured`도 설정 유무이며 GPU 연결 성공 검사가 아니다.
+현재 운영 사이트는 기존 Gemini 구성이다. 기본 환경변수도 Gemini라서 이 코드를 배포하는 것만으로 자동 전환되지 않는다.
+Gemini fallback은 자동으로 실행하지 않는다. 필요하면 운영자가 환경변수로 명시적으로 되돌린다.
 
-## 2. 요청 흐름
+## 목표 구조
 
 ```text
-Vercel browser
-  POST /api/challenges/{cid}/generations {attempt_id, prompt}
-       ↓ X-Challenge-Token
-Render: authorize → 작업 ID 반환(202) → background generation
-       ↓ 서버 전용 Bearer GPU_API_KEY
-RunPod: POST /v1/generate {request_id=attempt_id, prompt}
-  요청 ID 원장 조회 → GPU 단독 잠금 → Zeus begin_window
-  → Diffusers 이미지 생성 → Zeus end_window → PNG 인코딩
-  → SQLite에 이미지·계측 결과 저장 → JSON 응답
-       ↓
-Render: 요청 ID·모델·이미지 SHA-256·계측 계약 검증
-  → api_calls 저장 → attempts 이미지 해시 기록 → generation job 완료
-       ↓
-Browser GET /api/challenges/{cid}/generations/{attempt_id}
-  → 생성 이미지와 GPU Wh 표시
-  → 기존 Try/STAFF → 첫 PASS 영수증 → 기존 자동 인쇄
+Vercel 웹 → Render FastAPI → RunPod (GPU 1장, worker 1개)
+                             ├ FLUX.2 Klein 4B distilled → 생성 이미지 + 생성 J
+                             └ Qwen3.5-4B → PASS/FAIL JSON + 판정 J
+                     ↓
+            Supabase 호출 원장 → 웹/영수증/기존 프린터 브리지
 ```
 
-Render도 **1 worker / 1 replica**, GPU도 **1 worker / 1 GPU**로 운영한다.
-현재 generation job 상태는 Render 메모리에 있으므로 다중 replica로 늘리려면 DB 작업 큐로 교체해야 한다.
-완료 이미지가 포함된 작업 결과는 최대 8개이며 10분 지난 완료 작업은 다음 작업 접수 때 정리한다.
-GPU가 바쁘면 무제한 대기열에 쌓지 않고 접수를 거절한다.
+두 모델은 시작할 때 로딩·워밍업하고 GPU에 상주시킨다. 요청마다 모델 교체·CPU offload를 하지 않는다.
+생성/판정 API는 같은 잠금을 써서 한 GPU에서 계측 window가 겹치지 않도록 한다.
+기존 CLIP worker는 보존하되 **첫 비교 시험에서는 CLIP_MODE=off**로 설정해 Qwen 자체 성능과 시간을 확인한다.
+CLIP을 다시 켜면 CLIP 소비량은 이 GPU 합계에서 제외하며, 조기 FAIL 시 Qwen 요청이 없을 수 있다.
 
-## 3. 측정 경계
+## Phase 0 — 코드 확정·로컬 검증 (이번에 진행)
 
-- Zeus GPU 에너지(J)를 원본으로 보존하며 `Wh = J / 3600`으로 계산한다.
-- **모델 로딩·워밍업·시작 계측 시험을 제외하고, 생성 pipeline 실행 구간만 측정**한다.
-- 이 구간의 GPU 유휴 소비도 포함한 GPU 보드 범위다. 유휴 baseline을 임의로 빼지 않는다.
-- CPU·메모리·전원장치 손실·냉각·네트워크·Gemini 판정은 제외한다. PUE를 임의로 곱하지 않는다.
-- GPU UUID, 모델 commit SHA, 해상도·step·seed, Zeus 버전과 시간 구간을 같이 저장한다.
-- 실패한 생성도 계측값을 받았다면 합산한다. 응답 유실·재시작은 미확인으로 남긴다.
-- 계측 0/NaN/음수는 측정 성공값으로 표시하지 않는다. 유효값이 하나도 없으면 합계도 NULL/미계측이다.
-- 영수증 표기: **누적 이미지 생성 GPU 전력량 / 실측 확인분 / 미계측 생성 요청**.
-- 자전거 계측은 USB 출력에서 부하로 전달된 Wh다. 같은 단위로 비교할 수 있지만 측정 경계가 다르며 실제 상쇄량은 아니다.
-- 이 모델·GPU의 결과를 Gemini·ChatGPT 또는 온라인 토큰 추정용 공통 계수로 재사용하지 않는다.
+담당: Codex. 사용자는 GPU 결제를 아직 할 필요가 없다.
 
-## 4. RunPod 첫 시험 구성
+- SDXL → FLUX.2 Klein 4B distilled 전환.
+- Qwen 판정 API, 명시적 provider switch, non-thinking·최대 출력 길이 설정.
+- 생성과 판정 각각 계측·저장·표시. 판정 JSON 오류도 소비량이 확인되면 원장에 보존.
+- HTTP 중복 요청, timeout, 재시작, 계측 단위/부분 합계, 기존 기능 회귀 테스트.
+- 업로드 압축파일과 아래 실행 명령 준비.
 
-- 상품: GPU **Pods**, 단독 GPU 인스턴스.
-- GPU: RTX 4090 24GB × 1. 재고가 없다면 3090 24GB × 1에서 별도 검증한다.
-- 초기 테스트는 중단 위험이 적은 on-demand로 한다. 공급 가용성·실제 요금은 생성 직전 확인한다.
-- 템플릿: Python 3.11 이상, CUDA/PyTorch가 작동하는 PyTorch 템플릿. 이 코드는 GPU UUID 속성을 사용하는 PyTorch 버전을 요구한다.
-- HTTP port: 8000. SSH/Jupyter는 운영자가 접속할 때만 이용한다.
-- `/workspace`에 모델 캐시·요청 원장을 저장한다. Pod 제거 시 보존 조건을 확인하고 결과를 먼저 export한다.
-- 초기 디스크 예산: 모델 캐시·패키지·시도 결과를 고려해 40~60GB부터 시험하되 실제 사용량을 확인한다.
-  SQLite에는 PNG base64도 들어가므로 행사 후 원장 export와 보관 정책이 필요하다.
-- GPU 대여료 외 storage 등 비용이 있고, 모델 다운로드·워밍업 시간도 대여 시간에 포함된다.
+완료 기준: 로컬 테스트·프런트 빌드 성공. 이것은 실제 GPU 시험을 대체하지 않는다.
 
-**초기 모델은 SDXL base 1.0 / 1024×1024 / 30 steps / batch 1 / CFG 5.0.**
-이는 실행·계측 검증용 출발점이다. 실제 운영 모델은 아래 품질 시험 후 확정한다.
-SDXL의 텍스트 인코더 길이 제한·한국어 이해·복합 목표 재현은 기존 Gemini와 다르다.
-프롬프트를 몰래 번역하거나 API 토큰을 SDXL 토큰으로 위장하지 않는다. 길이가 긴 입력은 모델에서 잘릴 수 있다.
-공개 행사 전에는 생성물 검수와 운영자 통제 등 기존 Gemini 제공 기능과 달라진 운영 조건도 확인한다.
+## Phase 1 — GPU 인스턴스 확보 (사용자)
 
-## 5. RunPod 구축 순서
+1. RunPod에서 **Pods**를 선택한다. 이미지 생성 API만 제공하는 managed endpoint를 선택하지 않는다.
+2. **48GB VRAM 단일 NVIDIA GPU**를 초기 시험 후보로 확보한다. 예: RTX 6000 Ada 48GB / L40S 48GB.
+   이는 두 모델 상주와 작업 메모리를 위한 계획상 권장치이며, 15초 보장이나 실측 VRAM 수치가 아니다.
+   4090 24GB에 두 모델이 여유 있게 상주한다고 가정하지 않는다. 80GB GPU도 시험 후보지만 비용을 함께 확인한다.
+3. Python 3.11+, CUDA/PyTorch가 준비된 템플릿. HTTP port 8000을 노출한다.
+4. 모델 캐시·원장용 `/workspace` 디스크를 확보한다. 초기 60GB 이상을 계획하되 실제 모델 파일 크기와 여유 공간을 확인한다.
+5. 요금·스토리지 비용을 확인하고 짧은 on-demand 시험부터 시작한다.
 
-### A. 코드와 환경 준비
+사용자가 준비할 정보: **Pod ID, GPU 종류, HTTPS 8000 proxy URL, SSH 접속 방법**.
+API 키·SSH 개인키를 채팅이나 GitHub에 올리지 않는다. 운영 환경 편집기에 직접 넣는다.
 
-제공된 `zeus-gpu-source.tar.gz`는 worker에 필요한 파일만 포함하며 `.env`·키·웹 전체 코드를 포함하지 않는다.
-RunPod의 `/workspace/ai-slop-stop/`에 압축을 풀고 그 디렉터리에서 실행한다.
-GitHub에서 받는 경우에는 이 작업 브랜치가 실제 push된 뒤 정확한 commit으로 checkout한다. 현재 main에는 아직 이 변경이 없다.
+완료 기준: `nvidia-smi`에 할당된 GPU 한 장이 보이고 CUDA/PyTorch 실행이 가능하다.
+
+## Phase 2 — GPU worker 설치·시작 (사용자 환경에서 실행)
+
+압축파일 `zeus-gpu-source.tar.gz`를 `/workspace/ai-slop-stop/`에 푼다. 파일 업로드는 RunPod가 제공하는 전송/SSH 경로로 한다.
+GitHub main에는 이 코드가 아직 없으므로, 압축파일 대신 clone하려면 작업 브랜치를 먼저 push해야 한다.
 
 ```bash
 cd /workspace/ai-slop-stop
@@ -96,121 +77,126 @@ python -m pip install -r gpu_worker/requirements.txt
 python -m zeus.show_env
 ```
 
-PyTorch는 템플릿에 설치된 CUDA 호환 버전을 사용한다. 없으면 해당 CUDA 환경용 PyTorch를 먼저 설치한다.
-GPU 라이브러리는 Render에 설치하지 않는다.
+새 FLUX/Qwen 지원 때문에 Diffusers 최신 소스와 Transformers 5.2 이상을 사용한다.
+실제 GPU 시험 후 설치 버전 목록과 소스 commit을 저장하고 재현 가능한 이미지로 고정한다. 현재 requirements는 GPU 검증된 lockfile이 아니다.
+Qwen의 고속 attention/DeltaNet 커널이 없는 환경은 느릴 수 있어, 실제 trace를 확인한 뒤 공식 문서에 맞게 보완한다.
 
-RunPod 환경변수 화면에 다음을 설정한다 (`gpu_worker/.env.example` 참고).
-
-| 변수 | 값 |
-|---|---|
-| `GPU_API_KEY` | 32자 이상 난수. Render와 동일한 값, 브라우저에는 넣지 않음 |
-| `GPU_IMAGE_MODEL` | `stabilityai/stable-diffusion-xl-base-1.0` |
-| `GPU_MODEL_REVISION` | 모델 저장소의 **40자리 immutable commit SHA**, 필수 |
-| `HF_HOME` | `/workspace/huggingface` |
-| `GPU_LEDGER_PATH` | `/workspace/ai-slop/requests.sqlite3` |
-
-모델 SHA는 모델 페이지의 Files/history에서 확인하거나 다음으로 조회 후 고정한다.
+두 모델의 immutable SHA를 조회한다.
 
 ```bash
-python -c 'from huggingface_hub import model_info; print(model_info("stabilityai/stable-diffusion-xl-base-1.0").sha)'
+python -c 'from huggingface_hub import model_info; print(model_info("black-forest-labs/FLUX.2-klein-4B").sha); print(model_info("Qwen/Qwen3.5-4B").sha)'
 ```
 
-API 키는 비밀 관리자 등으로 생성하고 환경변수 편집기에만 입력한다. `.env` 파일을 shell로 source할 필요는 없다.
-플랫폼이 공급하는 GPU 할당/가시성 설정을 유지한다. 이 worker에는 정확히 GPU 한 장만 보여야 한다.
+RunPod 환경변수 편집기에 입력한다.
+
+```text
+GPU_IMAGE_MODEL=black-forest-labs/FLUX.2-klein-4B
+GPU_MODEL_REVISION=<첫 번째 40자리 모델 SHA>
+GPU_ROUTER_MODEL=Qwen/Qwen3.5-4B
+GPU_ROUTER_REVISION=<두 번째 40자리 모델 SHA>
+GPU_API_KEY=<32자 이상의 난수 비밀>
+GPU_LEDGER_PATH=/workspace/ai-slop/requests.sqlite3
+HF_HOME=/workspace/huggingface
+```
+
+플랫폼의 GPU 가시성 설정을 유지한다. GPU는 정확히 한 장만 보여야 한다.
 
 ```bash
 python -m uvicorn gpu_worker.app:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-서버는 모델 로딩·워밍업·실제 Zeus counter 시험을 통과한 후 요청을 받는다. 이 단계가 실패하면 지원 여부/드라이버/컨테이너를 먼저 점검한다.
-`GPU_API_KEY`가 짧거나 모델 SHA가 없으면 시작하지 않는다. 파일 잠금으로 같은 원장을 쓰는 2번째 프로세스도 막는다.
+시작 시 두 모델 로딩·워밍업·실제 counter probe를 실행한다. Qwen warmup에서 JSON 판정도 확인한다.
+잘못된 SHA·키·GPU 개수·메모리 부족·probe 실패가 있으면 서비스가 준비 상태가 되지 않는다.
+인증된 `/health`에 `router_ready=true`와 두 모델 ID가 보이는지 확인한다.
 
-### B. GPU 단독 시험
+완료 기준: 두 모델이 로드된 worker가 준비 상태가 되고, 시작 로그에 OOM·NVML 오류가 없다.
 
-운영자 환경에 `GPU_API_URL`과 `GPU_API_KEY`를 설정한 뒤 실행한다. URL은 Pod의 HTTPS 8000 proxy URL 또는 SSH tunnel의 localhost 주소다.
-명령에 키를 직접 붙이지 않는다.
+## Phase 3 — 생성·판정·계측 단독 시험 (사용자 + Codex 분석)
+
+운영자 환경변수에 `GPU_API_URL`(HTTPS proxy 주소)과 동일한 `GPU_API_KEY`를 설정한다. 키를 명령 인자에 쓰지 않는다.
 
 ```bash
-python -m gpu_worker.smoke_test --count 1 --output gpu-smoke.json
-python -m gpu_worker.smoke_test --count 10 --output gpu-benchmark.json
+python -m gpu_worker.smoke_test --count 1 --with-router --output smoke.json
+python -m gpu_worker.smoke_test --count 30 --with-router --target /path/to/target.png --prompt "실제 행사 프롬프트" --output benchmark.json
 ```
 
-smoke test는 CPU 쪽에서도 실행할 수 있으며 pydantic만 있으면 된다. GPU 패키지가 설치된 worker에서도 실행 가능하다.
-이미지는 출력하지 않고 request ID·시간·Wh·모델/GPU 조건을 증거 JSON에 남긴다. 이 호출은 실제 GPU 연산과 비용을 발생시킨다.
-HTTP 응답 유실 시 자동 재생성하지 않는다. 기록한 ID로 인증된 `GET /v1/requests/{id}`를 조회해 원격 결과를 조사한다.
+`--target`이 없으면 생성 이미지를 자기 자신과 비교하므로 **통신·형식 시험**일 뿐 품질 시험이 아니다.
+`--target`을 주면 그 목표와 비교한다. 원래 Gemini에서 쓰던 목표 5종 이상과 쉬운/어려운 한국어 프롬프트를 나눠 실행한다.
+smoke test는 생성마다 새 request ID, 판정마다 별도 ID를 만들며 HTTP 재시도는 하지 않는다.
+응답 유실 시 ID를 기록한 JSON과 인증된 `GET /v1/requests/{id}`로 조사한다. 무작정 새 생성으로 재시도하지 않는다.
 
-### C. DB와 Render 연결
+확인할 항목:
 
-1. Supabase에 기존 migrations와 최신 CLIP migration을 유지하고 `202611020001_gpu_energy.sql`을 적용한다.
-   추가 컬럼만 도입하며 기존 Gemini 호출은 NULL이다. 아직 적용하지 않았다면 GPU 호출 전에 스키마 오류로 중단된다.
-2. 스테이징 Render에 이번 backend 코드를 배포한다. 아래 변수 외 기존 DB·인쇄·Router·CLIP 설정은 보존한다.
-3. `/health`의 공급자/모델 설정과 GPU 인증 health를 각각 확인한다.
+- 생성 이미지가 지시를 수행하는지. 한국어 원문을 몰래 번역·확장하지 않는다.
+- 이미지 쌍에 대한 Qwen PASS/FAIL과 근거가 사람의 기준에 맞는지.
+- 두 작업 각각 양수·유한 J, GPU UUID·모델 SHA·시간 구간이 기록되는지.
+- 같은 ID 재전송으로 새 GPU 실행이 생기지 않는지.
+- 측정할 수 없는 값은 NULL/미계측으로 남는지.
+- 생성+판정의 GPU API 왕복 P50/P95와 메모리 피크.
+
+합격 목표: GPU API 생성+판정 왕복 **P95 12초 이내**를 초기 시간 예산으로 삼고,
+실제 웹 전체는 다음 단계에서 **P95 15초 이내**를 확인한다. 이 수치는 현재 측정 결과가 아니라 채택 기준이다.
+30회는 초기 선별 표본이며 장시간 안정성을 증명하는 충분한 통계라고 주장하지 않는다.
+
+Zeus와 nvidia-smi의 일치는 독립 전력계 교정이 아니다. 전력값의 타당성은 구간·반복성·측정 경계를 검증한다.
+제출 증거로 smoke/benchmark JSON, GPU 사양, 모델 SHA, `pip freeze`, worker 로그를 보존한다.
+
+## Phase 4 — Supabase·Render·Vercel 스테이징 연결 (사용자 환경 + Codex)
+
+1. 기존 DB 구조에 `supabase/migrations/202611020001_gpu_energy.sql`을 적용한다. 기존 CLIP/인쇄 migration도 유지한다.
+2. 작업 브랜치를 GitHub에 push하고 Render 스테이징을 이 코드로 배포한다. 단일 worker/replica로 운영한다.
+3. Render에 아래 환경변수를 설정한다. 키는 서버 전용이며 `VITE_`로 시작하면 안 된다.
 
 ```text
 IMAGE_PROVIDER=zeus
-GPU_IMAGE_MODEL=stabilityai/stable-diffusion-xl-base-1.0
-GPU_API_URL=https://<Pod의 8000 proxy 주소>
-GPU_API_KEY=<RunPod와 같은 서버 전용 비밀>
+GPU_IMAGE_MODEL=black-forest-labs/FLUX.2-klein-4B
+ROUTER_PROVIDER=zeus
+GPU_ROUTER_MODEL=Qwen/Qwen3.5-4B
+GPU_API_URL=https://<Pod 8000 proxy 주소>
+GPU_API_KEY=<RunPod와 동일한 비밀>
 GPU_TIMEOUT_SECONDS=150
+CLIP_MODE=off
 ```
 
-GPU worker와 Render의 모델 ID는 일치해야 한다. Gemini Router 때문에 `GEMINI_API_KEY`는 계속 필요하다.
-자동으로 Gemini 이미지 생성으로 fallback하지 않는다. 장애 중 계측되지 않은 이미지를 측정 이미지로 오인하지 않도록 명시적 오류를 반환한다.
-Render의 요청 제한/timeout과 GPU proxy 제한을 실제 생성시간과 함께 확인한다. 브라우저 polling은 긴 브라우저 연결 문제를 줄이지만 Render→GPU의 upstream timeout까지 없애지는 않는다.
+150초는 장애 판정용 HTTP 상한이며 서비스 속도 목표가 아니다.
+Supabase·인쇄 등 기존 환경변수는 유지한다. Gemini 키는 rollback용으로 보관할 수 있으며 zeus/zeus 경로에서는 호출하지 않는다.
+4. Vercel preview에서 `VITE_USE_MOCK=false`, `VITE_API_BASE=<Render 스테이징 주소>`로 연결한다.
+   Render `PUBLIC_APP_ORIGIN`도 정확한 preview origin과 맞춘다.
+5. 목표 선택 → 생성 → Try → FAIL/재시도 → PASS/STAFF → 영수증 재조회 → 인쇄를 시험한다.
 
-### D. 프런트·영수증·인쇄 시험
+완료 기준: 실제 DB에 `provider=zeus` 생성·판정 원장이 쌓이고 이미지 해시·계측값·화면·영수증이 일치한다.
+웹에서 사용자 입력/클릭 간 대기시간을 제외한 생성+판정 처리의 P95가 15초 안에 드는지 확인한다.
+GPU API 시험의 시간은 Render·Supabase·브라우저 비용을 포함하지 않으므로 이 단계를 생략하지 않는다.
 
-1. Vercel preview를 이번 backend 스테이징에 연결하고 `VITE_USE_MOCK=false`로 빌드한다.
-2. 기존 challenge 생성 → 이미지 생성 → FAIL 후 재생성 → PASS/STAFF → 영수증 재조회 → 출력 순서로 시험한다.
-3. 화면의 생성 모델명이 SDXL을 가리키고, 시도 카드와 영수증 Wh가 원장의 J/3600과 일치하는지 확인한다.
-4. 미계측·실패 호출을 포함한 세션에서 부분 합계와 누락 횟수가 유지되는지 확인한다.
-5. 프린터 브리지도 이번 renderer로 업데이트한다. PNG 렌더링만으로 실제 출력 완료를 주장하지 않는다.
+## Phase 5 — 행사 리허설·운영 전환 (사용자)
 
-## 6. 운영 전 합격 조건
+- 참가자 1명씩 순차 체험하는 운영으로 먼저 검증한다. GPU가 바쁘면 큐에 무한 대기하지 않고 busy로 거절한다.
+- 실제 자전거의 USB 출력 Wh와 AI GPU 실측 확인분을 비교한다.
+- 정지·재출발·중복 클릭·인터넷 단절·재시작·계측 미확인·재인쇄를 시험한다.
+- 단위·문구·출력량·참가자 처리시간을 확인한 뒤 운영 배포로 전환한다.
+- 모델을 상주시킨 Pod를 행사 전에 켜두고 warm 상태를 확인한다. 행사 후 증거를 export하고 대여를 종료한다.
 
-| 시험 | 합격 조건 |
-|---|---|
-| GPU 계측 접근 | 실제 인스턴스에서 Zeus probe와 10회 연속 생성에 유효한 J·UUID·모델 SHA 기록 |
-| 반복 요청 | 같은 ID+prompt를 재전송해도 같은 결과, 새 GPU 실행 없음 |
-| 동시 요청 | 측정 창이 겹치지 않음. 초과 요청은 busy로 거절 |
-| 생성 실패 | 실패 구간의 계측값은 보존하거나 미계측으로 명시, 0으로 대체하지 않음 |
-| 네트워크 유실 | 같은 ID로 상태 조회, 자동으로 새 생성하지 않음 |
-| worker 재시작 | 완료 결과 재사용; 처리 중이던 ID는 unknown으로 남음 |
-| Render 재시작 | 메모리 작업 소실을 interrupted로 표시, 새 생성을 자동 실행하지 않음 |
-| 누적/영수증 | 실패 포함 생성 호출 합계, 판정 제외, 재조회·재인쇄 시 값 일치 |
-| 품질 | 기존 목표 이미지 5종 이상, 한국어·긴 문장·복합 피사체 입력을 기존 운영 흐름으로 검증 |
-| 성능 | 행사에 허용되는 생성 대기시간·시간당 처리 인원을 실측 후 확정 |
-| 현장 | 자전거 실측과 비교, 정지·재출발·세션 초기화 및 영수증 출력 확인 |
+속도 또는 품질이 기준을 충족하지 못하면 운영 전환을 보류하고 원인을 측정한다.
+해상도·판정 이미지 크기·출력 길이·커널·GPU 변경을 하나씩 비교한다. 품질 저하를 숨기고 step만 줄이지 않는다.
 
-Zeus와 nvidia-smi는 같은 NVML 계통일 수 있다. 둘의 일치는 외부 전력계로 교정했다는 증거가 아니다.
-모델·GPU·step이 바뀌면 품질·소비량·처리시간을 다시 측정한다. 더 큰 Wh를 만들려고 불필요하게 모델을 무겁게 설정하지 않는다.
+## 측정값 해석·장애·롤백
 
-## 7. 장애와 롤백
+- 생성: pipeline 실행 구간. 로딩·워밍업·PNG 인코딩 제외.
+- 판정: processor 입력 준비부터 GPU 생성 완료까지의 GPU 소비. 이미지 디코딩·최종 JSON 검증은 제외.
+- 두 모델이 GPU에 상주하므로 각 window는 **다른 상주 모델의 유휴 소비도 포함**한다.
+- 총합은 관측한 생성·판정 GPU 구간의 확인분이다. CLIP·CPU·냉각·네트워크와 요청 사이 유휴 소비는 제외한다.
+- 실패한 모델 요청도 계측값을 받았다면 합산한다. 누락·unknown은 0으로 채우지 않는다.
+- Qwen 토큰은 그 모델 processor의 입력/출력 토큰이다. Gemini 토큰과 동일한 정의라고 주장하지 않는다.
+- 자전거는 USB 부하 전달 Wh, AI는 GPU window Wh로 서로 측정 경계가 다르며 실제 상쇄량이 아니다.
+- Render 재시작 시 메모리 작업은 interrupted, GPU 재시작 중이던 요청은 unknown이다. 자동으로 새 요청을 만들지 않는다.
+- 완료 영수증은 닫힌 호출 원장에 기반한다. 나중에 찾은 값으로 기존 영수증을 몰래 덮어쓰지 않는다.
+- 롤백: `IMAGE_PROVIDER=gemini`, `ROUTER_PROVIDER=gemini`로 되돌리고 기존 Gemini 모델·키를 유지한다.
+  기존 GPU 기록은 삭제하지 않으며 Gemini 에너지는 미계측으로 표시한다.
 
-- 생성 실패/응답 미확인은 API 원장에 failed/unknown으로 남는다. 자동 재생성하지 않는다.
-- pending 상태에서 Render가 죽으면 현재 원장의 pending을 자동 확정하지 않는다. 종료 원장과 GPU 요청 기록을 운영자가 대조해야 한다.
-  미완료 세션은 보류/새 세션으로 처리하고, SQL로 임의 성공 처리하지 않는다.
-- 성공 영수증은 기존 active-challenge guard로 호출 원장이 닫힌 후 재조회한다.
-  응답 유실 뒤에 결과를 찾더라도 이미 발급된 영수증의 누락값을 몰래 바꾸지 않는다.
-- GPU가 없는 상황에서는 `IMAGE_PROVIDER=gemini`로 되돌리고 `GEMINI_IMAGE_MODEL`을 기존 값으로 유지한다.
-  프런트는 동일 polling API를 계속 사용한다. Gemini 호출의 에너지는 미계측으로 표시한다.
-- SQL 추가 컬럼은 롤백 때 삭제할 필요가 없다. 이미 발급된 GPU 영수증과 증거는 보존한다.
-- 행사 전·행사 중에는 동일 Pod를 유지하고 모델 warm 상태를 확인한다. 작업 종료 후 자료를 export하고 GPU 대여를 종료한다.
+## 공식 자료
 
-## 8. 이 작업에서 검증한 것과 다음 실행
-
-로컬에서 서버 회귀·계측 계약·중복 방지·실패 구간 테스트, 프런트 빌드·생성/판정 client 테스트를 수행한다.
-테스트의 가상 3600J는 단위 변환 검증용이며 실제 생성 에너지 측정 결과가 아니다.
-GPU 패키지 조합은 실제 CUDA 환경에서 설치·시험한 뒤 `pip freeze`를 보존하고, 재현 가능한 이미지 digest로 고정한다.
-현재 requirements는 설치 범위이며 GPU에서 검증된 lockfile이 아니다.
-
-바로 다음 실행은 **RunPod 4090 Pod 한 개 확보 → worker 파일 업로드 → 모델 SHA·키 설정 → 단독 생성 1회/10회 측정**이다.
-유료 자원 생성·결제, 실제 DB SQL 적용, 운영 배포는 별도의 실행 단계이며 이 작업에서는 수행하지 않았다.
-
-## 공식 참고
-
+- [FLUX.2 Klein 4B distilled / 4-step 예제](https://huggingface.co/black-forest-labs/FLUX.2-klein-4B)
+- [Qwen3.5-4B / non-thinking 설정](https://huggingface.co/Qwen/Qwen3.5-4B)
+- [Transformers Qwen3.5 구현·커널 안내](https://huggingface.co/docs/transformers/model_doc/qwen3_5)
+- [Zeus 측정 API](https://ml.energy/zeus/measure/)
 - [RunPod Pods](https://docs.runpod.io/pods/overview)
-- [RunPod templates](https://docs.runpod.io/pods/templates/manage-templates)
-- [Zeus measurement API](https://ml.energy/zeus/measure/)
-- [Zeus GPU window reference](https://ml.energy/zeus/reference/monitor/energy/)
-- [SDXL model card](https://huggingface.co/stabilityai/stable-diffusion-xl-base-1.0)

@@ -43,9 +43,32 @@ class EnergyMeasurement(BaseModel):
                 "energy_wh": self.energy_j / 3600 if self.energy_j is not None else None}
 
 
+class RouterEnergyMeasurement(EnergyMeasurement):
+    scope: Literal["gpu_board_router_window"] = "gpu_board_router_window"
+    width: Optional[int] = None
+    height: Optional[int] = None
+    steps: Optional[int] = None
+    seed: Optional[int] = None
+    input_tokens: Optional[int] = Field(default=None, ge=0)
+    output_tokens: Optional[int] = Field(default=None, ge=0)
+    max_new_tokens: int = 256
+    thinking: Literal[False] = False
+
+
 def energy_summary(calls):
     measured, missing, total = 0, 0, 0.0
+    routers, router_missing, router_j = 0, 0, 0.0
     for call in calls:
+        if call["operation"] == "router":
+            try:
+                router = RouterEnergyMeasurement.model_validate(call.get("energy_measurement"))
+                if router.status != "measured":
+                    raise ValueError("unavailable")
+                routers += 1
+                router_j += router.energy_j
+            except (ValueError, TypeError):
+                router_missing += 1
+            continue
         if call["operation"] != "generate":
             continue
         value = call.get("energy_measurement")
@@ -61,7 +84,10 @@ def energy_summary(calls):
             missing += 1
     return {"scope": "gpu_board_generation_window", "measured_generation_calls": measured,
             "unmeasured_generation_calls": missing,
-            "unmeasured_router_calls": sum(c["operation"] == "router" for c in calls),
+            "unmeasured_router_calls": router_missing,
+            "measured_router_calls": routers,
+            "router_energy_wh": router_j / 3600 if routers else None,
+            "total_gpu_energy_wh": (total + router_j) / 3600 if measured or routers else None,
             "energy_j": total if measured else None,
             "energy_wh": total / 3600 if measured else None,
             "generation_complete": measured > 0 and missing == 0}

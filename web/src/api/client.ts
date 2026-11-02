@@ -61,8 +61,8 @@ function transient(e: unknown) {
 
 function evaluationError(code: string) {
   const messages: Record<string, string> = {
-    ROUTER_TIMEOUT: "Gemini 판정 응답 대기 시간이 초과되었습니다. 다시 Try해 주세요.",
-    ROUTER_FAILED: "Gemini 판정 요청에 실패했습니다. 다시 Try해 주세요.",
+    ROUTER_TIMEOUT: "AI 판정 응답 대기 시간이 초과되었습니다. 다시 Try해 주세요.",
+    ROUTER_FAILED: "AI 판정 요청에 실패했습니다. 다시 Try해 주세요.",
     CLIP_TIMEOUT: "로컬 이미지 비교 컴퓨터가 응답하지 않습니다. 워커 실행 상태를 확인해 주세요.",
     CLIP_WORKER_FAILED: "로컬 이미지 비교에 실패했습니다. 워커 로그를 확인해 주세요.",
     CLIP_BUSY: "로컬 이미지 비교가 진행 중입니다. 잠시 후 다시 Try해 주세요.",
@@ -95,7 +95,7 @@ async function waitForEvaluation(challenge: Challenge, attempt: Attempt): Promis
   while (Date.now() < deadline) {
     if (job.status === "done" && job.result) return job.result;
     if (job.status === "error") throw evaluationError(job.error ?? "EVALUATE_FAILED");
-    await sleep(2000);
+    await sleep(500);
     try {
       job = await req<EvaluationJob>(`/api/challenges/${challenge.id}/evaluations/${job.job_id}`,
         undefined, challenge.accessToken, 15_000);
@@ -153,7 +153,7 @@ export async function generateImage(prompt: string, challenge: Challenge, attemp
   while (Date.now() < deadline) {
     if (job.status === "done" && job.result) return job.result;
     if (job.status === "error") throw new Error(job.error ?? "GENERATE_FAILED");
-    await sleep(2000);
+    await sleep(500);
     try {
       job = await req<GenerationJob>(`/api/challenges/${challenge.id}/generations/${job.job_id}`,
         undefined, challenge.accessToken, 15_000);

@@ -3,8 +3,8 @@
 fastapi>=0.110,<1
 uvicorn>=0.29,<1
 pydantic>=2.0,<3
-diffusers>=0.31,<1
-transformers>=4.44,<5
+git+https://github.com/huggingface/diffusers.git
+transformers>=5.2,<6
 accelerate>=1.0,<2
 safetensors>=0.4,<1
 zeus>=0.10,<1

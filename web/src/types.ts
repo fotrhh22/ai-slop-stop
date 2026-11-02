@@ -11,6 +11,9 @@ export interface EnergySummary {
   measured_generation_calls: number;
   unmeasured_generation_calls: number;
   unmeasured_router_calls: number;
+  measured_router_calls?: number;
+  router_energy_wh?: number | null;
+  total_gpu_energy_wh?: number | null;
   generation_complete: boolean;
 }
 

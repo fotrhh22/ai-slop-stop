@@ -59,10 +59,12 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
-        image_model=(os.getenv("GPU_IMAGE_MODEL", "stabilityai/stable-diffusion-xl-base-1.0")
+        image_model=(os.getenv("GPU_IMAGE_MODEL", "black-forest-labs/FLUX.2-klein-4B")
                      if os.getenv("IMAGE_PROVIDER", "gemini").lower() == "zeus"
                      else os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image")),
-        router_model=os.getenv("GEMINI_ROUTER_MODEL", "gemini-3.5-flash-lite"),
+        router_model=(os.getenv("GPU_ROUTER_MODEL", "Qwen/Qwen3.5-4B")
+                      if os.getenv("ROUTER_PROVIDER", "gemini").lower() == "zeus"
+                      else os.getenv("GEMINI_ROUTER_MODEL", "gemini-3.5-flash-lite")),
         router_provider=os.getenv("ROUTER_PROVIDER", "gemini").lower(),
         public_app_origin=os.getenv("PUBLIC_APP_ORIGIN", "http://127.0.0.1:5173"),
         max_requests_per_minute=int(os.getenv("RATE_LIMIT_PER_MIN", "20")),

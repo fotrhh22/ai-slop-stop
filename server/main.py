@@ -18,7 +18,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .config import load_settings
-from .gemini_client import GeminiError, decode_data_url, route_verdict
+from .gemini_client import GeminiError, decode_data_url
+from .remote_router import route_verdict
 from .generation import generate_image
 from .images import ImageError, validate_image
 from .challenges import router as challenge_router
@@ -84,7 +85,7 @@ def health() -> dict:
         "gpu_configured": bool(settings.gpu_api_url and len(settings.gpu_api_key) >= 32),
         "router_provider": settings.router_provider,
         "router_model": settings.router_model,
-        "evaluation_method": "gemini_vision",
+        "evaluation_method": "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision",
         "clip_mode": settings.clip_mode,
         "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
     }

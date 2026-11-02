@@ -157,4 +157,4 @@ Blue Noise 타일은 [Ulichney의 void-and-cluster 방법](https://cv.ulichney.c
 
 ## RunPod + Zeus 전환 작업본
 
-이미지 생성을 직접 운영하는 GPU API로 전환하고 생성 구간 GPU 소비량을 측정하는 구현·운영 절차는 [RunPod·Zeus 전환 계획](docs/runpod-zeus-migration.md)을 참고하세요. 기본 공급자는 Gemini이며 실제 GPU 시험과 SQL 적용 후 `IMAGE_PROVIDER=zeus`로 전환합니다. 판정용 Gemini와 CLIP은 유지합니다.
+이미지 생성을 직접 운영하는 GPU API로 전환하고 생성 구간 GPU 소비량을 측정하는 구현·운영 절차는 [RunPod·Zeus 전환 계획](docs/runpod-zeus-migration.md)을 참고하세요. 기본 공급자는 Gemini이며 실제 GPU 시험과 SQL 적용 후 `IMAGE_PROVIDER=zeus`로 전환합니다. 생성 FLUX.2 Klein 4B distilled와 판정 Qwen3.5-4B의 GPU 실행 코드를 준비했으며 실제 GPU 검증·운영 전환은 별도입니다. 기존 Gemini/CLIP 경로는 보존합니다.

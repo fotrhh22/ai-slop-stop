@@ -171,8 +171,8 @@ class WorkerTests(unittest.TestCase):
 
 class MeasurementWindowTests(unittest.TestCase):
     def runner(self, energy_j=3600, fail=False):
-        from gpu_worker.app import SDXLRunner
-        runner = object.__new__(SDXLRunner)
+        from gpu_worker.app import FluxRunner
+        runner = object.__new__(FluxRunner)
         runner.width = runner.height = 1024
         runner.steps, runner.revision, runner.model_id = 30, "a" * 40, "test-model"
         runner.gpu_name, runner.gpu_uuid, runner.zeus_version = "test GPU", "GPU-test", "test"

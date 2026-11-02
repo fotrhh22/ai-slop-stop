@@ -14,7 +14,8 @@ from pydantic import BaseModel, Field
 from .config import load_settings
 from .printing import booth_station
 from .evaluation_jobs import jobs, EvaluationJobs
-from .gemini_client import GeminiError, decode_data_url, route_verdict
+from .gemini_client import GeminiError, decode_data_url
+from .remote_router import route_verdict
 from .generation import generate_image
 from .persistence import CallRecorder, PersistenceError, Store, digest
 from .images import ImageError, validate_image
@@ -147,7 +148,7 @@ def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="
             try:
                 with evaluation_stage("router"):
                     verdict = evaluate_with_clip(settings, target, target_mime, raw, mime, route_verdict,
-                        recorder=CallRecorder(store, cid, aid, "router", settings.router_model))
+                        recorder=CallRecorder(store, cid, aid, "router", settings.router_model, provider=settings.router_provider))
             except GeminiError as exc:
                 raise HTTPException(502, str(exc).split(":")[0]) from exc
             result = {"router_model": settings.router_model if verdict.get("router_called", True) else None, **verdict}
