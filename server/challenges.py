@@ -13,8 +13,9 @@ from pydantic import BaseModel, Field
 
 from .config import load_settings
 from .printing import booth_station
-from .evaluation_jobs import jobs
-from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
+from .evaluation_jobs import jobs, EvaluationJobs
+from .gemini_client import GeminiError, decode_data_url, route_verdict
+from .generation import generate_image
 from .persistence import CallRecorder, PersistenceError, Store, digest
 from .images import ImageError, validate_image
 from .clip_bridge import evaluate_with_clip
@@ -22,6 +23,7 @@ from .clip_bridge import evaluate_with_clip
 router = APIRouter(prefix="/api/challenges")
 _locks = [threading.Lock() for _ in range(64)]
 _logger = logging.getLogger("uvicorn.error")
+generation_jobs = EvaluationJobs(workers=1, max_jobs=8, ttl=600, prefix="GENERATION")
 
 
 @contextmanager
@@ -84,13 +86,27 @@ def generate(cid: UUID, req: Generate, x_challenge_token: str = Header(default="
         store.insert("attempts", {"id": aid, "challenge_id": cid, "prompt": req.prompt})
         try:
             result = generate_image(settings, req.prompt,
-                recorder=CallRecorder(store, cid, aid, "generate", settings.image_model))
+                recorder=CallRecorder(store, cid, aid, "generate", settings.image_model, provider=settings.image_provider))
         except GeminiError as exc:
             store.update("attempts", aid, {"generation_status": "failed"})
             raise HTTPException(502, str(exc).split(":")[0]) from exc
         raw, _ = image(result)
         store.update("attempts", aid, {"generation_status": "ready", "generated_image_sha256": digest(raw)})
-        return {"imageUrl": result}
+        calls = store.rows("api_calls", attempt_id="eq." + aid)
+        from .energy import energy_summary
+        return {"imageUrl": result, "energy": energy_summary(calls)}
+
+
+@router.post("/{cid}/generations", status_code=202)
+def start_generation(cid: UUID, req: Generate, x_challenge_token: str = Header(default="")):
+    session(cid, x_challenge_token)
+    return generation_jobs.start(str(req.attempt_id), str(cid), str(req.attempt_id), x_challenge_token,
+        lambda: generate(cid, req, x_challenge_token))
+
+
+@router.get("/{cid}/generations/{job_id}")
+def generation_status(cid: UUID, job_id: UUID, x_challenge_token: str = Header(default="")):
+    return generation_jobs.status(str(job_id), str(cid), x_challenge_token)
 
 
 class Evaluate(BaseModel):

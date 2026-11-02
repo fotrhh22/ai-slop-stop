@@ -32,8 +32,9 @@ class Job:
 
 
 class EvaluationJobs:
-    def __init__(self, workers=2, max_jobs=256, ttl=1800):
-        self.executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix="evaluation")
+    def __init__(self, workers=2, max_jobs=256, ttl=1800, prefix="EVALUATION"):
+        self.prefix = prefix
+        self.executor = ThreadPoolExecutor(max_workers=workers, thread_name_prefix=prefix.lower())
         self.slots = threading.BoundedSemaphore(workers)
         self.lock = threading.Lock()
         self.jobs: dict[str, Job] = {}
@@ -55,14 +56,14 @@ class EvaluationJobs:
             existing = self.jobs.get(jid)
             if existing:
                 if not self._authorized(existing, cid, token, aid):
-                    raise HTTPException(403, "EVALUATION_ACCESS_DENIED")
+                    raise HTTPException(403, self.prefix + "_ACCESS_DENIED")
                 return self._response(jid, existing)
             # Retransmitted Try requests must join an existing running job.
             for key, job in self.jobs.items():
                 if job.cid == cid and job.status == "running":
                     if job.aid == aid and self._authorized(job, cid, token):
                         return self._response(key, job)
-                    raise HTTPException(409, "EVALUATION_IN_PROGRESS")
+                    raise HTTPException(409, self.prefix + "_IN_PROGRESS")
             now = monotonic()
             for key in list(self.jobs):
                 job = self.jobs[key]
@@ -73,9 +74,9 @@ class EvaluationJobs:
                 if finished:
                     del self.jobs[min(finished)[1]]
                 else:
-                    raise HTTPException(503, "EVALUATION_BUSY")
+                    raise HTTPException(503, self.prefix + "_BUSY")
             if not self.slots.acquire(blocking=False):
-                raise HTTPException(503, "EVALUATION_BUSY")
+                raise HTTPException(503, self.prefix + "_BUSY")
             job = Job(cid=cid, aid=aid, token_hash=digest(token.encode()))
             self.jobs[jid] = job
             try:
@@ -95,7 +96,7 @@ class EvaluationJobs:
             elif isinstance(exc, PersistenceError):
                 error = str(exc)
             else:
-                error = "EVALUATION_INTERNAL_ERROR"
+                error = self.prefix + "_INTERNAL_ERROR"
                 _logger.exception("Background evaluation failed")
             with self.lock:
                 job.status, job.error, job.touched = "error", error, monotonic()
@@ -109,9 +110,9 @@ class EvaluationJobs:
         with self.lock:
             job = self.jobs.get(jid)
             if job is None:
-                raise HTTPException(404, "EVALUATION_INTERRUPTED")
+                raise HTTPException(404, self.prefix + "_INTERRUPTED")
             if not self._authorized(job, cid, token):
-                raise HTTPException(403, "EVALUATION_ACCESS_DENIED")
+                raise HTTPException(403, self.prefix + "_ACCESS_DENIED")
             return self._response(jid, job)
 
 

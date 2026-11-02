@@ -18,7 +18,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .config import load_settings
-from .gemini_client import GeminiError, decode_data_url, generate_image, route_verdict
+from .gemini_client import GeminiError, decode_data_url, route_verdict
+from .generation import generate_image
 from .images import ImageError, validate_image
 from .challenges import router as challenge_router
 from .persistence import PersistenceError
@@ -49,7 +50,7 @@ async def rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
-        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/"))
+        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/"))
         # Outbound CLIP polling must not consume the booth browser/print quota.
         # Keep result submissions separate so busy claim polling cannot block completion.
         if request.url.path.startswith("/api/clip-worker/"):
@@ -79,6 +80,8 @@ def health() -> dict:
         "ok": True,
         "gemini_configured": settings.gemini_configured,
         "image_model": settings.image_model,
+        "image_provider": settings.image_provider,
+        "gpu_configured": bool(settings.gpu_api_url and len(settings.gpu_api_key) >= 32),
         "router_provider": settings.router_provider,
         "router_model": settings.router_model,
         "evaluation_method": "gemini_vision",
@@ -93,7 +96,7 @@ class GenerateRequest(BaseModel):
 
 @app.post("/api/generate")
 def api_generate(req: GenerateRequest) -> dict:
-    if settings.supabase_url and settings.supabase_secret_key:
+    if settings.image_provider == "zeus" or (settings.supabase_url and settings.supabase_secret_key):
         return JSONResponse(status_code=400, content={"detail": "USE_CHALLENGE_SESSION_API"})
     try:
         image_url = generate_image(settings, req.prompt)

@@ -154,3 +154,7 @@ PASS 후 채팅 하단 영수증에서 **열전사 미리보기**를 선택하�
 자동 출력이나 ESC/POS 전송은 제공하지 않습니다.
 
 Blue Noise 타일은 [Ulichney의 void-and-cluster 방법](https://cv.ulichney.com/papers/1993-void-cluster.pdf)을 참고해 고정 시드와 주기적 Gaussian 필터(σ=1.5)로 직접 생성했습니다. 브라우저는 사전 생성된 타일만 읽어 사용하므로 추가 서버 호출이 없습니다. 개발 환경에서 NumPy가 있으면 `python3 web/scripts/generate-blue-noise.py`로 타일을 재생성하고 여러 명암에서 저주파 억제를 검사할 수 있습니다.
+
+## RunPod + Zeus 전환 작업본
+
+이미지 생성을 직접 운영하는 GPU API로 전환하고 생성 구간 GPU 소비량을 측정하는 구현·운영 절차는 [RunPod·Zeus 전환 계획](docs/runpod-zeus-migration.md)을 참고하세요. 기본 공급자는 Gemini이며 실제 GPU 시험과 SQL 적용 후 `IMAGE_PROVIDER=zeus`로 전환합니다. 판정용 Gemini와 CLIP은 유지합니다.

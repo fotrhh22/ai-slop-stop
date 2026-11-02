@@ -93,6 +93,13 @@ def render_receipt(receipt,image_bytes,font_path=None):
     avg=receipt.get('average_prompt_length')
     if isinstance(avg,(int,float)) and avg>=0:
         page.text(f'평균 프롬프트 {avg:,.1f}자\n공백 포함 / 모든 생성 시도',19)
+    energy=receipt.get('energy')
+    if energy:
+        page.rule();page.text('이미지 생성 GPU 전력량',24)
+        wh=energy.get('energy_wh')
+        page.text(f'{wh:.4f} Wh' if isinstance(wh,(int,float)) else '미계측',30)
+        page.text(f"계측 {energy.get('measured_generation_calls',0)}회 / 미계측 {energy.get('unmeasured_generation_calls',0)}회",18)
+        page.text('생성 구간 GPU / 유휴 소비 포함\nAI 판정·CPU·냉각·네트워크 제외\n미계측은 0이 아님',18)
     page.rule();page.text('모델별 사용 토큰',24)
     models=receipt.get('tokens_by_model',{})
     for name,usage in sorted(models.items(),key=lambda x:(-bool(x[1].get('generation_calls')),x[0])):

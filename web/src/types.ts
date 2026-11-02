@@ -4,7 +4,20 @@
 export type Verdict = "PASS" | "FAIL";
 export type EvaluationCriteria = Record<"subject" | "composition" | "color" | "background", "MATCH" | "MISMATCH">;
 
+export interface EnergySummary {
+  scope: "gpu_board_generation_window";
+  energy_j: number | null;
+  energy_wh: number | null;
+  measured_generation_calls: number;
+  unmeasured_generation_calls: number;
+  unmeasured_router_calls: number;
+  generation_complete: boolean;
+}
+
+export interface GenerationResult { imageUrl: string; energy?: EnergySummary }
+
 export interface Receipt {
+  energy?: EnergySummary;
   id: string;
   challenge_id: string;
   attempt_id: string;
@@ -33,6 +46,7 @@ export interface Receipt {
 
 // 생성 이미지 1장 + 그에 대한 평가 결과 = 1 Attempt
 export interface Attempt {
+  energy?: EnergySummary;
   id: string;
   prompt: string;
   imageUrl?: string; // 생성 이미지 (data URL / blob URL)

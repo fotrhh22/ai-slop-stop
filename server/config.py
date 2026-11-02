@@ -46,6 +46,10 @@ class Settings:
     clip_timeout: float = 20.0
     clip_failure_policy: str = "fallback"
     clip_reject_below: float | None = None
+    image_provider: str = "gemini"
+    gpu_api_url: str = ""
+    gpu_api_key: str = ""
+    gpu_timeout_seconds: int = 150
 
     @property
     def gemini_configured(self) -> bool:
@@ -55,7 +59,9 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
-        image_model=os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image"),
+        image_model=(os.getenv("GPU_IMAGE_MODEL", "stabilityai/stable-diffusion-xl-base-1.0")
+                     if os.getenv("IMAGE_PROVIDER", "gemini").lower() == "zeus"
+                     else os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image")),
         router_model=os.getenv("GEMINI_ROUTER_MODEL", "gemini-3.5-flash-lite"),
         router_provider=os.getenv("ROUTER_PROVIDER", "gemini").lower(),
         public_app_origin=os.getenv("PUBLIC_APP_ORIGIN", "http://127.0.0.1:5173"),
@@ -71,4 +77,8 @@ def load_settings() -> Settings:
         clip_reject_below=(float(os.environ["CLIP_REJECT_BELOW"]) if os.getenv("CLIP_REJECT_BELOW") else None),
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
+        image_provider=os.getenv("IMAGE_PROVIDER", "gemini").lower(),
+        gpu_api_url=os.getenv("GPU_API_URL", "").rstrip("/"),
+        gpu_api_key=os.getenv("GPU_API_KEY", ""),
+        gpu_timeout_seconds=int(os.getenv("GPU_TIMEOUT_SECONDS", "150")),
     )

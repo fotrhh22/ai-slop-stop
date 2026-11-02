@@ -122,14 +122,14 @@ export default function App() {
       updatedAt: Date.now(),
     }));
     try {
-      const { imageUrl } = await generateImage(prompt, active, aid);
-      patchAttempt(cid, aid, (a) => ({ ...a, genStatus: "ready", imageUrl }));
+      const { imageUrl, energy } = await generateImage(prompt, active, aid);
+      patchAttempt(cid, aid, (a) => ({ ...a, genStatus: "ready", imageUrl, energy }));
     } catch (e) {
       patchAttempt(cid, aid, (a) => ({
         ...a,
         genStatus: "error",
         genError: e instanceof Error && e.message === "GENERATE_TIMEOUT"
-          ? "Gemini 이미지 생성 대기 시간이 초과되었습니다."
+          ? "이미지 생성 대기 시간이 초과되었습니다."
           : e instanceof Error ? e.message : "GENERATE_FAILED",
       }));
     }

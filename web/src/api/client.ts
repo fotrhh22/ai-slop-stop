@@ -1,5 +1,5 @@
 import { pairingToken } from "./printing";
-import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria } from "../types";
+import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -127,7 +127,7 @@ export async function createChallenge(targetImage: string): Promise<{id: string;
   return { id, accessToken: "mock" };
 }
 
-export async function generateImage(prompt: string, challenge: Challenge, attemptId: string): Promise<{imageUrl: string}> {
+export async function generateImage(prompt: string, challenge: Challenge, attemptId: string): Promise<GenerationResult> {
   if (USE_MOCK) {
     await sleep(500);
     const s = samples.get(challenge.id)!;
@@ -135,7 +135,34 @@ export async function generateImage(prompt: string, challenge: Challenge, attemp
     s.promptLengths.push(Array.from(prompt).length);
     return { imageUrl: `https://picsum.photos/seed/${encodeURIComponent(attemptId)}/512/512` };
   }
-  return req(`/api/challenges/${challenge.id}/generate`, { prompt, attempt_id: attemptId }, challenge.accessToken);
+  type GenerationJob = { job_id: string; status: "running" | "done" | "error"; result?: GenerationResult; error?: string };
+  let job: GenerationJob | undefined;
+  for (let i = 0; i < 3; i++) {
+    try {
+      job = await req<GenerationJob>(`/api/challenges/${challenge.id}/generations`,
+        { prompt, attempt_id: attemptId }, challenge.accessToken, 20_000);
+      break;
+    } catch (e) {
+      if (!transient(e) || i === 2 || (e instanceof Error && e.message === "GENERATION_BUSY")) throw e;
+      await sleep(1000 * (i + 1));
+    }
+  }
+  if (!job) throw new Error("GENERATION_INTERRUPTED");
+  const deadline = Date.now() + 240_000;
+  let missed = 0;
+  while (Date.now() < deadline) {
+    if (job.status === "done" && job.result) return job.result;
+    if (job.status === "error") throw new Error(job.error ?? "GENERATE_FAILED");
+    await sleep(2000);
+    try {
+      job = await req<GenerationJob>(`/api/challenges/${challenge.id}/generations/${job.job_id}`,
+        undefined, challenge.accessToken, 15_000);
+      missed = 0;
+    } catch (e) {
+      if (!transient(e) || ++missed >= 5) throw e;
+    }
+  }
+  throw new Error("GENERATION_UNCONFIRMED");
 }
 
 function sampleReceipt(challenge: Challenge, attempt: Attempt, source: "router" | "staff", routerReason = attempt.reason): Receipt {

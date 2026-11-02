@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:evaluation": "node scripts/test-evaluation-client.cjs",
     "test:thermal": "node scripts/test-thermal.cjs",
-    "test:receipt-print": "node scripts/test-receipt-print.cjs"
+    "test:receipt-print": "node scripts/test-receipt-print.cjs",
+    "test:generation": "node scripts/test-generation-client.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",

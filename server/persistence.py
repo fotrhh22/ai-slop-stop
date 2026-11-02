@@ -11,6 +11,7 @@ from uuid import uuid4
 import httpx
 
 from .config import Settings
+from .energy import energy_summary
 
 
 class PersistenceError(Exception):
@@ -172,14 +173,15 @@ class Store:
             raise PersistenceError("RECEIPT_IMAGE_URL_FAILED")
         if not image_url.startswith("https://"):
             image_url = self.base + ("" if image_url.startswith("/storage/v1/") else "/storage/v1") + image_url
-        return {**saved, "router_reason": attempt.get("router_reason") if saved.get("pass_source") == "router" else None,
+        return {**saved, "energy": energy_summary(calls),
+                "router_reason": attempt.get("router_reason") if saved.get("pass_source") == "router" else None,
                 "average_prompt_length": average_prompt_length,
                 "image_url": image_url, "verification": verification,
                 "verified": all(verification.values()), "source": "supabase",
                 "usage_complete": saved["calls_without_total_tokens"] == 0,
                 "calls": [{k: c.get(k) for k in (
                     "id", "operation", "model", "status", "input_tokens", "output_tokens",
-                    "thought_tokens", "total_tokens", "started_at"
+                    "thought_tokens", "total_tokens", "started_at", "energy_measurement"
                 )} for c in calls]}
 
     def finalize(self, cid, aid, raw, mime, source, actor=None, reason=None):
@@ -204,22 +206,23 @@ class Store:
 
 
 class CallRecorder:
-    def __init__(self, store, cid, aid, operation, model):
+    def __init__(self, store, cid, aid, operation, model, provider="gemini"):
         self.store, self.cid, self.aid = store, cid, aid
         self.operation, self.model = operation, model
+        self.provider = provider
 
     def start(self):
         call_id = str(uuid4())
         self.store.insert("api_calls", {"id": call_id, "challenge_id": self.cid,
-            "attempt_id": self.aid, "operation": self.operation, "model": self.model})
+            "attempt_id": self.aid, "operation": self.operation, "model": self.model, "provider": self.provider})
         return call_id
 
-    def finish(self, call_id, response=None, error=None):
+    def finish(self, call_id, response=None, error=None, unknown=False):
         usage = getattr(response, "usage_metadata", None) if response is not None else None
         if hasattr(usage, "model_dump"):
             usage = usage.model_dump(mode="json", exclude_none=True)
         usage = usage if isinstance(usage, dict) else {}
-        data = {"status": "failed" if error else "succeeded",
+        data = {"status": "unknown" if unknown else "failed" if error else "succeeded",
                 "finished_at": datetime.now(timezone.utc).isoformat(),
                 "usage_metadata": usage,
                 "error_code": type(error).__name__ if error else None}
@@ -230,4 +233,6 @@ class CallRecorder:
         actual_model = getattr(response, "model_version", None) if response is not None else None
         if isinstance(actual_model, str) and actual_model:
             data["model"] = actual_model
+        if response is not None and hasattr(response, "energy_measurement"):
+            data["energy_measurement"] = response.energy_measurement
         self.store.update("api_calls", call_id, data)

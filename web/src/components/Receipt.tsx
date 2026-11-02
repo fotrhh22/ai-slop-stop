@@ -147,6 +147,17 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
       <dt>{r.usage_complete ? "총 사용 토큰" : "확인된 사용 토큰"}</dt>
       <dd>{r.known_tokens_total.toLocaleString("ko-KR")}</dd>
     </dl>
+    {r.energy && <>
+      <h2>누적 이미지 생성 GPU 전력량</h2>
+      <dl>
+        <dt>실측 확인분</dt>
+        <dd>{r.energy.energy_wh == null ? "미계측" : `${r.energy.energy_wh.toFixed(4)} Wh`}</dd>
+        <dt>계측된 생성 요청</dt><dd>{r.energy.measured_generation_calls}회</dd>
+        <dt>미계측 생성 요청</dt><dd>{r.energy.unmeasured_generation_calls}회</dd>
+      </dl>
+      <p className="receipt-note">생성 구간 GPU 소비량(유휴 소비 포함). AI 판정 {r.energy.unmeasured_router_calls}회,
+        CPU·냉각·네트워크 전력은 포함하지 않습니다. 미계측 요청은 0으로 계산하지 않습니다.</p>
+    </>}
     {Object.keys(r.tokens_by_model).length > 0 && <>
       <h2>모델별 사용 토큰</h2>
       {Object.entries(r.tokens_by_model)

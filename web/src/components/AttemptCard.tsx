@@ -69,12 +69,17 @@ export function AttemptCard({
           <div className="attempt-card__placeholder">이미지 생성 중…</div>
         ) : a.genStatus === "error" ? (
           <div className="attempt-card__placeholder is-error">
-            생성 오류: {a.genError ?? "알 수 없음"} · 같은 프롬프트를 다시 입력해 재생성하세요.
+            생성 오류: {a.genError ?? "알 수 없음"} · 상태 미확인 요청은 이미 처리됐을 수 있습니다. 운영자에게 확인해 주세요.
           </div>
         ) : a.imageUrl ? (
           <img src={a.imageUrl} alt="생성 이미지" />
         ) : null}
       </div>
+
+      {a.energy && <p className="receipt-note">
+        이미지 생성 GPU 실측 전력량: {a.energy.energy_wh == null ? "미계측" : `${a.energy.energy_wh.toFixed(4)} Wh`}
+        <br />생성 구간의 GPU 소비량 · AI 판정 및 서버 전체 전력 제외
+      </p>}
 
       <div className="attempt-card__result">
         {evaluated && a.criteria && (
