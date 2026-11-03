@@ -41,6 +41,15 @@ class Claim(BaseModel):
     session_id: UUID
 
 
+@router.get('/bike-sessions/{session_id}/print-status')
+def print_status(session_id: UUID, x_bike_worker_token: str = Header(default='')):
+    store, station = station_store(x_bike_worker_token)
+    rows=store.rows('print_jobs',station_id='eq.'+station,bike_session_id='eq.'+str(session_id),
+        source='eq.bike_session',order='created_at.desc,id.desc',limit='1',
+        select='id,bike_session_id,status,cups_job_id,error_code')
+    return {'session_id':str(session_id),'job':rows[0] if rows else None}
+
+
 @router.post('/entries/{entry_id}/delete')
 def delete_entry(entry_id: UUID, background_tasks: BackgroundTasks, x_bike_worker_token: str = Header(default='')):
     store, station = station_store(x_bike_worker_token)

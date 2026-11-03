@@ -77,6 +77,14 @@ class ProfilesTests(TestCase):
         self.assertEqual(selected.gpu_api_url,'');self.assertEqual(selected.gpu_api_key,'')
         self.assertEqual(self.settings.image_model,'legacy-image')
 
+    def test_open_profile_inherits_clip_observe_setting(self):
+        settings=replace(self.settings,clip_mode='observe')
+        row={'id':str(uuid4()),'pod_id':'pod4090','identity':identity()}
+        with patch.object(profiles,'runtime',return_value=row):
+            selected=profiles.select(settings,Mock(),'open-4090')
+        self.assertEqual(selected.clip_mode,'observe')
+        self.assertEqual(selected.router_provider,'zeus')
+
     def test_existing_session_remains_on_original_runtime_after_new_binding(self):
         original=str(uuid4());new=str(uuid4());store=Mock()
         def rows(table,**filters):

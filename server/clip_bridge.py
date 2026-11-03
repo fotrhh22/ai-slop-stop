@@ -148,4 +148,5 @@ def evaluate_with_clip(settings, target, target_mime, generated, generated_mime,
                 "evaluation_source": "clip_gate", "router_called": False,
                 "similarity": similarity, "clip_reject_below": settings.clip_reject_below}
     result = route(settings, target, target_mime, generated, generated_mime, recorder=recorder)
-    return {**result, "similarity": similarity, "router_called": True, "evaluation_source": "gemini_vision"}
+    return {**result, "similarity": similarity, "router_called": True,
+            "evaluation_source": "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision"}

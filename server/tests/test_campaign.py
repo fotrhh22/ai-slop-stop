@@ -46,6 +46,14 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/campaign/entries',headers=self.headers).status_code,200)
         self.assertNotIn('reference_target',self.store.rows.call_args.kwargs['select'])
 
+    def test_print_status_is_scoped_to_station_and_exact_bike_session(self):
+        sid=str(uuid4());self.store.rows.return_value=[]
+        self.assertEqual(self.client.get('/api/campaign/bike-sessions/'+sid+'/print-status').status_code,403)
+        result=self.client.get('/api/campaign/bike-sessions/'+sid+'/print-status',headers=self.headers)
+        self.assertEqual(result.status_code,200)
+        self.assertEqual(self.store.rows.call_args.kwargs['station_id'],'eq.booth-1')
+        self.assertEqual(self.store.rows.call_args.kwargs['bike_session_id'],'eq.'+sid)
+
     def test_end_uses_atomic_rpc_without_trusting_scaled_values(self):
         sid,entry=str(uuid4()),str(uuid4())
         payload={'session_id':sid,'entry_id':entry,'raw_wh':0.0005,'elapsed_s':20,'measured_s':10,

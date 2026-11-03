@@ -122,6 +122,14 @@ class ClipBridgeTests(unittest.TestCase):
             self.evaluate(replace(self.settings, clip_mode="off"))
         compute.assert_not_called()
 
+    def test_qwen_observe_reports_clip_score_and_keeps_qwen_final_verdict(self):
+        with patch.object(bridge.broker,'compute',return_value={**self.result,'cosine':0.01}):
+            result=self.evaluate(replace(self.settings,router_provider='zeus'))
+        self.route.assert_called_once()
+        self.assertEqual(result['verdict'],'PASS')
+        self.assertEqual(result['evaluation_source'],'qwen_vision')
+        self.assertEqual(result['similarity']['cosine'],0.01)
+
 
 if __name__ == "__main__":
     unittest.main()

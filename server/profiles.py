@@ -93,7 +93,7 @@ def select(settings, store, profile_id, snapshot=None):
     return replace(settings, profile_id=profile_id, image_provider='zeus', router_provider='zeus',
         image_model=identity['image_model'], router_model=identity['router_model'],
         gpu_api_url=endpoint(row['pod_id']), gpu_api_key=definition(settings, profile_id)['key'],
-        gpu_identity=identity, runtime_id=row['id'], clip_mode='off')
+        gpu_identity=identity, runtime_id=row['id'])
 
 
 def measurement_matches(settings, measurement, operation):

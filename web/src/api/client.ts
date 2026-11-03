@@ -8,7 +8,7 @@ export interface EvaluateResult {
   router_model?: string | null;
   similarity?: ClipSimilarity;
   router_called?: boolean;
-  evaluation_source?: "clip_gate" | "gemini_vision";
+  evaluation_source?: "clip_gate" | "gemini_vision" | "qwen_vision";
   verdict: Verdict;
   reason: string;
   receipt?: Receipt;
