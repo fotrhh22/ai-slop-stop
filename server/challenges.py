@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from contextlib import contextmanager
 from time import perf_counter
 import threading
@@ -12,7 +13,6 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from .config import load_settings
-from .printing import booth_station
 from .evaluation_jobs import jobs, EvaluationJobs
 from .gemini_client import GeminiError, decode_data_url
 from .remote_router import route_verdict
@@ -37,10 +37,17 @@ def evaluation_stage(name):
 
 
 
-def session(cid, token):
+def session(cid, token, require_runtime=False):
     settings = load_settings()
     store = Store(settings)
     challenge = store.authorize(str(cid), token)
+    snapshot = challenge.get("profile_snapshot") or {}
+    if snapshot.get('profile_id') and require_runtime:
+        from .profiles import select
+        settings = select(settings, store, snapshot['profile_id'], snapshot)
+    if snapshot:
+        settings = replace(settings, **{key: snapshot[key] for key in
+            ("image_provider", "router_provider", "image_model", "router_model") if key in snapshot})
     return settings, store, challenge
 
 
@@ -55,15 +62,16 @@ def image(data_url):
 
 class CreateChallenge(BaseModel):
     target_image: str
+    profile_id: str = Field(default='gemini', pattern=r'^(gemini|open-4090|open-5090)$')
 
 
 @router.post("")
 def create(req: CreateChallenge, x_print_station_token: str = Header(default="")):
     raw, mime = image(req.target_image)
-    station = booth_station(x_print_station_token)
-    if station:
-        return Store(load_settings()).create_challenge(raw, mime, print_station_id=station)
-    return Store(load_settings()).create_challenge(raw, mime)
+    from .profiles import select
+    settings = load_settings()
+    selected = select(settings, Store(settings), req.profile_id)
+    return Store(selected).create_challenge(raw, mime)
 
 
 class Generate(BaseModel):
@@ -74,7 +82,7 @@ class Generate(BaseModel):
 @router.post("/{cid}/generate")
 def generate(cid: UUID, req: Generate, x_challenge_token: str = Header(default="")):
     with _locks[cid.int % len(_locks)]:
-        settings, store, challenge = session(cid, x_challenge_token)
+        settings, store, challenge = session(cid, x_challenge_token, require_runtime=True)
         cid, aid = str(cid), str(req.attempt_id)
         if challenge["status"] != "active":
             raise HTTPException(409, "CHALLENGE_COMPLETED")
@@ -95,7 +103,7 @@ def generate(cid: UUID, req: Generate, x_challenge_token: str = Header(default="
         store.update("attempts", aid, {"generation_status": "ready", "generated_image_sha256": digest(raw)})
         calls = store.rows("api_calls", attempt_id="eq." + aid)
         from .energy import energy_summary
-        return {"imageUrl": result, "energy": energy_summary(calls)}
+        return {"imageUrl": result, **({"energy": energy_summary(calls)} if settings.image_provider == "zeus" else {})}
 
 
 @router.post("/{cid}/generations", status_code=202)
@@ -128,7 +136,7 @@ def verify_image(store, cid, aid, data_url):
 def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="")):
     with _locks[cid.int % len(_locks)]:
         with evaluation_stage("authorize"):
-            settings, store, challenge = session(cid, x_challenge_token)
+            settings, store, challenge = session(cid, x_challenge_token, require_runtime=True)
         cid, aid = str(cid), str(req.attempt_id)
         with evaluation_stage("verify_image"):
             attempt, raw, mime = verify_image(store, cid, aid, req.generated_image)
@@ -188,7 +196,7 @@ def evaluation_status(cid: UUID, job_id: UUID, x_challenge_token: str = Header(d
 
 
 class Finalize(Evaluate):
-    source: str = Field(pattern="^(router|staff)$")
+    source: str = Field(default="router", pattern="^router$")
 
 
 @router.post("/{cid}/finalize")
@@ -197,11 +205,7 @@ def finalize(cid: UUID, req: Finalize, x_challenge_token: str = Header(default="
         _, store, _ = session(cid, x_challenge_token)
         cid, aid = str(cid), str(req.attempt_id)
         _, raw, mime = verify_image(store, cid, aid, req.generated_image)
-        # Public STAFF action: no operator authentication or approval form.
-        # Supply truthful defaults for the existing receipt schema, not a user identity.
-        actor = "이름 미입력" if req.source == "staff" else None
-        reason = "STAFF 버튼으로 수동 승인" if req.source == "staff" else None
-        return store.finalize(cid, aid, raw, mime, req.source, actor, reason)
+        return store.finalize(cid, aid, raw, mime, "router")
 
 
 @router.get("/{cid}/receipt")

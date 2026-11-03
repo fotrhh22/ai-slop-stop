@@ -1178,6 +1178,9 @@ button {
 .receipt-paper button:disabled { opacity: .5; cursor: wait; }
 .receipt-model { padding: 10px 0; margin: 0; border-bottom: 1px dotted #ccc; }
 .receipt-model-name { display: block; font-size: 11px; overflow-wrap: anywhere; }
+.campaign-receipt-status { padding: 14px; margin: 12px 0; border: 1px solid #bbb; background: #f5f5ef; }
+.campaign-receipt-status strong { font-size: 20px; letter-spacing: .08em; }
+.campaign-receipt-status p { font-size: 12px; line-height: 1.6; margin: 8px 0 0; }
 .staff-approval label { display: grid; gap: 6px; margin: 14px 0; }
 .staff-approval input, .staff-approval textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
 @media print {
@@ -1280,3 +1283,5 @@ button {
 .print-station label { display: block; }
 .print-station input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 10px; }
 .receipt-device-status { padding: 12px 0; border-bottom: 1px solid #ccc; font-size: 14px; line-height: 1.5; }
+.model-picker { display: grid; gap: 8px; margin: 12px 0; }
+.model-picker select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background: #171717; color: #fff; }

@@ -107,6 +107,27 @@ def api_key(pod):
     return value
 
 
+def ensure_api_key(pod, key):
+    if len(key) < 32:
+        raise RuntimeError('Profile API key must have at least 32 characters.')
+    # Secret travels over SSH stdin, never command arguments or stdout.
+    source = '''import json,sys,hmac,os
+from pathlib import Path
+from gpu_worker.volume import configuration
+p=Path('/workspace/ai-slop-stop/worker.env')
+existed=p.exists()
+key=json.load(sys.stdin)['key']
+values=configuration()
+if existed and not hmac.compare_digest(values['GPU_API_KEY'],key):
+    raise RuntimeError('Existing worker key differs from this profile; no credential was replaced')
+values['GPU_API_KEY']=key
+fd=os.open(p,os.O_WRONLY|os.O_TRUNC)
+with os.fdopen(fd,'w') as stream: stream.write(''.join(k+'='+v+'\\n' for k,v in values.items()))
+'''
+    pod.run(shlex.join(['bash', '-lc', 'cd ' + REMOTE_ROOT + ' && python -c ' + shlex.quote(source)]),
+            data=json.dumps({'key': key}).encode())
+
+
 def public_health(pod, profile, status):
     pod_id = status.get('pod_id') or profile.get('pod_id')
     if not pod_id or not re.fullmatch(r'[a-zA-Z0-9_-]+', pod_id):
@@ -155,7 +176,11 @@ def up(pod, profile, args):
                     pod.run(shlex.join(['rm', '-f', '--', remote]))
                     pod.run(shlex.join(['rmdir', '--', private]))
             elif not status['has_config']:
-                print('No configuration backup: a new API key will be created. Update Render afterward.', flush=True)
+                print('No configuration backup: using the profile key; request history starts fresh.'
+                      if getattr(args, 'api_key', None) else
+                      'No configuration backup: a new API key will be created. Update Render afterward.', flush=True)
+            if getattr(args, 'api_key', None):
+                ensure_api_key(pod, args.api_key)
             print(pod.helper('launch'), flush=True)
         else:
             print('Setup already in progress; waiting without launching a duplicate.', flush=True)
@@ -174,21 +199,28 @@ def up(pod, profile, args):
             time.sleep(5)
         else:
             raise RuntimeError('Readiness wait expired. Remote setup may still run; inspect logs before retrying.')
+    if getattr(args, 'api_key', None) and api_key(pod) != args.api_key:
+        raise RuntimeError('Worker key does not match the selected profile; nothing was registered.')
     backup(pod, profile)
     public_health(pod, profile, status)
 
 
 def main():
+    global LOCAL, PROFILE
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('command', choices=['up', 'status', 'logs', 'backup', 'copy-key'])
     parser.add_argument('--ssh', help='Paste current SSH over exposed TCP command; -i is replaced by --identity.')
     parser.add_argument('--identity', help='Default: ~/.ssh/runpod_esg')
     parser.add_argument('--known-hosts', help='Optional existing known_hosts file; verification is never disabled.')
     parser.add_argument('--pod-id')
+    parser.add_argument('--profile', choices=['open-4090', 'open-5090'], help='Use the isolated connection and backups for this model profile.')
     parser.add_argument('--backup', help='Private rescue archive for a new/empty Pod.')
     parser.add_argument('--timeout', type=int, default=900)
     parser.add_argument('--setup', action='store_true', help='Read setup log instead of worker log.')
     args = parser.parse_args()
+    if args.profile:
+        LOCAL = REPO / '.runpod' / args.profile
+        PROFILE = LOCAL / 'connection.json'
     profile = json.loads(PROFILE.read_text()) if PROFILE.exists() else {}
     if args.ssh:
         connection = parse_connection(args.ssh)

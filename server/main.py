@@ -10,6 +10,8 @@ API 키는 서버에만 존재한다. 브라우저는 /api 만 호출한다.
 from __future__ import annotations
 
 from collections import defaultdict, deque
+import asyncio
+from contextlib import asynccontextmanager
 from time import monotonic
 
 from fastapi import FastAPI, Request
@@ -18,6 +20,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .config import load_settings
+from .campaign import router as campaign_router
+from .profiles import router as profiles_router
 from .gemini_client import GeminiError, decode_data_url
 from .remote_router import route_verdict
 from .generation import generate_image
@@ -29,13 +33,28 @@ from .clip_bridge import router as clip_router, evaluate_with_clip
 
 settings = load_settings()
 
-app = FastAPI(title="Image Challenge Backend", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app):
+    from . import cleanup
+    task = None
+    if settings.session_cleanup_enabled and settings.supabase_url and settings.supabase_secret_key:
+        task = asyncio.create_task(cleanup.run(settings))
+    try:
+        yield
+    finally:
+        if task is not None:
+            await cleanup.stop(task)
+
+
+app = FastAPI(title="Image Challenge Backend", version="0.1.0", lifespan=lifespan)
 
 
 
 app.include_router(challenge_router)
 app.include_router(printing_router)
 app.include_router(clip_router)
+app.include_router(campaign_router)
+app.include_router(profiles_router)
 
 
 @app.exception_handler(PersistenceError)
@@ -51,7 +70,7 @@ async def rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
-        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/"))
+        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith(("/print-job", "/model-profiles")))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/", "/api/campaign/"))
         # Outbound CLIP polling must not consume the booth browser/print quota.
         # Keep result submissions separate so busy claim polling cannot block completion.
         if request.url.path.startswith("/api/clip-worker/"):
@@ -88,6 +107,15 @@ def health() -> dict:
         "evaluation_method": "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision",
         "clip_mode": settings.clip_mode,
         "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
+        "bike_configured": len(settings.bike_worker_token) >= 32,
+        "receipt_print_trigger": "bike_session_end",
+        "manual_pass_enabled": False,
+        "session_cleanup_enabled": settings.session_cleanup_enabled,
+        "unpassed_retention_hours": settings.unpassed_retention_hours,
+        "default_profile": "gemini",
+        "model_selection_enabled": True,
+        "gpu_registration_configured": len(settings.gpu_control_token) >= 32,
+        "gpu_profiles_configured": [key for key,value in settings.gpu_profiles.items() if len(value.get('key','')) >= 32],
     }
 
 

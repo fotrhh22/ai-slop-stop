@@ -309,7 +309,12 @@ def create_app(runner=None, ledger_path=None, api_key=None, judge=None):
     def health():
         return {"ok": True, "provider": "zeus", "router_ready": app.state.judge is not None,
                 "image_model": getattr(app.state.runner, "model_id", "test"),
-                "router_model": getattr(app.state.judge, "model_id", None)}
+                "router_model": getattr(app.state.judge, "model_id", None),
+                "image_revision": getattr(app.state.runner, 'revision', None),
+                "router_revision": getattr(app.state.judge, 'revision', None),
+                "gpu_name": getattr(app.state.runner, 'gpu_name', None),
+                "gpu_uuid": getattr(app.state.runner, 'gpu_uuid', None),
+                "router_quantization": getattr(app.state.judge, 'quantization', None)}
 
     @app.post("/v1/generate", dependencies=[Depends(authorize)])
     def generate(request: GenerateRequest):

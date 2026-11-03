@@ -1,5 +1,11 @@
 # AI SLOP STOP CHALLENGE
 
+새 자전거 연동(Phase 0–5)의 SQL·환경변수·배포·실행 순서는 [적용 안내](docs/campaign-bike-rollout.md)를 먼저 확인하세요.
+모델 선택·운영자 GPU 준비는 [Phase 6–7 안내](docs/model-profiles-and-gpu-preparation.md)를 따르세요.
+Phase 8은 전체 현장 검증, Phase 9는 대체 오픈모델 교체·검증입니다.
+미통과 세션의 24시간 자동 삭제 설정은 [정리 안내](docs/abandoned-session-cleanup.md)를 확인하세요.
+Gemini는 토큰만 표시하고, AI PASS에서 자동 인쇄하지 않습니다. 자전거 계측 종료가 최종 출력 트리거입니다.
+
 목표 이미지를 설정하고 프롬프트로 이미지를 생성한 뒤, Gemini의 항목별 이미지 비교와 PASS/FAIL을 확인하는 채팅형 챌린지입니다.
 
 선택적 RunPod 전환은 FLUX.2 Klein 4B 생성 + Qwen3.5-4B 판정과 Zeus GPU 계측을 지원합니다.

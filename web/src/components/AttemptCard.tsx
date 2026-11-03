@@ -5,9 +5,7 @@ interface Props {
   attempt: Attempt;
   number: number;
   busy: boolean; // 다른 생성/평가 진행 중이면 중복 클릭 방지
-  staffMode: boolean; // STAFF 모드일 때만 수동 PASS 전환 버튼 노출
   onTry: (id: string) => void;
-  onStaffPass: (id: string) => void;
   onReceiptRetry: (id: string) => void;
 }
 
@@ -16,9 +14,7 @@ export function AttemptCard({
   attempt: a,
   number,
   busy,
-  staffMode,
   onTry,
-  onStaffPass,
   onReceiptRetry,
 }: Props) {
   const generating = a.genStatus === "generating";
@@ -39,7 +35,7 @@ export function AttemptCard({
       <div className="attempt-card__number">시도 {String(number).padStart(2, "0")}</div>
       <div className="attempt-card__prompt">{a.prompt}</div>
 
-      {/* PASS 가 되면 Try/STAFF 버튼을 모두 숨긴다 */}
+      {/* PASS 가 되면 Try 버튼을 숨긴다 */}
       {!passed && (
         <div className="attempt-card__actions">
           <button
@@ -49,12 +45,7 @@ export function AttemptCard({
           >
             {evaluating ? "평가 중…" : "Try · 평가하기"}
           </button>
-          {/* STAFF 모드: 생성 완료 후 평가 여부와 관계없이 수동 전환 */}
-          {staffMode && a.genStatus === "ready" && (
-            <button className="btn-staff" disabled={busy} onClick={() => onStaffPass(a.id)}>
-              STAFF · 수동 PASS
-            </button>
-          )}
+
         </div>
       )}
 

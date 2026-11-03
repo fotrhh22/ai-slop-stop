@@ -23,6 +23,20 @@ services:
         sync: false
       - key: ROUTER_PROVIDER
         value: gemini
+      - key: IMAGE_PROVIDER
+        value: gemini
+      - key: PRINT_STATION_ID
+        value: booth-1
+      - key: PRINT_WORKER_TOKEN
+        sync: false
+      - key: BIKE_WORKER_TOKEN
+        sync: false
+      - key: GPU_CONTROL_TOKEN
+        sync: false
+      - key: GPU_4090_API_KEY
+        sync: false
+      - key: GPU_5090_API_KEY
+        sync: false
       - key: RATE_LIMIT_PER_MIN
         value: "20"
       - key: SUPABASE_URL

@@ -4,7 +4,7 @@ API 키는 백엔드에만 두고 브라우저로 내보내지 않는다.
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -50,6 +50,17 @@ class Settings:
     gpu_api_url: str = ""
     gpu_api_key: str = ""
     gpu_timeout_seconds: int = 150
+    bike_worker_token: str = ""
+    gpu_control_token: str = ""
+    gpu_profiles: dict = field(default_factory=dict)
+    profile_id: str = ""
+    runtime_id: str = ""
+    gpu_identity: dict = field(default_factory=dict)
+    gemini_image_model: str = "gemini-3.1-flash-lite-image"
+    gemini_router_model: str = "gemini-3.5-flash-lite"
+    session_cleanup_enabled: bool = True
+    unpassed_retention_hours: int = 24
+    cleanup_interval_seconds: int = 900
 
     @property
     def gemini_configured(self) -> bool:
@@ -83,4 +94,16 @@ def load_settings() -> Settings:
         gpu_api_url=os.getenv("GPU_API_URL", "").rstrip("/"),
         gpu_api_key=os.getenv("GPU_API_KEY", ""),
         gpu_timeout_seconds=int(os.getenv("GPU_TIMEOUT_SECONDS", "150")),
+        bike_worker_token=os.getenv("BIKE_WORKER_TOKEN", ""),
+        gpu_control_token=os.getenv("GPU_CONTROL_TOKEN", ""),
+        session_cleanup_enabled=os.getenv('SESSION_CLEANUP_ENABLED','true').lower() == 'true',
+        unpassed_retention_hours=max(1,min(8760,int(os.getenv('UNPASSED_RETENTION_HOURS','24')))),
+        cleanup_interval_seconds=max(60,int(os.getenv('CLEANUP_INTERVAL_SECONDS','900'))),
+        gemini_image_model=os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image"),
+        gemini_router_model=os.getenv("GEMINI_ROUTER_MODEL", "gemini-3.5-flash-lite"),
+        gpu_profiles={"open-" + gpu: {
+            "key": os.getenv("GPU_" + gpu + "_API_KEY", ""),
+            "image_model": os.getenv("GPU_" + gpu + "_IMAGE_MODEL", "black-forest-labs/FLUX.2-klein-4B"),
+            "router_model": os.getenv("GPU_" + gpu + "_ROUTER_MODEL", "Qwen/Qwen3.5-4B"),
+        } for gpu in ("4090", "5090")},
     )

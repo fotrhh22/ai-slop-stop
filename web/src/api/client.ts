@@ -1,5 +1,4 @@
-import { pairingToken } from "./printing";
-import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult, ClipSimilarity } from "../types";
+import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult, ClipSimilarity, ModelProfile, ProfileSnapshot } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -117,11 +116,14 @@ export async function fetchImageModel(): Promise<string> {
   return health.image_model;
 }
 
-export async function createChallenge(targetImage: string): Promise<{id: string; accessToken: string}> {
+export async function fetchModelProfiles(): Promise<ModelProfile[]> {
+  if (USE_MOCK) return [{ id: "gemini", label: "Gemini (Mock)", ready: true, image_model: "Mock", router_model: "Mock", energy_basis: "tokens_only" }];
+  return (await req<{ profiles: ModelProfile[] }>("/api/model-profiles", undefined, undefined, 25_000)).profiles;
+}
+
+export async function createChallenge(targetImage: string, profileId = "gemini"): Promise<{id: string; accessToken: string; profile?: ProfileSnapshot}> {
   if (!USE_MOCK) {
-    const token = pairingToken();
-    return req("/api/challenges", { target_image: targetImage }, undefined, 60_000,
-      token ? { "X-Print-Station-Token": token } : {});
+    return req("/api/challenges", { target_image: targetImage, profile_id: profileId }, undefined, 60_000);
   }
   const id = crypto.randomUUID();
   samples.set(id, { generates: 0, routes: 0, promptLengths: [] });
@@ -196,11 +198,10 @@ export async function evaluate(challenge: Challenge, attempt: Attempt): Promise<
   return waitForEvaluation(challenge, attempt);
 }
 
-export async function finalize(challenge: Challenge, attempt: Attempt,
-  staff = false): Promise<Receipt> {
-  if (USE_MOCK) return sampleReceipt(challenge, attempt, staff ? "staff" : "router");
+export async function finalize(challenge: Challenge, attempt: Attempt): Promise<Receipt> {
+  if (USE_MOCK) return sampleReceipt(challenge, attempt, "router");
   return req(`/api/challenges/${challenge.id}/finalize`, { attempt_id: attempt.id,
-    generated_image: attempt.imageUrl, source: staff ? "staff" : "router" }, challenge.accessToken);
+    generated_image: attempt.imageUrl, source: "router" }, challenge.accessToken);
 }
 
 export async function fetchReceipt(challenge: Challenge): Promise<Receipt> {

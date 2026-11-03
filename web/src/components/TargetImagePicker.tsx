@@ -1,8 +1,10 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { fetchModelProfiles } from "../api/client";
+import type { ModelProfile } from "../types";
 
 interface Props {
   onCancel: () => void;
-  onConfirm: (dataUrl: string) => void;
+  onConfirm: (dataUrl: string, profileId: string) => void;
 }
 
 // 새 챌린지 시작 전, 목표 이미지를 반드시 먼저 올리게 하는 모달.
@@ -11,6 +13,22 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
   const [preview, setPreview] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [profiles, setProfiles] = useState<ModelProfile[]>([]);
+  const [profileId, setProfileId] = useState("gemini");
+  const [profileError, setProfileError] = useState("");
+  useEffect(() => {
+    let alive = true;
+    const refresh = async () => {
+      try {
+        const rows = await fetchModelProfiles();
+        if (alive) { setProfiles(rows); setProfileError(""); }
+      } catch { if (alive) { setProfiles([]); setProfileError("모델 연결 상태를 확인하지 못했습니다."); } }
+    };
+    void refresh();
+    const timer = setInterval(refresh, 30_000);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
+  const selected = profiles.find(p => p.id === profileId);
 
   const pick = () => fileRef.current?.click();
 
@@ -37,6 +55,20 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
           이 챌린지에서 재현할 목표 이미지를 먼저 올려주세요. 목표 이미지를
           설정해야 챌린지가 시작됩니다.
         </p>
+
+        <label className="model-picker">사용할 모델
+          <select value={profileId} onChange={e => setProfileId(e.target.value)}>
+            {!profiles.length && <option value="gemini">연결 상태 확인 중…</option>}
+            {profiles.map(p => <option key={p.id} value={p.id} disabled={!p.ready}>
+              {p.label} · {p.ready ? "사용 가능" : "준비 안 됨"}
+            </option>)}
+          </select>
+        </label>
+        {selected && <p className="modal__desc">
+          생성: {selected.image_model}<br />판정: {selected.router_model}<br />
+          {selected.energy_basis === "tokens_only" ? "토큰만 기록 · 자전거 수동 종료" : "GPU 실측 Wh · 자전거 목표 자동 연결"}
+        </p>}
+        {profileError && <p role="alert">{profileError}</p>}
 
         <div
           className={"dropzone" + (preview ? " has-image" : "")}
@@ -76,8 +108,8 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
           )}
           <button
             className="btn-primary"
-            disabled={!preview}
-            onClick={() => preview && onConfirm(preview)}
+            disabled={!preview || !selected?.ready}
+            onClick={() => preview && selected?.ready && onConfirm(preview, profileId)}
           >
             이 이미지로 챌린지 시작
           </button>
