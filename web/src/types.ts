@@ -30,7 +30,7 @@ export interface ClipSimilarity {
 }
 
 export interface Receipt {
-  campaign?: { id: string; participant_code: string; energy_basis: "tokens_only" | "measured_gpu" | "unavailable"; target_wh: number | null; multiplier: number; state: string; profile_snapshot: Record<string,unknown> } | null;
+  campaign?: { id: string; participant_code: string; energy_basis: "tokens_only" | "measured_gpu" | "unavailable"; target_wh: number | null; reference_target_wh?: number | null; reference_target_source?: string | null; multiplier: number; state: string; profile_snapshot: Record<string,unknown> } | null;
   bike?: { id: string; campaign_energy_wh: number; multiplier: number; target_wh: number | null; progress_pct: number | null; target_reached: boolean; elapsed_s: number; measured_s: number; gap_count: number; mode: string; end_reason: string } | null;
   energy?: EnergySummary;
   id: string;

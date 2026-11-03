@@ -66,7 +66,7 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
         </label>
         {selected && <p className="modal__desc">
           생성: {selected.image_model}<br />판정: {selected.router_model}<br />
-          {selected.energy_basis === "tokens_only" ? "토큰만 기록 · 자전거 수동 종료" : "GPU 실측 Wh · 자전거 목표 자동 연결"}
+          {selected.energy_basis === "tokens_only" ? "토큰 기록 · 자전거는 GPU 평균 비교 기준" : "GPU 실측 Wh · 자전거 목표 자동 연결"}
         </p>}
         {profileError && <p role="alert">{profileError}</p>}
 

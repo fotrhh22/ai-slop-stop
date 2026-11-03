@@ -193,7 +193,7 @@ class Store:
             if results:
                 bike = {k: v for k, v in results[0].items() if k != "raw_energy_wh"}
         # The public receipt contains no raw generator amount or worker credentials.
-        public_campaign = ({k: campaign.get(k) for k in ("id", "participant_code", "energy_basis", "target_wh", "multiplier", "state", "profile_snapshot")}
+        public_campaign = ({k: campaign.get(k) for k in ("id", "participant_code", "energy_basis", "target_wh", "reference_target_wh", "reference_target_source", "multiplier", "state", "profile_snapshot")}
                            if campaign else None)
         return {**saved, "energy": energy_summary(calls), "campaign": public_campaign, "bike": bike,
                 "router_reason": attempt.get("router_reason") if saved.get("pass_source") == "router" else None,

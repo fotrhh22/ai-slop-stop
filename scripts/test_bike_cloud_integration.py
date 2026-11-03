@@ -111,9 +111,11 @@ def main():
                 session=response.json();assert session['participant']==entry['participant_code']
                 start=now[0]
                 if entry['energy_basis']=='tokens_only':
-                    assert session['target_wh'] is None
-                    sample(start+.1);sample(start+1.1)
-                    assert mac.post('/api/session/stop',json={}).status_code==200
+                    assert abs(session['target_wh']-.3463)<1e-10
+                    for i in range(25):
+                        sample(start+.1+i)
+                        if app.state.station.session['status']!='running':break
+                    assert app.state.station.session['end_reason']=='target_reached'
                 else:
                     assert abs(session['target_wh']-.15)<1e-10
                     for i in range(16):
@@ -127,7 +129,7 @@ def main():
                 mac.portal.call(app.state.campaign.sync_once)
                 assert int(sql("select count(*) from public.print_jobs where bike_session_id="+literal(sid)))==1
                 saved=json.loads(sql("select row_to_json(r) from public.bike_results r where id="+literal(sid)))
-                assert (saved['progress_pct'] is None)==(entry['energy_basis']=='tokens_only')
+                assert saved['progress_pct'] is not None
                 headers={'X-Print-Worker-Token':settings.print_worker_token}
                 job=cloud.post('/api/printing/claim',json={},headers=headers).json()['job']
                 assert job['bike_session_id']==sid

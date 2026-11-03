@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from server import campaign
 from server.config import load_settings
+from server.persistence import PersistenceError
 
 
 class CampaignTests(unittest.TestCase):
@@ -26,6 +27,7 @@ class CampaignTests(unittest.TestCase):
         self.store.rows.return_value=[]
         self.assertEqual(self.client.get('/api/campaign/entries',headers=self.headers).status_code,200)
         self.assertEqual(self.store.rows.call_args.kwargs['station_id'],'eq.booth-1')
+        self.assertEqual(self.store.rows.call_args.kwargs['order'],'created_at.desc,id.desc')
 
     def test_delete_requires_station_auth_and_uses_server_station(self):
         entry=str(uuid4())
@@ -38,6 +40,11 @@ class CampaignTests(unittest.TestCase):
         self.assertTrue(r.json()['deleted'])
         self.assertEqual(self.store.request.call_args.kwargs['json'],{'p_entry_id':entry,'p_station_id':'booth-1'})
         drain.assert_called_once_with(self.store)
+
+    def test_queue_remains_readable_before_reference_migration(self):
+        self.store.rows.side_effect=[PersistenceError('SUPABASE_SCHEMA_UPDATE_REQUIRED'),[]]
+        self.assertEqual(self.client.get('/api/campaign/entries',headers=self.headers).status_code,200)
+        self.assertNotIn('reference_target',self.store.rows.call_args.kwargs['select'])
 
     def test_end_uses_atomic_rpc_without_trusting_scaled_values(self):
         sid,entry=str(uuid4()),str(uuid4())

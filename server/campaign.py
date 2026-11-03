@@ -8,7 +8,7 @@ from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import load_settings
-from .persistence import Store
+from .persistence import Store, PersistenceError
 
 router = APIRouter(prefix='/api/campaign')
 
@@ -26,9 +26,14 @@ def station_store(token):
 @router.get('/entries')
 def entries(x_bike_worker_token: str = Header(default='')):
     store, station = station_store(x_bike_worker_token)
-    rows = store.rows('campaign_entries', station_id='eq.' + station,
-        state='in.(waiting,measuring)', order='created_at.asc', limit='200',
-        select='id,receipt_id,participant_code,energy_basis,target_wh,multiplier,profile_snapshot,state,bike_session_id,created_at')
+    fields='id,receipt_id,participant_code,energy_basis,target_wh,multiplier,profile_snapshot,state,bike_session_id,created_at'
+    filters={'station_id':'eq.'+station,'state':'in.(waiting,measuring)','order':'created_at.desc,id.desc','limit':'200'}
+    try:
+        rows=store.rows('campaign_entries',**filters,select=fields+',reference_target_wh,reference_target_source')
+    except PersistenceError as exc:
+        # Keep the queue readable while the new migration is being applied.
+        if str(exc)!='SUPABASE_SCHEMA_UPDATE_REQUIRED':raise
+        rows=store.rows('campaign_entries',**filters,select=fields)
     return {'entries': rows, 'station_id': station}
 
 

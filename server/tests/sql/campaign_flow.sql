@@ -31,7 +31,7 @@ begin
   raise exception 'Expected competing claim rejection';
  exception when others then assert sqlerrm='CAMPAIGN_ENTRY_BUSY'; end;
  select * into r from public.record_bike_end(sid,e,'booth-1',0.0005,20,10,0,'usb','manual_stop',started,ended);
- assert r.target_wh is null and r.progress_pct is null and not r.target_reached;
+ assert abs(r.target_wh-0.3463)<1e-10 and r.progress_pct>0 and not r.target_reached;
  assert abs(r.campaign_energy_wh-0.05)<1e-10;
  perform public.record_bike_end(sid,e,'booth-1',0.0005,20,10,0,'usb','manual_stop',started,ended);
  select count(*) into n from public.print_jobs where bike_session_id=sid;

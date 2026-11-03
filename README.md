@@ -5,6 +5,7 @@
 Phase 8은 전체 현장 검증, Phase 9는 대체 오픈모델 교체·검증입니다.
 미통과 세션의 24시간 자동 삭제 설정은 [정리 안내](docs/abandoned-session-cleanup.md)를 확인하세요.
 Bike 대기 목록의 × 삭제 기능은 [적용 안내](docs/delete-waiting-participant.md)를 확인하세요.
+**최신 Gemini 자전거 규칙:** [GPU 실측 평균 346.3 mWh 고정 비교 목표](docs/gemini-reference-bike-target.md)를 사용합니다. 수동 입력은 없습니다.
 Gemini는 토큰만 표시하고, AI PASS에서 자동 인쇄하지 않습니다. 자전거 계측 종료가 최종 출력 트리거입니다.
 
 목표 이미지를 설정하고 프롬프트로 이미지를 생성한 뒤, Gemini의 항목별 이미지 비교와 PASS/FAIL을 확인하는 채팅형 챌린지입니다.

@@ -69,7 +69,7 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
     {r.campaign && <div className="campaign-receipt-status">
       <strong>참가자 코드 · {r.campaign.participant_code}</strong>
       <p>{r.bike ? "자전거 측정 종료 · 최종 영수증 출력 기록이 저장되었습니다." : "자전거 측정소에서 이 코드를 선택해 주세요. 계측 종료 후 종이 영수증이 출력됩니다."}</p>
-      <p>{r.campaign.energy_basis === "tokens_only" ? "Gemini · 토큰 기록만 제공 · 목표 Wh와 달성률 없음" : r.campaign.target_wh == null ? "계측 확인 필요 · 발전 목표를 확정할 수 없습니다." : `발전 목표 ${r.campaign.target_wh.toFixed(4)} Wh · GPU 실측 기준`}</p>
+      <p>{r.campaign.energy_basis === "tokens_only" ? `Gemini · 토큰 기록 제공${r.campaign.reference_target_wh ? ` / 자전거 비교 목표 ${(r.campaign.reference_target_wh * 1000).toFixed(1)} mWh · RTX 4090 실측 평균 참조` : ""}` : r.campaign.target_wh == null ? "계측 확인 필요 · 발전 목표를 확정할 수 없습니다." : `발전 목표 ${r.campaign.target_wh.toFixed(4)} Wh · GPU 실측 기준`}</p>
     </div>}
     {r.source === "mock" ? <p className="receipt-warning">샘플 영수증</p>
       : !r.verified && <p className="receipt-warning">기록 확인 필요</p>}

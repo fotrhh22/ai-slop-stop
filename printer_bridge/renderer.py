@@ -126,6 +126,7 @@ def render_receipt(receipt,image_bytes,font_path=None):
         page.text('실측×100 환산 / 실제 발전량 아님',18)
         target=bike.get('target_wh');pct=bike.get('progress_pct')
         if target is not None and pct is not None:
+            if token_only:page.text('RTX 4090 GPU 실측 평균 비교 기준\nGemini 소비량 측정/추정값 아님',18)
             page.text(f'목표 {target:.4f} Wh',20)
             page.text(f'환산 달성률 {pct:.1f}%',24)
             page.text('목표 달성' if bike.get('target_reached') else '목표 미달 · 계측 종료',20)
