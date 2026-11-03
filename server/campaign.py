@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 from .config import load_settings
@@ -34,6 +34,17 @@ def entries(x_bike_worker_token: str = Header(default='')):
 
 class Claim(BaseModel):
     session_id: UUID
+
+
+@router.post('/entries/{entry_id}/delete')
+def delete_entry(entry_id: UUID, background_tasks: BackgroundTasks, x_bike_worker_token: str = Header(default='')):
+    store, station = station_store(x_bike_worker_token)
+    deleted = store.request('POST','/rest/v1/rpc/delete_waiting_participant',json={
+        'p_entry_id':str(entry_id),'p_station_id':station}).json()
+    if deleted is True:
+        from .cleanup import drain_storage_jobs
+        background_tasks.add_task(drain_storage_jobs,store)
+    return {'deleted':bool(deleted)}
 
 
 @router.post('/entries/{entry_id}/claim')

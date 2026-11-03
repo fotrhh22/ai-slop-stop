@@ -56,7 +56,7 @@ class Store:
             if detail.get("message") in ("MODEL_CALLS_STILL_PENDING", "ROUTER_HAS_NOT_PASSED", "CHALLENGE_NOT_ACTIVE"):
                 raise PersistenceError(detail["message"], 409) from exc
             if detail.get("message") in ("MANUAL_PASS_DISABLED", "CAMPAIGN_ENTRY_NOT_FOUND", "ENERGY_UNCONFIRMED",
-                    "CAMPAIGN_ENTRY_ENDED", "CAMPAIGN_ENTRY_BUSY", "BIKE_SESSION_MISMATCH", "BIKE_RESULT_INVALID", "BIKE_RESULT_CONFLICT"):
+                    "CAMPAIGN_ENTRY_ENDED", "CAMPAIGN_ENTRY_BUSY", "CAMPAIGN_ENTRY_IN_USE", "BIKE_SESSION_MISMATCH", "BIKE_RESULT_INVALID", "BIKE_RESULT_CONFLICT"):
                 raise PersistenceError(detail["message"], 409) from exc
             if exc.response.status_code in (401, 403):
                 raise PersistenceError("SUPABASE_SERVER_KEY_INVALID") from exc

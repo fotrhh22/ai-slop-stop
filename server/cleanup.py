@@ -14,6 +14,13 @@ def clean_once(settings):
     store = Store(settings)
     removed = store.request('POST','/rest/v1/rpc/expire_abandoned_challenges',
         json={'p_retention_hours':settings.unpassed_retention_hours,'p_limit':100}).json()
+    deleted = drain_storage_jobs(store)
+    if removed or deleted:
+        log.info('Session cleanup: sessions=%s storage_jobs=%s',removed,deleted)
+    return {'sessions_deleted':removed,'storage_jobs_deleted':deleted}
+
+
+def drain_storage_jobs(store):
     jobs = store.rows('storage_cleanup_jobs',order='created_at.asc,id.asc',limit='200')
     buckets = defaultdict(list)
     for job in jobs:
@@ -39,9 +46,7 @@ def clean_once(settings):
             deleted += len(batch)
         except Exception:
             log.warning('Session cleanup: Storage deletion pending; retry on next sweep')
-    if removed or deleted:
-        log.info('Session cleanup: sessions=%s storage_jobs=%s',removed,deleted)
-    return {'sessions_deleted':removed,'storage_jobs_deleted':deleted}
+    return deleted
 
 
 async def run(settings):

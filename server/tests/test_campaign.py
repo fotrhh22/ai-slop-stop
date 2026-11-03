@@ -27,6 +27,18 @@ class CampaignTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/campaign/entries',headers=self.headers).status_code,200)
         self.assertEqual(self.store.rows.call_args.kwargs['station_id'],'eq.booth-1')
 
+    def test_delete_requires_station_auth_and_uses_server_station(self):
+        entry=str(uuid4())
+        self.assertEqual(self.client.post('/api/campaign/entries/'+entry+'/delete').status_code,403)
+        self.store.request.assert_not_called()
+        self.store.request.return_value.json.return_value=True
+        with patch('server.cleanup.drain_storage_jobs') as drain:
+            r=self.client.post('/api/campaign/entries/'+entry+'/delete',headers=self.headers)
+        self.assertEqual(r.status_code,200,r.text)
+        self.assertTrue(r.json()['deleted'])
+        self.assertEqual(self.store.request.call_args.kwargs['json'],{'p_entry_id':entry,'p_station_id':'booth-1'})
+        drain.assert_called_once_with(self.store)
+
     def test_end_uses_atomic_rpc_without_trusting_scaled_values(self):
         sid,entry=str(uuid4()),str(uuid4())
         payload={'session_id':sid,'entry_id':entry,'raw_wh':0.0005,'elapsed_s':20,'measured_s':10,
