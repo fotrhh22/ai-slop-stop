@@ -18,7 +18,7 @@ Gemini 토큰 전용·자전거 종료 출력 규칙은 유지한다. Phase 8은
 - 오픈모델은 ×100 환산 에너지가 목표에 도달하면 자동 종료한다. 미달 수동 종료도 출력한다.
 - 실제 발전량은 내부 적분/DB에 보존하고 참가자 화면·종이에는 환산 발전량만 표시한다.
 - AI PASS는 웹 영수증/코드/대기 기록만 생성한다. 종이 인쇄 트리거는 계측 종료다.
-- STAFF 수동 PASS는 UI/API/신규 DB 성공 저장에서 차단한다.
+- STAFF ON/OFF와 수동 PASS를 지원한다. 추가 `202611040005_restore_staff_pass.sql` 적용이 필요하다.
 - 종료 결과는 먼저 Mac SQLite에 저장한다. 클라우드 재전송은 같은 session ID를 사용한다.
   DB 결과·인쇄 큐 생성은 한 트랜잭션이며, 최초 인쇄 작업은 1개다.
 - 프린터 전송 결과 UNKNOWN은 자동 재인쇄하지 않는다. 운영자가 기존 종료 영수증을 재출력할 수 있다.
@@ -92,7 +92,7 @@ SQL 적용 후 이 브랜치 코드를 배포한다. 운영 main을 쓰려면 �
 
 ```json
 {"image_provider":"gemini","router_provider":"gemini",
- "bike_configured":true,"receipt_print_trigger":"bike_session_end","manual_pass_enabled":false}
+ "bike_configured":true,"receipt_print_trigger":"bike_session_end","manual_pass_enabled":true}
 ```
 
 ## 4. Vercel 설정과 배포

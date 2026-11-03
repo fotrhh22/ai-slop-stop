@@ -196,7 +196,7 @@ def evaluation_status(cid: UUID, job_id: UUID, x_challenge_token: str = Header(d
 
 
 class Finalize(Evaluate):
-    source: str = Field(default="router", pattern="^router$")
+    source: str = Field(default="router", pattern="^(router|staff)$")
 
 
 @router.post("/{cid}/finalize")
@@ -205,7 +205,9 @@ def finalize(cid: UUID, req: Finalize, x_challenge_token: str = Header(default="
         _, store, _ = session(cid, x_challenge_token)
         cid, aid = str(cid), str(req.attempt_id)
         _, raw, mime = verify_image(store, cid, aid, req.generated_image)
-        return store.finalize(cid, aid, raw, mime, "router")
+        actor = "이름 미입력" if req.source == "staff" else None
+        reason = "STAFF 버튼으로 수동 승인" if req.source == "staff" else None
+        return store.finalize(cid, aid, raw, mime, req.source, actor, reason)
 
 
 @router.get("/{cid}/receipt")

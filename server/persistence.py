@@ -207,8 +207,8 @@ class Store:
                 )} for c in calls]}
 
     def finalize(self, cid, aid, raw, mime, source, actor=None, reason=None):
-        if source != "router":
-            raise PersistenceError("MANUAL_PASS_DISABLED", 403)
+        if source not in ("router", "staff"):
+            raise PersistenceError("INVALID_PASS_SOURCE", 400)
         existing = self.receipt(cid)
         if existing:
             return existing

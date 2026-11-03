@@ -1,5 +1,7 @@
 # AI SLOP STOP CHALLENGE
 
+STAFF ON/OFF와 수동 PASS를 복구했습니다. 기존 DB에는 `supabase/migrations/202611040005_restore_staff_pass.sql`을 적용하세요.
+
 새 자전거 연동(Phase 0–5)의 SQL·환경변수·배포·실행 순서는 [적용 안내](docs/campaign-bike-rollout.md)를 먼저 확인하세요.
 모델 선택·운영자 GPU 준비는 [Phase 6–7 안내](docs/model-profiles-and-gpu-preparation.md)를 따르세요.
 Phase 8은 전체 현장 검증, Phase 9는 대체 오픈모델 교체·검증입니다.

@@ -198,10 +198,10 @@ export async function evaluate(challenge: Challenge, attempt: Attempt): Promise<
   return waitForEvaluation(challenge, attempt);
 }
 
-export async function finalize(challenge: Challenge, attempt: Attempt): Promise<Receipt> {
-  if (USE_MOCK) return sampleReceipt(challenge, attempt, "router");
+export async function finalize(challenge: Challenge, attempt: Attempt, staff = false): Promise<Receipt> {
+  if (USE_MOCK) return sampleReceipt(challenge, attempt, staff ? "staff" : "router");
   return req(`/api/challenges/${challenge.id}/finalize`, { attempt_id: attempt.id,
-    generated_image: attempt.imageUrl, source: "router" }, challenge.accessToken);
+    generated_image: attempt.imageUrl, source: staff ? "staff" : "router" }, challenge.accessToken);
 }
 
 export async function fetchReceipt(challenge: Challenge): Promise<Receipt> {

@@ -79,6 +79,7 @@ export interface Attempt {
   staffOverride?: boolean; // STAFF 가 수동으로 PASS 전환했는지
   receiptError?: string;
   receiptPending?: boolean;
+  receiptSource?: "router" | "staff";
 }
 
 // 목표 이미지 1장에 대한 하나의 챌린지. 시도들을 누적.
