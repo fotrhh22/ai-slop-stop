@@ -102,7 +102,7 @@ class FluxRunner:
         self.pipe.set_progress_bar_config(disable=True)
         # Warm-up is outside every participant's measurement window.
         with torch.inference_mode():
-            self.pipe("a red bicycle", width=self.width, height=self.height, num_inference_steps=4, guidance_scale=1.0)
+            self.pipe(prompt="a red bicycle", width=self.width, height=self.height, num_inference_steps=4, guidance_scale=1.0)
         torch.cuda.synchronize()
         self.monitor = ZeusMonitor(gpu_indices=[0])
         pynvml.nvmlInit()
@@ -120,7 +120,7 @@ class FluxRunner:
         # Establish energy-counter support before marking the worker ready.
         self.monitor.begin_window("probe")
         with torch.inference_mode():
-            self.pipe("a red bicycle", width=1024, height=1024, num_inference_steps=4, guidance_scale=1.0)
+            self.pipe(prompt="a red bicycle", width=1024, height=1024, num_inference_steps=4, guidance_scale=1.0)
         probe = self.monitor.end_window("probe")
         if not math.isfinite(probe.total_energy) or probe.total_energy <= 0:
             raise RuntimeError("GPU energy probe failed; do not serve unverified telemetry")
@@ -134,7 +134,7 @@ class FluxRunner:
             self.monitor.begin_window(rid)
             window_open = True
             with self.torch.inference_mode():
-                image = self.pipe(request.prompt, width=self.width, height=self.height,
+                image = self.pipe(prompt=request.prompt, width=self.width, height=self.height,
                     num_inference_steps=self.steps, guidance_scale=1.0,
                     generator=self.torch.Generator(device="cuda").manual_seed(seed)).images[0]
         except Exception:

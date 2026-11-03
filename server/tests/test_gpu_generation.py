@@ -192,6 +192,8 @@ class MeasurementWindowTests(unittest.TestCase):
         result = runner.run(GenerateRequest(request_id=uuid4(), prompt="bicycle"))
         self.assertEqual(result["status"], "succeeded")
         self.assertEqual(result["energy"]["energy_j"], 3600)
+        self.assertEqual(runner.pipe.call_args.kwargs["prompt"], "bicycle")
+        self.assertEqual(runner.pipe.call_args.args, ())
         runner.monitor.begin_window.assert_called_once()
         runner.monitor.end_window.assert_called_once()
 
