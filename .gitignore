@@ -5,6 +5,9 @@
 *.local
 *.pem
 *.key
+worker.env
+requests.sqlite3*
+ai-slop-rescue*.tar.gz
 
 # node
 web/node_modules/

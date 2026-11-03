@@ -1,0 +1,11 @@
+fastapi==0.162.0
+uvicorn==0.54.0
+pydantic==2.14.2
+diffusers @ git+https://github.com/huggingface/diffusers.git@86ef420b17363c28e36ebad6b58555e9aa8feda2
+transformers==5.22.1
+accelerate==1.15.0
+safetensors==0.8.0
+zeus==0.16.0
+nvidia-ml-py==13.615.71
+huggingface-hub==2.4.0
+tokenizers==0.23.3

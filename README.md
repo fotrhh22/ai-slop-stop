@@ -2,6 +2,11 @@
 
 목표 이미지를 설정하고 프롬프트로 이미지를 생성한 뒤, Gemini의 항목별 이미지 비교와 PASS/FAIL을 확인하는 채팅형 챌린지입니다.
 
+선택적 RunPod 전환은 FLUX.2 Klein 4B 생성 + Qwen3.5-4B 판정과 Zeus GPU 계측을 지원합니다.
+기본값은 Gemini이며 SQL·환경변수·운영 배포 후 전환합니다.
+설정 순서는 [Render 연결 가이드](docs/render-runpod-connection.md),
+다음 회차의 SSH·URL·임시 저장 공간 복구는 [RunPod 단기 운영 기록](docs/runpod-session-operations.md)을 참고하세요.
+
 로컬 Mac에서 CLIP을 먼저 실행하고 Render에 유사도만 반환하는 선택적 구성은 [clip_worker/README.md](clip_worker/README.md)를 참고하세요. 기본 `CLIP_MODE=off`이며, `observe`로 검증한 뒤 기준값을 보정하면 `gate`로 LLM 호출을 줄일 수 있습니다.
 
 ## 구성
