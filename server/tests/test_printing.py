@@ -43,7 +43,8 @@ class PrintingTests(unittest.TestCase):
         self.assertEqual(r.status_code,409);self.store.receipt.assert_not_called()
     def test_unverified_receipt_cannot_print(self):
         rid=str(uuid4())
-        self.store.rows.return_value=[{'status':'RENDERING','challenge_id':str(uuid4()),'receipt_id':rid}]
+        self.store.rows.return_value=[{'status':'RENDERING','challenge_id':str(uuid4()),'receipt_id':rid,
+            'source':'bike_session','bike_session_id':str(uuid4())}]
         self.store.receipt.return_value={'id':rid,'verified':False}
         r=self.client.post('/api/printing/jobs/'+str(uuid4())+'/payload',
             headers={'X-Print-Worker-Token':'w'*32},json={'lease_token':str(uuid4())})

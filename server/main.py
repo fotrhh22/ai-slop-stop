@@ -18,6 +18,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from .config import load_settings
+from .campaign import router as campaign_router
 from .gemini_client import GeminiError, decode_data_url
 from .remote_router import route_verdict
 from .generation import generate_image
@@ -36,6 +37,7 @@ app = FastAPI(title="Image Challenge Backend", version="0.1.0")
 app.include_router(challenge_router)
 app.include_router(printing_router)
 app.include_router(clip_router)
+app.include_router(campaign_router)
 
 
 @app.exception_handler(PersistenceError)
@@ -51,7 +53,7 @@ async def rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
-        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/"))
+        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/", "/api/campaign/"))
         # Outbound CLIP polling must not consume the booth browser/print quota.
         # Keep result submissions separate so busy claim polling cannot block completion.
         if request.url.path.startswith("/api/clip-worker/"):
@@ -88,6 +90,9 @@ def health() -> dict:
         "evaluation_method": "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision",
         "clip_mode": settings.clip_mode,
         "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
+        "bike_configured": len(settings.bike_worker_token) >= 32,
+        "receipt_print_trigger": "bike_session_end",
+        "manual_pass_enabled": False,
     }
 
 

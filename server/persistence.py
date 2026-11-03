@@ -33,6 +33,7 @@ def _http_client():
 
 class Store:
     def __init__(self, settings: Settings):
+        self.settings = settings
         if not settings.supabase_url or not settings.supabase_secret_key:
             raise PersistenceError("SUPABASE_NOT_CONFIGURED")
         self.base = settings.supabase_url.rstrip("/")
@@ -53,6 +54,9 @@ class Store:
             if detail.get("code") in ("42703", "42P01", "PGRST204", "PGRST202"):
                 raise PersistenceError("SUPABASE_SCHEMA_UPDATE_REQUIRED") from exc
             if detail.get("message") in ("MODEL_CALLS_STILL_PENDING", "ROUTER_HAS_NOT_PASSED", "CHALLENGE_NOT_ACTIVE"):
+                raise PersistenceError(detail["message"], 409) from exc
+            if detail.get("message") in ("MANUAL_PASS_DISABLED", "CAMPAIGN_ENTRY_NOT_FOUND", "ENERGY_UNCONFIRMED",
+                    "CAMPAIGN_ENTRY_ENDED", "CAMPAIGN_ENTRY_BUSY", "BIKE_SESSION_MISMATCH", "BIKE_RESULT_INVALID", "BIKE_RESULT_CONFLICT"):
                 raise PersistenceError(detail["message"], 409) from exc
             if exc.response.status_code in (401, 403):
                 raise PersistenceError("SUPABASE_SERVER_KEY_INVALID") from exc
@@ -89,6 +93,11 @@ class Store:
         path = cid + "/target"
         self.upload("challenge-targets", path, raw, mime)
         data = {"id": cid, "target_image_path": path, "access_token_hash": digest(token.encode())}
+        data["campaign_station_id"] = self.settings.print_station_id
+        data["profile_snapshot"] = {
+            "image_provider": self.settings.image_provider, "router_provider": self.settings.router_provider,
+            "image_model": self.settings.image_model, "router_model": self.settings.router_model,
+        }
         if print_station_id:
             data["print_station_id"] = print_station_id
         self.insert("challenges", data)
@@ -173,18 +182,30 @@ class Store:
             raise PersistenceError("RECEIPT_IMAGE_URL_FAILED")
         if not image_url.startswith("https://"):
             image_url = self.base + ("" if image_url.startswith("/storage/v1/") else "/storage/v1") + image_url
-        return {**saved, "energy": energy_summary(calls),
+        entries = self.rows("campaign_entries", receipt_id="eq." + saved["id"])
+        campaign = entries[0] if entries else None
+        bike = None
+        if campaign and campaign.get("state") == "ended":
+            results = self.rows("bike_results", entry_id="eq." + campaign["id"])
+            if results:
+                bike = {k: v for k, v in results[0].items() if k != "raw_energy_wh"}
+        # The public receipt contains no raw generator amount or worker credentials.
+        public_campaign = ({k: campaign.get(k) for k in ("id", "participant_code", "energy_basis", "target_wh", "multiplier", "state", "profile_snapshot")}
+                           if campaign else None)
+        return {**saved, "energy": energy_summary(calls), "campaign": public_campaign, "bike": bike,
                 "router_reason": attempt.get("router_reason") if saved.get("pass_source") == "router" else None,
                 "average_prompt_length": average_prompt_length,
                 "image_url": image_url, "verification": verification,
                 "verified": all(verification.values()), "source": "supabase",
                 "usage_complete": saved["calls_without_total_tokens"] == 0,
                 "calls": [{k: c.get(k) for k in (
-                    "id", "operation", "model", "status", "input_tokens", "output_tokens",
+                    "id", "operation", "provider", "model", "status", "input_tokens", "output_tokens",
                     "thought_tokens", "total_tokens", "started_at", "energy_measurement"
                 )} for c in calls]}
 
     def finalize(self, cid, aid, raw, mime, source, actor=None, reason=None):
+        if source != "router":
+            raise PersistenceError("MANUAL_PASS_DISABLED", 403)
         existing = self.receipt(cid)
         if existing:
             return existing

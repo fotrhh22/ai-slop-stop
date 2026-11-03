@@ -53,7 +53,7 @@ async function main() {
   assert.equal((await passApi.evaluate(challenge, attempt)).receipt_pending, true);
   let createHeaders;
   await client(async (_url, options) => { createHeaders = options.headers; return response({id:'id', accessToken:'token'}); }, 'booth-secret').createChallenge('data:image/png;base64,test');
-  assert.equal(createHeaders['X-Print-Station-Token'], 'booth-secret');
+  assert.equal(createHeaders['X-Print-Station-Token'], undefined, 'stale pairing state must not link a new challenge to printing');
   await client(async (_url, options) => { createHeaders = options.headers; return response({id:'id', accessToken:'token'}); }).createChallenge('data:image/png;base64,test');
   assert.equal(createHeaders['X-Print-Station-Token'], undefined);
   console.log('Evaluation client: lost start response, polling recovery, timeout, PASS handoff passed');

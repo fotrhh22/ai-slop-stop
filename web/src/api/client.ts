@@ -1,4 +1,3 @@
-import { pairingToken } from "./printing";
 import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult, ClipSimilarity } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
@@ -119,9 +118,7 @@ export async function fetchImageModel(): Promise<string> {
 
 export async function createChallenge(targetImage: string): Promise<{id: string; accessToken: string}> {
   if (!USE_MOCK) {
-    const token = pairingToken();
-    return req("/api/challenges", { target_image: targetImage }, undefined, 60_000,
-      token ? { "X-Print-Station-Token": token } : {});
+    return req("/api/challenges", { target_image: targetImage }, undefined, 60_000);
   }
   const id = crypto.randomUUID();
   samples.set(id, { generates: 0, routes: 0, promptLengths: [] });
@@ -196,11 +193,10 @@ export async function evaluate(challenge: Challenge, attempt: Attempt): Promise<
   return waitForEvaluation(challenge, attempt);
 }
 
-export async function finalize(challenge: Challenge, attempt: Attempt,
-  staff = false): Promise<Receipt> {
-  if (USE_MOCK) return sampleReceipt(challenge, attempt, staff ? "staff" : "router");
+export async function finalize(challenge: Challenge, attempt: Attempt): Promise<Receipt> {
+  if (USE_MOCK) return sampleReceipt(challenge, attempt, "router");
   return req(`/api/challenges/${challenge.id}/finalize`, { attempt_id: attempt.id,
-    generated_image: attempt.imageUrl, source: staff ? "staff" : "router" }, challenge.accessToken);
+    generated_image: attempt.imageUrl, source: "router" }, challenge.accessToken);
 }
 
 export async function fetchReceipt(challenge: Challenge): Promise<Receipt> {

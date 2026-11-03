@@ -66,7 +66,7 @@ class ReviewTests(unittest.TestCase):
                 worker.main()
         self.assertEqual(encoder.compare.call_args.args, (expected, expected))
 
-    def test_real_async_gate_saves_fail_then_staff_without_paid_call(self):
+    def test_real_async_gate_saves_fail_and_rejects_staff_without_paid_call(self):
         settings = replace(main.settings, clip_mode="gate", clip_worker_token="x"*40,
                            clip_reject_below=0.5, max_requests_per_minute=1000)
         store, jobs = MemoryStore(), EvaluationJobs(workers=1)
@@ -93,8 +93,8 @@ class ReviewTests(unittest.TestCase):
                 self.assertFalse(result["router_called"])
                 self.assertEqual(store.attempt(cid, aid)["evaluation_result"], result)
                 saved = client.post(f"/api/challenges/{cid}/finalize", json={"attempt_id":aid,"generated_image":data,"source":"staff"}, headers=headers)
-                self.assertEqual(saved.status_code, 200)
-                self.assertEqual(saved.json()["router_calls"], 0)
+                self.assertEqual(saved.status_code, 422)
+                self.assertEqual(store.tables["successes"], [])
                 self.assertEqual(store.tables["api_calls"], [])
                 route.assert_not_called()
         finally:

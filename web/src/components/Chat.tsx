@@ -7,10 +7,8 @@ import { TargetImagePanel } from "./TargetImagePanel";
 interface Props {
   challenge: Challenge;
   busy: boolean;
-  staffMode: boolean;
   onUploadTarget: (dataUrl: string) => void;
   onTry: (attemptId: string) => void;
-  onStaffPass: (attemptId: string) => void;
   onReceiptRetry: (attemptId: string) => void;
   onReceiptRefresh: () => Promise<void>;
 }
@@ -18,10 +16,8 @@ interface Props {
 export function Chat({
   challenge,
   busy,
-  staffMode,
   onUploadTarget,
   onTry,
-  onStaffPass,
   onReceiptRetry,
   onReceiptRefresh,
 }: Props) {
@@ -56,9 +52,7 @@ export function Chat({
               attempt={a}
               number={index + 1}
               busy={busy}
-              staffMode={staffMode}
               onTry={onTry}
-              onStaffPass={onStaffPass}
               onReceiptRetry={onReceiptRetry}
             />
           ))}

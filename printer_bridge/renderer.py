@@ -71,6 +71,12 @@ class Layout:
 def number(value):
     return f'{value:,}' if isinstance(value,int) and not isinstance(value,bool) and value>=0 else '미확인'
 
+def tokens(receipt,operation=None):
+    calls=[c for c in receipt.get('calls',[]) if operation is None or c['operation']==operation]
+    known=[c['total_tokens'] for c in calls if isinstance(c.get('total_tokens'),int)]
+    if not known:return '미제공'
+    return number(sum(known))+(' (일부 미확인)' if len(known)<len(calls) else '')
+
 def render_receipt(receipt,image_bytes,font_path=None):
     if len(image_bytes)>8_000_000: raise ValueError('IMAGE_TOO_LARGE')
     with Image.open(BytesIO(image_bytes)) as src:
@@ -80,7 +86,9 @@ def render_receipt(receipt,image_bytes,font_path=None):
         photo=atkinson(src.convert('RGBA').resize((CONTENT,height),Image.Resampling.LANCZOS))
     page=Layout(font_path or resolve_font())
     page.text('AI SLOP STOP CHALLENGE',21)
-    page.text('PASS 영수증',34)
+    page.text('AI·발전 체험 영수증',28)
+    campaign=receipt.get('campaign') or {}
+    if campaign.get('participant_code'):page.text('참가자 '+campaign['participant_code'],26)
     created=datetime.fromisoformat(receipt['created_at'].replace('Z','+00:00'))
     if created.tzinfo is None: raise ValueError('RECEIPT_TIMEZONE_REQUIRED')
     page.text(created.astimezone(ZoneInfo('Asia/Seoul')).strftime('%Y.%m.%d  %H:%M:%S'),19)
@@ -92,7 +100,14 @@ def render_receipt(receipt,image_bytes,font_path=None):
     if isinstance(avg,(int,float)) and avg>=0:
         page.text(f'평균 프롬프트 {avg:,.1f}자\n공백 포함 / 모든 생성 시도',19)
     energy=receipt.get('energy')
-    if energy:
+    token_only=campaign.get('energy_basis')=='tokens_only' or (not campaign and bool(receipt.get('tokens_by_model')) and all(k.startswith('gemini/') for k in receipt['tokens_by_model']))
+    if token_only:
+        page.rule();page.text('Gemini 토큰 사용량',24)
+        page.text('생성 '+tokens(receipt,'generate'),20)
+        page.text('판정 '+tokens(receipt,'router'),20)
+        page.text('확인된 합계 '+tokens(receipt),20)
+        page.text('토큰만 기록 / Wh 환산 없음',18)
+    elif energy:
         page.rule();page.text('누적 GPU 실측 전력량',24)
         page.text('이미지 생성 GPU',18)
         wh=energy.get('energy_wh')
@@ -103,6 +118,22 @@ def render_receipt(receipt,image_bytes,font_path=None):
         page.text(f'판정 GPU: {router_wh:.4f} Wh' if isinstance(router_wh,(int,float)) else '판정 GPU: 미계측',18)
         page.text(f'GPU 합계: {total_wh:.4f} Wh' if isinstance(total_wh,(int,float)) else 'GPU 합계: 미계측',22)
         page.text('상주 모델 유휴 소비 포함\nCLIP·CPU·냉각·네트워크 제외\n미계측은 0이 아님',18)
+    bike=receipt.get('bike')
+    if bike:
+        page.rule();page.text('자전거 체험 결과',24)
+        page.text('환산 발전량',20)
+        page.text(f"{bike['campaign_energy_wh']:.4f} Wh",32)
+        page.text('실측×100 환산 / 실제 발전량 아님',18)
+        target=bike.get('target_wh');pct=bike.get('progress_pct')
+        if target is not None and pct is not None:
+            page.text(f'목표 {target:.4f} Wh',20)
+            page.text(f'환산 달성률 {pct:.1f}%',24)
+            page.text('목표 달성' if bike.get('target_reached') else '목표 미달 · 계측 종료',20)
+        else:page.text('Gemini · 목표 Wh/달성률 없음',18)
+        elapsed=bike['elapsed_s'];coverage=bike['measured_s']/elapsed*100 if elapsed else 0
+        page.text(f'측정 {elapsed:.1f}초 / 유효 계측 {coverage:.1f}%',18)
+        reason={'target_reached':'목표 도달 자동 종료','manual_stop':'수동 계측 종료','interrupted':'프로그램 중단 기록'}
+        page.text(reason.get(bike['end_reason'],'계측 종료')+' / '+bike['mode'].upper(),18)
     page.rule();page.text('사용 모델',24)
     models=receipt.get('tokens_by_model',{})
     for name,usage in sorted(models.items(),key=lambda x:(-bool(x[1].get('generation_calls')),x[0])):

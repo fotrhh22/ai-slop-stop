@@ -1,24 +1,26 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { fetchReceiptImage } from "../api/client";
 import { thermalPng, type ThermalMethod, type ThermalOptions } from "../utils/thermal";
-import { ReceiptPrintStatus } from "./ReceiptPrintStatus";
-import { printReceipt } from "../utils/printReceipt";
 import type { Receipt as ReceiptData } from "../types";
 
 export function Receipt({ receipt: r, accessToken, onRefresh }: {
   receipt: ReceiptData; accessToken: string; onRefresh: () => Promise<void>;
 }) {
+  const showTokens = r.campaign?.energy_basis === "tokens_only" || (!r.campaign && Object.keys(r.tokens_by_model).length > 0 && Object.keys(r.tokens_by_model).every(k => k.startsWith("gemini/")));
+  const tokens = (operation?: string) => {
+    const calls = r.calls.filter(c => !operation || c.operation === operation);
+    const known = calls.filter(c => c.total_tokens != null);
+    if (!known.length) return "미제공";
+    return known.reduce((sum, c) => sum + c.total_tokens!, 0).toLocaleString("ko-KR") + (known.length < calls.length ? " · 일부 미확인" : "");
+  };
   const [view, setView] = useState<"color" | "thermal">("color");
   const [paperWidth, setPaperWidth] = useState(58);
   const [dpi, setDpi] = useState(203);
   const [options, setOptions] = useState<ThermalOptions>({ widthDots: 384, method: "atkinson", brightness: 1, contrast: 1 });
   const [retry, setRetry] = useState(0);
   const [preview, setPreview] = useState<{ key: string; url?: string; error?: string }>({ key: "" });
-  const [loadedUrl, setLoadedUrl] = useState("");
   const [colorError, setColorError] = useState(false);
   const paper = useRef<HTMLElement>(null);
-  const [printing, setPrinting] = useState(false);
-  const [printError, setPrintError] = useState("");
   const original = useRef<{ id: string; blob: Blob }>();
   const imageKey = JSON.stringify([r.id, options]);
   const photoWidthMm = options.widthDots * 25.4 / dpi;
@@ -53,28 +55,22 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
 
   const current = preview.key === imageKey ? preview : undefined;
   const imageUrl = view === "color" ? r.image_url : !settingsError && !current?.error ? current?.url : undefined;
-  const imageReady = !!imageUrl && loadedUrl === imageUrl;
   const printStyle = {
     "--thermal-paper-width": `${paperWidth}mm`,
     "--thermal-photo-width": `${photoWidthMm}mm`,
     "--thermal-side-padding": `${Math.max(0, (paperWidth - photoWidthMm) / 2)}mm`,
   } as CSSProperties;
-  const openPrint = async () => {
-    if (!paper.current) return;
-    setPrinting(true); setPrintError("");
-    try { await printReceipt(paper.current, paperWidth, photoWidthMm); }
-    catch { setPrintError("인쇄 준비에 실패했습니다. 이미지와 용지 설정을 확인하고 다시 시도해 주세요."); }
-    finally { setPrinting(false); }
-  };
   return <article ref={paper} className="receipt-paper" aria-label="성공 영수증" data-print-mode={view} style={printStyle}>
-    {r.source !== "mock" && <ReceiptPrintStatus challengeId={r.challenge_id} accessToken={accessToken} />}
     <div className="receipt-actions">
-      <button disabled={!imageReady || !!settingsError || printing} onClick={openPrint}>{view === "thermal" ? "열전사 인쇄 / PDF 저장" : "인쇄 / PDF 저장"}</button>
       <button onClick={onRefresh}>새로고침</button>
     </div>
-    {printError && <p className="receipt-print-error" role="alert">{printError}</p>}
     <p className="receipt-eyebrow">AI SLOP STOP CHALLENGE</p>
-    <h1>PASS 영수증</h1>
+    <h1>AI PASS 영수증</h1>
+    {r.campaign && <div className="campaign-receipt-status">
+      <strong>참가자 코드 · {r.campaign.participant_code}</strong>
+      <p>{r.bike ? "자전거 측정 종료 · 최종 영수증 출력 기록이 저장되었습니다." : "자전거 측정소에서 이 코드를 선택해 주세요. 계측 종료 후 종이 영수증이 출력됩니다."}</p>
+      <p>{r.campaign.energy_basis === "tokens_only" ? "Gemini · 토큰 기록만 제공 · 목표 Wh와 달성률 없음" : r.campaign.target_wh == null ? "계측 확인 필요 · 발전 목표를 확정할 수 없습니다." : `발전 목표 ${r.campaign.target_wh.toFixed(4)} Wh · GPU 실측 기준`}</p>
+    </div>}
     {r.source === "mock" ? <p className="receipt-warning">샘플 영수증</p>
       : !r.verified && <p className="receipt-warning">기록 확인 필요</p>}
     <dl>
@@ -120,9 +116,8 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
     </div>
     {imageUrl ? <img className={"receipt-image" + (view === "thermal" ? " receipt-image--thermal" : "")} src={imageUrl}
       alt={view === "thermal" ? `${options.method} 방식의 열전사 출력 미리보기` : "PASS 받은 생성 이미지"}
-      onLoad={() => { setLoadedUrl(imageUrl); setColorError(false); }}
+      onLoad={() => setColorError(false)}
       onError={() => {
-        setLoadedUrl("");
         if (view === "thermal") setPreview({ key: imageKey, error: "흑백 이미지를 표시하지 못했습니다." });
         else setColorError(true);
       }} /> : null}
@@ -145,7 +140,12 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
       <dd>{r.average_prompt_length == null ? "—" : `${r.average_prompt_length.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}자`}</dd>
       <dt>판정 요청</dt><dd>{r.router_calls.toLocaleString("ko-KR")}회</dd>
     </dl>
-    {r.energy && <>
+    {showTokens && <><h2>Gemini 토큰 사용량</h2><dl>
+      <dt>이미지 생성 요청</dt><dd>{tokens("generate")}</dd>
+      <dt>판정 요청</dt><dd>{tokens("router")}</dd>
+      <dt>확인된 합계</dt><dd>{tokens()}</dd>
+    </dl><p className="receipt-note">Gemini API가 보고한 토큰 수입니다. Wh로 환산하지 않습니다.</p></>}
+    {!showTokens && r.energy && <>
       <h2>누적 GPU 실측 전력량</h2>
       <dl>
         <dt>이미지 생성 GPU 실측 확인분</dt>

@@ -29,7 +29,6 @@ export default function App() {
   // 목표 이미지 선택 모달 표시 여부 (새 챌린지 시작 시 필수 선행 단계)
   const [showPicker, setShowPicker] = useState(false);
   // STAFF 모드: 입력 조건 없이 수동 PASS 전환 버튼 노출
-  const [staffMode, setStaffMode] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const active = useMemo(
@@ -182,16 +181,16 @@ export default function App() {
     }
   };
 
-  const saveReceipt = async (aid: string, staff = false) => {
+  const saveReceipt = async (aid: string) => {
     if (!active || busy) return;
     const cid = active.id;
     const attempt = active.attempts.find(a => a.id === aid);
     if (!attempt) return;
     patchAttempt(cid, aid, a => ({ ...a, receiptPending: true, receiptError: undefined }));
     try {
-      const saved = await finalize(active, attempt, staff);
+      const saved = await finalize(active, attempt);
       patch(cid, c => ({ ...c, receipt: saved }));
-      patchAttempt(cid, aid, a => ({ ...a, verdict: "PASS", staffOverride: saved.pass_source === "staff",
+      patchAttempt(cid, aid, a => ({ ...a, verdict: "PASS",
         evalStatus: "done", receiptPending: false }));
     } catch (e) {
       patchAttempt(cid, aid, a => ({ ...a, receiptPending: false,
@@ -227,13 +226,6 @@ export default function App() {
           <span className="chat__title">
             {active?.title ?? "AI SLOP STOP CHALLENGE"}
           </span>
-          <button
-            className={"staff-toggle" + (staffMode ? " is-on" : "")}
-            onClick={() => setStaffMode((v) => !v)}
-            title="STAFF 모드: 수동 PASS 전환 허용"
-          >
-            STAFF {staffMode ? "ON" : "OFF"}
-          </button>
         </div>
 
         {creating && <p className="workflow-banner" role="status">목표 이미지와 세션을 저장하는 중…</p>}
@@ -246,10 +238,8 @@ export default function App() {
             <Chat
               challenge={active}
               busy={busy || completed}
-              staffMode={staffMode}
               onUploadTarget={startNewChallenge}
               onTry={onTry}
-              onStaffPass={aid => { if (staffMode) void saveReceipt(aid, true); }}
               onReceiptRetry={aid => { void saveReceipt(aid); }}
               onReceiptRefresh={async () => {
                 const cid = active.id;

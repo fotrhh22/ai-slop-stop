@@ -55,10 +55,14 @@ class Lease(BaseModel):
 def payload(job_id: UUID, req: Lease, x_print_worker_token: str = Header(default='')):
     store, station = worker_store(x_print_worker_token)
     job = job_for_lease(store,station,job_id,req.lease_token)
+    if job.get('source') != 'bike_session' or not job.get('bike_session_id'):
+        raise HTTPException(409,'BIKE_RESULT_REQUIRED')
     if job['status'] != 'RENDERING': raise HTTPException(409,'PRINT_JOB_NOT_RENDERING')
     receipt = store.receipt(job['challenge_id'])
     if not receipt or receipt['id'] != job['receipt_id'] or not receipt['verified']:
         raise HTTPException(409,'PRINT_RECEIPT_NOT_VERIFIED')
+    if not receipt.get('bike') or receipt['bike']['id'] != job['bike_session_id']:
+        raise HTTPException(409,'BIKE_RESULT_REQUIRED')
     saved = store.rows('successes',id='eq.'+job['receipt_id'])[0]
     raw = store.download('challenge-successes',saved['image_path'])
     attempt = store.attempt(job['challenge_id'],receipt['attempt_id'])
@@ -94,7 +98,10 @@ def reprint(job_id: UUID,req: Reprint,x_print_worker_token: str=Header(default='
     if job['status'] not in ('SENT','FAILED','UNKNOWN'):
         raise HTTPException(409,'PRINT_JOB_BUSY')
     data={'receipt_id':job['receipt_id'],'challenge_id':job['challenge_id'],
-          'station_id':station,'request_id':str(req.request_id)}
+          'station_id':station,'request_id':str(req.request_id),
+          'source':job.get('source'),'bike_session_id':job.get('bike_session_id')}
+    if data['source'] != 'bike_session' or not data['bike_session_id']:
+        raise HTTPException(409,'BIKE_RESULT_REQUIRED')
     try: return store.insert('print_jobs',data)
     except PersistenceError as exc:
         if str(exc)!='RECORD_ALREADY_EXISTS': raise

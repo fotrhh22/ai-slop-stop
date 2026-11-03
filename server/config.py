@@ -50,6 +50,7 @@ class Settings:
     gpu_api_url: str = ""
     gpu_api_key: str = ""
     gpu_timeout_seconds: int = 150
+    bike_worker_token: str = ""
 
     @property
     def gemini_configured(self) -> bool:
@@ -83,4 +84,5 @@ def load_settings() -> Settings:
         gpu_api_url=os.getenv("GPU_API_URL", "").rstrip("/"),
         gpu_api_key=os.getenv("GPU_API_KEY", ""),
         gpu_timeout_seconds=int(os.getenv("GPU_TIMEOUT_SECONDS", "150")),
+        bike_worker_token=os.getenv("BIKE_WORKER_TOKEN", ""),
     )
