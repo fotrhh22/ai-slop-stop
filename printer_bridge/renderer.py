@@ -71,9 +71,6 @@ class Layout:
 def number(value):
     return f'{value:,}' if isinstance(value,int) and not isinstance(value,bool) and value>=0 else '미확인'
 
-def token_number(value, calls, missing):
-    return '미계측' if calls > 0 and missing >= calls else number(value)
-
 def render_receipt(receipt,image_bytes,font_path=None):
     if len(image_bytes)>8_000_000: raise ValueError('IMAGE_TOO_LARGE')
     with Image.open(BytesIO(image_bytes)) as src:
@@ -90,15 +87,14 @@ def render_receipt(receipt,image_bytes,font_path=None):
     page.text('승인: '+('STAFF' if receipt['pass_source']=='staff' else 'AI 판정'),19)
     page.rule();page.photo(photo)
     page.text('성공까지 누적 사용량',24)
-    page.text('총 사용 토큰' if receipt.get('usage_complete') else '확인된 사용 토큰',20,3)
-    page.text(token_number(receipt.get('known_tokens_total'),receipt.get('model_calls_total',0),receipt.get('calls_without_total_tokens',0)),38)
     page.text('이미지 생성 '+number(receipt.get('generation_calls'))+'회 / 판정 '+number(receipt.get('router_calls'))+'회',20)
     avg=receipt.get('average_prompt_length')
     if isinstance(avg,(int,float)) and avg>=0:
         page.text(f'평균 프롬프트 {avg:,.1f}자\n공백 포함 / 모든 생성 시도',19)
     energy=receipt.get('energy')
     if energy:
-        page.rule();page.text('이미지 생성 GPU 전력량',24)
+        page.rule();page.text('누적 GPU 실측 전력량',24)
+        page.text('이미지 생성 GPU',18)
         wh=energy.get('energy_wh')
         page.text(f'{wh:.4f} Wh' if isinstance(wh,(int,float)) else '미계측',30)
         page.text(f"계측 {energy.get('measured_generation_calls',0)}회 / 미계측 {energy.get('unmeasured_generation_calls',0)}회",18)
@@ -107,17 +103,12 @@ def render_receipt(receipt,image_bytes,font_path=None):
         page.text(f'판정 GPU: {router_wh:.4f} Wh' if isinstance(router_wh,(int,float)) else '판정 GPU: 미계측',18)
         page.text(f'GPU 합계: {total_wh:.4f} Wh' if isinstance(total_wh,(int,float)) else 'GPU 합계: 미계측',22)
         page.text('상주 모델 유휴 소비 포함\nCLIP·CPU·냉각·네트워크 제외\n미계측은 0이 아님',18)
-    page.rule();page.text('모델별 사용 토큰',24)
+    page.rule();page.text('사용 모델',24)
     models=receipt.get('tokens_by_model',{})
     for name,usage in sorted(models.items(),key=lambda x:(-bool(x[1].get('generation_calls')),x[0])):
         generation=usage.get('generation_calls',0)>0;router=usage.get('router_calls',0)>0
         label='생성 / 판정' if generation and router else '이미지 생성' if generation else 'AI 판정'
         page.text(label,21,2);page.text(name.split('/',1)[-1],18,3)
-        calls,missing=usage.get('calls',0),usage.get('calls_without_total_tokens',0)
-        page.text(token_number(usage.get('known_total_tokens'),calls,missing),29)
-        if calls > 0 and missing >= calls: page.text('토큰 수 미제공',18)
-        elif missing: page.text('일부 토큰 미계측',18)
-    if not receipt.get('usage_complete'):page.text('일부 API 사용량 미확인',18)
     page.rule();page.text('성공 프롬프트',24)
     page.text(receipt['prompt'],21)
     if receipt['pass_source']=='router' and receipt.get('router_reason'):

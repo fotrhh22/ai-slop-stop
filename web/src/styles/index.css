@@ -1176,7 +1176,7 @@ button {
 .receipt-preview-status { color: #555; font-size: 12px; }
 .receipt-preview-status button { margin-left: 8px; }
 .receipt-paper button:disabled { opacity: .5; cursor: wait; }
-.receipt-token-model { padding: 10px 0; margin: 0; border-bottom: 1px dotted #ccc; }
+.receipt-model { padding: 10px 0; margin: 0; border-bottom: 1px dotted #ccc; }
 .receipt-model-name { display: block; font-size: 11px; overflow-wrap: anywhere; }
 .staff-approval label { display: grid; gap: 6px; margin: 14px 0; }
 .staff-approval input, .staff-approval textarea { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }

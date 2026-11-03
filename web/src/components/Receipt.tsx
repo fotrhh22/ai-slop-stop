@@ -3,7 +3,6 @@ import { fetchReceiptImage } from "../api/client";
 import { thermalPng, type ThermalMethod, type ThermalOptions } from "../utils/thermal";
 import { ReceiptPrintStatus } from "./ReceiptPrintStatus";
 import { printReceipt } from "../utils/printReceipt";
-import { tokenUsageText } from "../utils/tokenUsage";
 import type { Receipt as ReceiptData } from "../types";
 
 export function Receipt({ receipt: r, accessToken, onRefresh }: {
@@ -145,13 +144,11 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
       <dt>평균 프롬프트 글자수<br /><small>공백 포함 · 모든 생성 시도</small></dt>
       <dd>{r.average_prompt_length == null ? "—" : `${r.average_prompt_length.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}자`}</dd>
       <dt>판정 요청</dt><dd>{r.router_calls.toLocaleString("ko-KR")}회</dd>
-      <dt>{r.usage_complete ? "총 사용 토큰" : "확인된 사용 토큰"}</dt>
-      <dd>{tokenUsageText(r.known_tokens_total, r.model_calls_total, r.calls_without_total_tokens)}</dd>
     </dl>
     {r.energy && <>
-      <h2>누적 이미지 생성 GPU 전력량</h2>
+      <h2>누적 GPU 실측 전력량</h2>
       <dl>
-        <dt>실측 확인분</dt>
+        <dt>이미지 생성 GPU 실측 확인분</dt>
         <dd>{r.energy.energy_wh == null ? "미계측" : `${r.energy.energy_wh.toFixed(4)} Wh`}</dd>
         <dt>계측된 생성 요청</dt><dd>{r.energy.measured_generation_calls}회</dd>
         <dt>미계측 생성 요청</dt><dd>{r.energy.unmeasured_generation_calls}회</dd>
@@ -162,21 +159,15 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
         CPU·냉각·네트워크 전력은 포함하지 않습니다. 미계측 요청은 0으로 계산하지 않습니다.</p>
     </>}
     {Object.keys(r.tokens_by_model).length > 0 && <>
-      <h2>모델별 사용 토큰</h2>
+      <h2>사용 모델</h2>
       {Object.entries(r.tokens_by_model)
         .sort(([a, au], [b, bu]) => Number(bu.generation_calls > 0) - Number(au.generation_calls > 0) || a.localeCompare(b))
-        .map(([model, usage]) => <dl className="receipt-token-model" key={model}>
+        .map(([model, usage]) => <dl className="receipt-model" key={model}>
           <dt>
             {usage.generation_calls > 0 ? (usage.router_calls > 0 ? "생성·판정" : "이미지 생성") : "AI 판정"}
-            <span className="receipt-model-name">{model.replace(/^[^/]+\//, "")}</span>
           </dt>
-          <dd>{tokenUsageText(usage.known_total_tokens, usage.calls, usage.calls_without_total_tokens)}
-            {usage.calls > 0 && usage.calls_without_total_tokens >= usage.calls
-              ? <span className="receipt-model-name">토큰 수 미제공</span>
-              : usage.calls_without_total_tokens > 0 && <span className="receipt-model-name">확인된 합계 · 일부 미계측</span>}
-          </dd>
+          <dd className="receipt-model-name">{model.replace(/^[^/]+\//, "")}</dd>
         </dl>)}
     </>}
-    {!r.usage_complete && <p className="receipt-note">일부 사용량 미확인</p>}
   </article>;
 }
