@@ -71,6 +71,9 @@ class Layout:
 def number(value):
     return f'{value:,}' if isinstance(value,int) and not isinstance(value,bool) and value>=0 else '미확인'
 
+def token_number(value, calls, missing):
+    return '미계측' if calls > 0 and missing >= calls else number(value)
+
 def render_receipt(receipt,image_bytes,font_path=None):
     if len(image_bytes)>8_000_000: raise ValueError('IMAGE_TOO_LARGE')
     with Image.open(BytesIO(image_bytes)) as src:
@@ -88,7 +91,7 @@ def render_receipt(receipt,image_bytes,font_path=None):
     page.rule();page.photo(photo)
     page.text('성공까지 누적 사용량',24)
     page.text('총 사용 토큰' if receipt.get('usage_complete') else '확인된 사용 토큰',20,3)
-    page.text(number(receipt.get('known_tokens_total')),38)
+    page.text(token_number(receipt.get('known_tokens_total'),receipt.get('model_calls_total',0),receipt.get('calls_without_total_tokens',0)),38)
     page.text('이미지 생성 '+number(receipt.get('generation_calls'))+'회 / 판정 '+number(receipt.get('router_calls'))+'회',20)
     avg=receipt.get('average_prompt_length')
     if isinstance(avg,(int,float)) and avg>=0:
@@ -110,8 +113,10 @@ def render_receipt(receipt,image_bytes,font_path=None):
         generation=usage.get('generation_calls',0)>0;router=usage.get('router_calls',0)>0
         label='생성 / 판정' if generation and router else '이미지 생성' if generation else 'AI 판정'
         page.text(label,21,2);page.text(name.split('/',1)[-1],18,3)
-        page.text(number(usage.get('known_total_tokens')),29)
-        if usage.get('calls_without_total_tokens',0): page.text('일부 토큰 미확인',18)
+        calls,missing=usage.get('calls',0),usage.get('calls_without_total_tokens',0)
+        page.text(token_number(usage.get('known_total_tokens'),calls,missing),29)
+        if calls > 0 and missing >= calls: page.text('토큰 수 미제공',18)
+        elif missing: page.text('일부 토큰 미계측',18)
     if not receipt.get('usage_complete'):page.text('일부 API 사용량 미확인',18)
     page.rule();page.text('성공 프롬프트',24)
     page.text(receipt['prompt'],21)

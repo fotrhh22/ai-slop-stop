@@ -3,6 +3,7 @@ import { fetchReceiptImage } from "../api/client";
 import { thermalPng, type ThermalMethod, type ThermalOptions } from "../utils/thermal";
 import { ReceiptPrintStatus } from "./ReceiptPrintStatus";
 import { printReceipt } from "../utils/printReceipt";
+import { tokenUsageText } from "../utils/tokenUsage";
 import type { Receipt as ReceiptData } from "../types";
 
 export function Receipt({ receipt: r, accessToken, onRefresh }: {
@@ -145,7 +146,7 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
       <dd>{r.average_prompt_length == null ? "—" : `${r.average_prompt_length.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}자`}</dd>
       <dt>판정 요청</dt><dd>{r.router_calls.toLocaleString("ko-KR")}회</dd>
       <dt>{r.usage_complete ? "총 사용 토큰" : "확인된 사용 토큰"}</dt>
-      <dd>{r.known_tokens_total.toLocaleString("ko-KR")}</dd>
+      <dd>{tokenUsageText(r.known_tokens_total, r.model_calls_total, r.calls_without_total_tokens)}</dd>
     </dl>
     {r.energy && <>
       <h2>누적 이미지 생성 GPU 전력량</h2>
@@ -169,8 +170,10 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
             {usage.generation_calls > 0 ? (usage.router_calls > 0 ? "생성·판정" : "이미지 생성") : "AI 판정"}
             <span className="receipt-model-name">{model.replace(/^[^/]+\//, "")}</span>
           </dt>
-          <dd>{typeof usage.known_total_tokens === "number" ? usage.known_total_tokens.toLocaleString("ko-KR") : "미확인"}
-            {usage.calls_without_total_tokens > 0 && <span className="receipt-model-name">확인된 합계</span>}
+          <dd>{tokenUsageText(usage.known_total_tokens, usage.calls, usage.calls_without_total_tokens)}
+            {usage.calls > 0 && usage.calls_without_total_tokens >= usage.calls
+              ? <span className="receipt-model-name">토큰 수 미제공</span>
+              : usage.calls_without_total_tokens > 0 && <span className="receipt-model-name">확인된 합계 · 일부 미계측</span>}
           </dd>
         </dl>)}
     </>}

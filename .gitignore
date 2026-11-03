@@ -8,6 +8,7 @@
 worker.env
 requests.sqlite3*
 ai-slop-rescue*.tar.gz
+.runpod/
 
 # node
 web/node_modules/

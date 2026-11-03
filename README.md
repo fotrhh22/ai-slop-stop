@@ -6,6 +6,7 @@
 기본값은 Gemini이며 SQL·환경변수·운영 배포 후 전환합니다.
 설정 순서는 [Render 연결 가이드](docs/render-runpod-connection.md),
 다음 회차의 SSH·URL·임시 저장 공간 복구는 [RunPod 단기 운영 기록](docs/runpod-session-operations.md)을 참고하세요.
+SSH 등록 후 나머지 준비를 한 명령으로 실행하는 도구는 [RunPod 자동화](docs/runpod-automation.md)에 있습니다.
 
 로컬 Mac에서 CLIP을 먼저 실행하고 Render에 유사도만 반환하는 선택적 구성은 [clip_worker/README.md](clip_worker/README.md)를 참고하세요. 기본 `CLIP_MODE=off`이며, `observe`로 검증한 뒤 기준값을 보정하면 `gate`로 LLM 호출을 줄일 수 있습니다.
 
