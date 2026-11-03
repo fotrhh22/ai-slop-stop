@@ -10,6 +10,8 @@ API 키는 서버에만 존재한다. 브라우저는 /api 만 호출한다.
 from __future__ import annotations
 
 from collections import defaultdict, deque
+import asyncio
+from contextlib import asynccontextmanager
 from time import monotonic
 
 from fastapi import FastAPI, Request
@@ -31,7 +33,20 @@ from .clip_bridge import router as clip_router, evaluate_with_clip
 
 settings = load_settings()
 
-app = FastAPI(title="Image Challenge Backend", version="0.1.0")
+@asynccontextmanager
+async def lifespan(app):
+    from . import cleanup
+    task = None
+    if settings.session_cleanup_enabled and settings.supabase_url and settings.supabase_secret_key:
+        task = asyncio.create_task(cleanup.run(settings))
+    try:
+        yield
+    finally:
+        if task is not None:
+            await cleanup.stop(task)
+
+
+app = FastAPI(title="Image Challenge Backend", version="0.1.0", lifespan=lifespan)
 
 
 
@@ -95,6 +110,8 @@ def health() -> dict:
         "bike_configured": len(settings.bike_worker_token) >= 32,
         "receipt_print_trigger": "bike_session_end",
         "manual_pass_enabled": False,
+        "session_cleanup_enabled": settings.session_cleanup_enabled,
+        "unpassed_retention_hours": settings.unpassed_retention_hours,
         "default_profile": "gemini",
         "model_selection_enabled": True,
         "gpu_registration_configured": len(settings.gpu_control_token) >= 32,
