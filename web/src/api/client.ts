@@ -1,5 +1,5 @@
 import { pairingToken } from "./printing";
-import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult } from "../types";
+import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult, ClipSimilarity } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -7,7 +7,7 @@ const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
 export interface EvaluateResult {
   criteria?: EvaluationCriteria;
   router_model?: string | null;
-  similarity?: { cosine?: number; model?: string; pipeline?: string; status?: string; error?: string; elapsed_ms?: number; roundtrip_ms: number };
+  similarity?: ClipSimilarity;
   router_called?: boolean;
   evaluation_source?: "clip_gate" | "gemini_vision";
   verdict: Verdict;
@@ -61,6 +61,7 @@ function transient(e: unknown) {
 
 function evaluationError(code: string) {
   const messages: Record<string, string> = {
+    GPU_AUTH_DENIED: "이미지 서버 인증에 실패했습니다. 운영자에게 연결 설정 확인을 요청해 주세요.",
     ROUTER_TIMEOUT: "AI 판정 응답 대기 시간이 초과되었습니다. 다시 Try해 주세요.",
     ROUTER_FAILED: "AI 판정 요청에 실패했습니다. 다시 Try해 주세요.",
     CLIP_TIMEOUT: "로컬 이미지 비교 컴퓨터가 응답하지 않습니다. 워커 실행 상태를 확인해 주세요.",

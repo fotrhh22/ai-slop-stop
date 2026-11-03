@@ -54,6 +54,25 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(post.call_count,1)
         self.assertEqual(self.store.tables['api_calls'][0]['status'],'unknown')
 
+    def test_int8_worker_result_is_accepted(self):
+        def response(url, **kwargs):
+            payload = self.response(url, **kwargs).json()
+            payload['router_quantization'] = 'int8'
+            return httpx.Response(200, request=httpx.Request('POST', url), json=payload)
+        with patch('server.remote_router.httpx.post', side_effect=response):
+            result = route_verdict(self.settings, png(), 'image/png', png(), 'image/png', self.recorder)
+        self.assertEqual(result, VERDICT)
+        self.assertEqual(self.store.tables['api_calls'][0]['status'], 'succeeded')
+
+    def test_explicit_auth_rejection_is_failed_without_retry(self):
+        response = httpx.Response(403, json={'detail': 'GPU_AUTH_DENIED'},
+            request=httpx.Request('POST', 'https://gpu.test/v1/route'))
+        with patch('server.remote_router.httpx.post', return_value=response) as post:
+            with self.assertRaisesRegex(GeminiError, 'GPU_AUTH_DENIED'):
+                route_verdict(self.settings, png(), 'image/png', png(), 'image/png', self.recorder)
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(self.store.tables['api_calls'][0]['status'], 'failed')
+
     def test_bad_json_is_failed_but_measured(self):
         def response(url,**kwargs):
             rid=kwargs['json']['request_id']

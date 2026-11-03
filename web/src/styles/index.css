@@ -1167,6 +1167,9 @@ button {
 .receipt-photo-controls label { display: grid; gap: 4px; color: #444; min-width: 0; }
 .receipt-photo-controls input, .receipt-photo-controls select { width: 100%; min-width: 0; color: #25251f; background: white; border: 1px solid #aaa; border-radius: 4px; padding: 6px; font: inherit; }
 .receipt-photo-controls input[type="range"] { padding: 0; }
+.attempt-card__similarity { grid-column: 1 / -1; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.attempt-card__similarity strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.attempt-card__similarity-note { display: block; font-size: 11px; }
 .receipt-thermal-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .receipt-image--thermal { image-rendering: pixelated; }
 .receipt-download { color: #25251f; text-decoration: underline; }

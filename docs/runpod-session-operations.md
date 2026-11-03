@@ -17,6 +17,13 @@ INT8 양자화는 판정 출력에 영향을 줄 수 있으므로 기준 이미�
 이는 브라우저/Render/Supabase 지연을 제외한다. 인증된 외부 HTTPS health도 확인했다.
 새 주소는 `https://ios5pyvfgia32z-8000.proxy.runpod.net`이며 Render GPU_API_URL 갱신이 필요하다.
 
+웹 실연동 중 `GPU_RESULT_UNCONFIRMED`가 발생했고 Pod 로그에 외부 `/v1/generate` 403이 확인됐다.
+해당 생성은 Pod 원장에 없었으므로 인증 단계에서 거절된 요청이다. Render 설정 수정은 사용자가 담당한다.
+명시적인 GPU_AUTH_DENIED 응답은 앞으로 결과 미확인 대신 인증 오류로 처리한다.
+일반 프록시 403, 타임아웃, 잘못된 응답은 실행 여부를 확정할 수 없어 기존 unknown 처리를 유지한다.
+서버 간 INT8 판정 응답의 router_quantization 필드도 명시적으로 수용한다.
+main의 CLIP 보조 유사도 UI와 GPU 전환 UI를 통합해 두 변경을 모두 유지한다.
+
 ## 1. SSH 키, 서버 지문, 모델 SHA는 서로 다르다
 
 | 항목 | 의미 | 재생성 후 조치 |

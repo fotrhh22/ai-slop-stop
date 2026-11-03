@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import Literal, Optional
 
 from .energy import EnergyMeasurement
+from .gpu_transport import GPUAuthRejected, check_gpu_auth
 from .gemini_client import GeminiError, generate_image as gemini_generate, decode_data_url
 from .images import validate_image
 
@@ -40,6 +41,7 @@ def generate_image(settings, prompt, recorder=None):
             headers={"Authorization": "Bearer " + settings.gpu_api_key},
             json={"request_id": request_id, "prompt": prompt},
             timeout=httpx.Timeout(settings.gpu_timeout_seconds, connect=10))
+        check_gpu_auth(response)
         response.raise_for_status()
         result = GPUResult.model_validate(response.json())
         if str(result.request_id) != request_id:
@@ -53,6 +55,10 @@ def generate_image(settings, prompt, recorder=None):
             validate_image(raw)
             if digest(raw) != result.image_sha256 or result.energy is None:
                 raise ValueError("image/measurement missing or mismatched")
+    except GPUAuthRejected as exc:
+        if recorder:
+            recorder.finish(call_id, error=exc, unknown=False)
+        raise GeminiError("GPU_AUTH_DENIED") from exc
     except Exception as exc:
         # A timeout may happen after the remote GPU has already consumed energy.
         # Never retry this POST automatically or report unknown usage as zero.

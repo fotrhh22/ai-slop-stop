@@ -96,6 +96,22 @@ class ProviderTests(unittest.TestCase):
         self.assertEqual(post.call_count, 1)
         self.assertEqual(self.store.tables["api_calls"][0]["status"], "unknown")
 
+    def test_explicit_auth_rejection_is_failed_without_retry(self):
+        response = httpx.Response(403, json={"detail": "GPU_AUTH_DENIED"},
+            request=httpx.Request("POST", "https://gpu.test/v1/generate"))
+        with patch("server.generation.httpx.post", return_value=response) as post:
+            with self.assertRaisesRegex(GeminiError, "GPU_AUTH_DENIED"):
+                generate_image(settings(), "a bicycle", self.recorder)
+        self.assertEqual(post.call_count, 1)
+        self.assertEqual(self.store.tables["api_calls"][0]["status"], "failed")
+
+    def test_generic_proxy_rejection_stays_unconfirmed(self):
+        response = httpx.Response(403, text="proxy rejected", request=httpx.Request("POST", "https://gpu.test/v1/generate"))
+        with patch("server.generation.httpx.post", return_value=response):
+            with self.assertRaisesRegex(GeminiError, "UNCONFIRMED"):
+                generate_image(settings(), "a bicycle", self.recorder)
+        self.assertEqual(self.store.tables["api_calls"][0]["status"], "unknown")
+
     def test_mismatched_image_rejects_telemetry(self):
         payload = result_for(self.rid)
         payload["image_sha256"] = "bad"

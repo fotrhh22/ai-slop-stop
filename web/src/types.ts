@@ -19,6 +19,16 @@ export interface EnergySummary {
 
 export interface GenerationResult { imageUrl: string; energy?: EnergySummary }
 
+export interface ClipSimilarity {
+  cosine?: number;
+  model?: string;
+  pipeline?: string;
+  status?: string;
+  error?: string;
+  elapsed_ms?: number;
+  roundtrip_ms: number;
+}
+
 export interface Receipt {
   energy?: EnergySummary;
   id: string;
@@ -60,6 +70,7 @@ export interface Attempt {
   evalStatus: "none" | "evaluating" | "done" | "error";
   criteria?: EvaluationCriteria; // Gemini의 항목별 정성 평가
   routerModel?: string;
+  similarity?: ClipSimilarity;
   verdict?: Verdict; // Router 최종 판정 (또는 STAFF 수동 전환)
   reason?: string; // Router 판정 이유
   evalError?: string;

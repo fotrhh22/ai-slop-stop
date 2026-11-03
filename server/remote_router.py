@@ -9,6 +9,7 @@ from .energy import RouterEnergyMeasurement
 from .gemini_client import GeminiError, route_verdict as gemini_route
 from .images import evaluation_image
 from .verdict import Verdict
+from .gpu_transport import GPUAuthRejected, check_gpu_auth
 
 class RouterResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -19,6 +20,7 @@ class RouterResult(BaseModel):
     error: Optional[str] = None
     input_tokens: Optional[int] = None
     output_tokens: Optional[int] = None
+    router_quantization: Optional[Literal["bf16", "int8"]] = None
 
 def route_verdict(settings, target_bytes, target_mime, generated_bytes, generated_mime, recorder=None):
     if settings.router_provider == "gemini":
@@ -40,6 +42,7 @@ def route_verdict(settings, target_bytes, target_mime, generated_bytes, generate
             json={"request_id": rid, "target_image": data_url(target_bytes, target_mime),
                   "generated_image": data_url(generated_bytes, generated_mime)},
             timeout=httpx.Timeout(settings.gpu_timeout_seconds, connect=10))
+        check_gpu_auth(response)
         response.raise_for_status()
         result = RouterResult.model_validate(response.json())
         if str(result.request_id) != rid:
@@ -48,6 +51,10 @@ def route_verdict(settings, target_bytes, target_mime, generated_bytes, generate
             raise ValueError("router measurement mismatch")
         if result.status == "succeeded" and (result.verdict is None or result.energy is None):
             raise ValueError("missing verdict or telemetry")
+    except GPUAuthRejected as exc:
+        if recorder:
+            recorder.finish(call_id, error=exc, unknown=False)
+        raise GeminiError("GPU_AUTH_DENIED") from exc
     except Exception as exc:
         if recorder:
             recorder.finish(call_id, error=exc, unknown=True)
