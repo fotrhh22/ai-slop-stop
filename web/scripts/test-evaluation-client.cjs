@@ -51,9 +51,12 @@ async function main() {
     verdict: 'PASS', reason: '일치합니다.', receipt_pending: true,
   } }, 202));
   assert.equal((await passApi.evaluate(challenge, attempt)).receipt_pending, true);
-  let createHeaders;
-  await client(async (_url, options) => { createHeaders = options.headers; return response({id:'id', accessToken:'token'}); }, 'booth-secret').createChallenge('data:image/png;base64,test');
+  let createHeaders, createBody;
+  await client(async (_url, options) => { createHeaders = options.headers; createBody = JSON.parse(options.body); return response({id:'id', accessToken:'token'}); }, 'booth-secret').createChallenge('data:image/png;base64,test');
   assert.equal(createHeaders['X-Print-Station-Token'], undefined, 'stale pairing state must not link a new challenge to printing');
+  assert.equal(createBody.profile_id, 'gemini', 'default session must explicitly select Gemini');
+  await client(async (_url, options) => { createBody = JSON.parse(options.body); return response({id:'id', accessToken:'token'}); }).createChallenge('data:image/png;base64,test', 'open-4090');
+  assert.equal(createBody.profile_id, 'open-4090', 'selected model must travel with challenge creation');
   await client(async (_url, options) => { createHeaders = options.headers; return response({id:'id', accessToken:'token'}); }).createChallenge('data:image/png;base64,test');
   assert.equal(createHeaders['X-Print-Station-Token'], undefined);
   console.log('Evaluation client: lost start response, polling recovery, timeout, PASS handoff passed');

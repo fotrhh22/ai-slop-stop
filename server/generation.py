@@ -49,6 +49,9 @@ def generate_image(settings, prompt, recorder=None):
         if result.energy and (str(result.energy.measurement_id) != request_id
                               or result.energy.model_id != settings.image_model):
             raise ValueError("measurement identity mismatch")
+        if result.energy:
+            from .profiles import measurement_matches
+            measurement_matches(settings, result.energy, 'generate')
         if result.status == "succeeded":
             from .persistence import digest
             raw, _ = decode_data_url(result.image_url or "")

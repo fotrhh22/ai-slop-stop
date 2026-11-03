@@ -1283,3 +1283,5 @@ button {
 .print-station label { display: block; }
 .print-station input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 10px; }
 .receipt-device-status { padding: 12px 0; border-bottom: 1px solid #ccc; font-size: 14px; line-height: 1.5; }
+.model-picker { display: grid; gap: 8px; margin: 12px 0; }
+.model-picker select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background: #171717; color: #fff; }

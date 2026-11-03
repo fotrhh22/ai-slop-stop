@@ -1,4 +1,4 @@
-import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult, ClipSimilarity } from "../types";
+import type { Attempt, Challenge, Receipt, Verdict, EvaluationCriteria, GenerationResult, ClipSimilarity, ModelProfile, ProfileSnapshot } from "../types";
 
 const USE_MOCK = (import.meta.env.VITE_USE_MOCK ?? "true") !== "false";
 const API_BASE = (import.meta.env.VITE_API_BASE ?? "").replace(/\/+$/, "");
@@ -116,9 +116,14 @@ export async function fetchImageModel(): Promise<string> {
   return health.image_model;
 }
 
-export async function createChallenge(targetImage: string): Promise<{id: string; accessToken: string}> {
+export async function fetchModelProfiles(): Promise<ModelProfile[]> {
+  if (USE_MOCK) return [{ id: "gemini", label: "Gemini (Mock)", ready: true, image_model: "Mock", router_model: "Mock", energy_basis: "tokens_only" }];
+  return (await req<{ profiles: ModelProfile[] }>("/api/model-profiles", undefined, undefined, 25_000)).profiles;
+}
+
+export async function createChallenge(targetImage: string, profileId = "gemini"): Promise<{id: string; accessToken: string; profile?: ProfileSnapshot}> {
   if (!USE_MOCK) {
-    return req("/api/challenges", { target_image: targetImage }, undefined, 60_000);
+    return req("/api/challenges", { target_image: targetImage, profile_id: profileId }, undefined, 60_000);
   }
   const id = crypto.randomUUID();
   samples.set(id, { generates: 0, routes: 0, promptLengths: [] });

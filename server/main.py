@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 
 from .config import load_settings
 from .campaign import router as campaign_router
+from .profiles import router as profiles_router
 from .gemini_client import GeminiError, decode_data_url
 from .remote_router import route_verdict
 from .generation import generate_image
@@ -38,6 +39,7 @@ app.include_router(challenge_router)
 app.include_router(printing_router)
 app.include_router(clip_router)
 app.include_router(campaign_router)
+app.include_router(profiles_router)
 
 
 @app.exception_handler(PersistenceError)
@@ -53,7 +55,7 @@ async def rate_limit(request: Request, call_next):
     if request.url.path.startswith("/api/"):
         if int(request.headers.get("content-length") or 0) > 8_000_000:
             return JSONResponse(status_code=413, content={"detail": "REQUEST_TOO_LARGE"})
-        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith("/print-job"))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/", "/api/campaign/"))
+        polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith(("/print-job", "/model-profiles")))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/", "/api/campaign/"))
         # Outbound CLIP polling must not consume the booth browser/print quota.
         # Keep result submissions separate so busy claim polling cannot block completion.
         if request.url.path.startswith("/api/clip-worker/"):
@@ -93,6 +95,10 @@ def health() -> dict:
         "bike_configured": len(settings.bike_worker_token) >= 32,
         "receipt_print_trigger": "bike_session_end",
         "manual_pass_enabled": False,
+        "default_profile": "gemini",
+        "model_selection_enabled": True,
+        "gpu_registration_configured": len(settings.gpu_control_token) >= 32,
+        "gpu_profiles_configured": [key for key,value in settings.gpu_profiles.items() if len(value.get('key','')) >= 32],
     }
 
 

@@ -49,6 +49,9 @@ def route_verdict(settings, target_bytes, target_mime, generated_bytes, generate
             raise ValueError("router request mismatch")
         if result.energy and (str(result.energy.measurement_id) != rid or result.energy.model_id != settings.router_model):
             raise ValueError("router measurement mismatch")
+        if result.energy:
+            from .profiles import measurement_matches
+            measurement_matches(settings, result.energy, 'router')
         if result.status == "succeeded" and (result.verdict is None or result.energy is None):
             raise ValueError("missing verdict or telemetry")
     except GPUAuthRejected as exc:

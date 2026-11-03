@@ -30,7 +30,7 @@ export interface ClipSimilarity {
 }
 
 export interface Receipt {
-  campaign?: { id: string; participant_code: string; energy_basis: "tokens_only" | "measured_gpu" | "unavailable"; target_wh: number | null; multiplier: number; state: string; profile_snapshot: Record<string,string> } | null;
+  campaign?: { id: string; participant_code: string; energy_basis: "tokens_only" | "measured_gpu" | "unavailable"; target_wh: number | null; multiplier: number; state: string; profile_snapshot: Record<string,unknown> } | null;
   bike?: { id: string; campaign_energy_wh: number; multiplier: number; target_wh: number | null; progress_pct: number | null; target_reached: boolean; elapsed_s: number; measured_s: number; gap_count: number; mode: string; end_reason: string } | null;
   energy?: EnergySummary;
   id: string;
@@ -82,7 +82,23 @@ export interface Attempt {
 }
 
 // 목표 이미지 1장에 대한 하나의 챌린지. 시도들을 누적.
+export interface ModelProfile {
+  id: string;
+  label: string;
+  ready: boolean;
+  image_model: string;
+  router_model: string;
+  energy_basis: "tokens_only" | "measured_gpu";
+}
+
+export interface ProfileSnapshot {
+  profile_id: string;
+  image_model: string;
+  router_model: string;
+}
+
 export interface Challenge {
+  profile?: ProfileSnapshot;
   id: string;
   accessToken: string;
   title: string;

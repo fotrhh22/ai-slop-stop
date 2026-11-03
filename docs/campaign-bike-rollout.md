@@ -1,5 +1,8 @@
 # Phase 0–5 적용 안내
 
+모델 선택/자동 준비를 추가하려면 이 문서 적용 후 [Phase 6–7 안내](model-profiles-and-gpu-preparation.md)를 따른다.
+Gemini 토큰 전용·자전거 종료 출력 규칙은 유지한다. Phase 8은 현장 검증, Phase 9는 대체 모델 검증이다.
+
 작성/검증: 2026-11-04. 구현 브랜치: 두 저장소 모두 `codex/campaign-bike-flow`.
 운영 DB·Render/Vercel 설정은 사용자가 적용한다. 이 작업에서 운영 환경을 변경하지 않았다.
 

@@ -4,16 +4,17 @@ import { Chat } from "./components/Chat";
 import { Composer } from "./components/Composer";
 import { TargetImagePicker } from "./components/TargetImagePicker";
 import { MenuIcon } from "./components/icons";
-import type { Attempt, Challenge } from "./types";
+import type { Attempt, Challenge, ProfileSnapshot } from "./types";
 import { createChallenge, generateImage, evaluate, finalize, fetchReceipt } from "./api/client";
 
 const uid = () => crypto.randomUUID();
 
 // 목표 이미지(data URL)를 받아야만 챌린지를 만든다. 기본 이미지는 없음.
-function newChallenge(targetImageUrl: string, id: string, accessToken: string): Challenge {
+function newChallenge(targetImageUrl: string, id: string, accessToken: string, profile?: ProfileSnapshot): Challenge {
   return {
     id,
     accessToken,
+    profile,
     title: "새 챌린지",
     targetImageUrl,
     isCustomTarget: true,
@@ -28,7 +29,6 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // 목표 이미지 선택 모달 표시 여부 (새 챌린지 시작 시 필수 선행 단계)
   const [showPicker, setShowPicker] = useState(false);
-  // STAFF 모드: 입력 조건 없이 수동 PASS 전환 버튼 노출
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
   const active = useMemo(
@@ -77,14 +77,14 @@ export default function App() {
   };
 
   // 모달에서 목표 이미지 확정 -> 그제서야 챌린지 생성 + 활성화
-  const confirmTarget = async (dataUrl: string) => {
+  const confirmTarget = async (dataUrl: string, profileId: string) => {
     if (creating) return;
     setCreating(true);
     setError("");
     setShowPicker(false);
     try {
-      const remote = await createChallenge(dataUrl);
-      const c = newChallenge(dataUrl, remote.id, remote.accessToken);
+      const remote = await createChallenge(dataUrl, profileId);
+      const c = newChallenge(dataUrl, remote.id, remote.accessToken, remote.profile);
       setChallenges((prev) => [c, ...prev]);
       setActiveId(c.id);
     } catch (e) { setError(e instanceof Error ? e.message : "세션 생성 실패"); }
@@ -228,7 +228,11 @@ export default function App() {
           </span>
         </div>
 
-        {creating && <p className="workflow-banner" role="status">목표 이미지와 세션을 저장하는 중…</p>}
+        {active?.profile && <p className="workflow-banner">
+          {active.profile.profile_id === "gemini" ? "Gemini · 토큰 기록" : `${active.profile.profile_id} · GPU 실측 Wh`}
+          <br />생성: {active.profile.image_model} · 판정: {active.profile.router_model}
+        </p>}
+        {creating && <p className="workflow-banner" role="status">모델 연결 확인 · 목표 이미지와 세션을 저장하는 중…</p>}
         {error && <p className="workflow-banner is-error" role="alert">{error}</p>}
         {active?.receipt && <div className="workflow-banner">PASS 저장 완료 · 영수증은 채팅 아래에 표시됩니다.</div>}
 

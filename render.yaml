@@ -31,6 +31,12 @@ services:
         sync: false
       - key: BIKE_WORKER_TOKEN
         sync: false
+      - key: GPU_CONTROL_TOKEN
+        sync: false
+      - key: GPU_4090_API_KEY
+        sync: false
+      - key: GPU_5090_API_KEY
+        sync: false
       - key: RATE_LIMIT_PER_MIN
         value: "20"
       - key: SUPABASE_URL

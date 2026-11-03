@@ -98,10 +98,13 @@ class Store:
             "image_provider": self.settings.image_provider, "router_provider": self.settings.router_provider,
             "image_model": self.settings.image_model, "router_model": self.settings.router_model,
         }
+        if self.settings.profile_id:
+            data['profile_snapshot'].update(profile_id=self.settings.profile_id,
+                runtime_id=self.settings.runtime_id, gpu_identity=self.settings.gpu_identity)
         if print_station_id:
             data["print_station_id"] = print_station_id
         self.insert("challenges", data)
-        return {"id": cid, "accessToken": token}
+        return {"id": cid, "accessToken": token, "profile": data['profile_snapshot']}
 
     def authorize(self, cid, token):
         rows = self.rows("challenges", id="eq." + cid)
