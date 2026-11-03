@@ -9,3 +9,4 @@ zeus==0.16.0
 nvidia-ml-py==13.615.71
 huggingface-hub==2.4.0
 tokenizers==0.23.3
+bitsandbytes==0.50.2

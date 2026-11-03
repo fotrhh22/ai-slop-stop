@@ -178,7 +178,7 @@ class RouteRequest(BaseModel):
 class QwenRunner:
     def __init__(self):
         import torch
-        from transformers import AutoProcessor, Qwen3_5ForConditionalGeneration
+        from transformers import AutoProcessor, BitsAndBytesConfig, Qwen3_5ForConditionalGeneration
         from zeus.monitor import ZeusMonitor
         self.torch = torch
         self.model_id = os.environ.get("GPU_ROUTER_MODEL", "Qwen/Qwen3.5-4B")
@@ -186,8 +186,16 @@ class QwenRunner:
         if not re.fullmatch(r"[a-f0-9]{40}", self.revision):
             raise RuntimeError("GPU_ROUTER_REVISION must be an immutable model commit SHA")
         self.processor = AutoProcessor.from_pretrained(self.model_id, revision=self.revision)
-        self.model = Qwen3_5ForConditionalGeneration.from_pretrained(self.model_id,
-            revision=self.revision, torch_dtype=torch.bfloat16, attn_implementation="sdpa").to("cuda").eval()
+        self.quantization = os.environ.get("GPU_ROUTER_QUANTIZATION", "bf16")
+        kwargs = dict(revision=self.revision, torch_dtype=torch.bfloat16, attn_implementation="sdpa")
+        if self.quantization == "int8":
+            kwargs.update(quantization_config=BitsAndBytesConfig(load_in_8bit=True), device_map={"": 0})
+        elif self.quantization != "bf16":
+            raise RuntimeError("GPU_ROUTER_QUANTIZATION must be bf16 or int8")
+        self.model = Qwen3_5ForConditionalGeneration.from_pretrained(self.model_id, **kwargs)
+        if self.quantization == "bf16":
+            self.model = self.model.to("cuda")
+        self.model.eval()
         self.monitor = ZeusMonitor(gpu_indices=[0])
         self.system = (Path(__file__).resolve().parents[1] / "server/prompts/evaluate.md").read_text()
         self.system += '\nJSON 형식: {"verdict":"PASS 또는 FAIL","reason":"한국어 한 문장","criteria":{"subject":"MATCH 또는 MISMATCH","composition":"MATCH 또는 MISMATCH","color":"MATCH 또는 MISMATCH","background":"MATCH 또는 MISMATCH"}}'
@@ -266,6 +274,7 @@ class QwenRunner:
                 error = "GPU_ROUTER_BAD_JSON"
         return {"request_id": rid, "status": "failed" if error else "succeeded",
                 "energy": energy.model_dump(mode="json"), "verdict": verdict,
+                "router_quantization": self.quantization,
                 "error": error, "input_tokens": input_count, "output_tokens": output_count}
 
 

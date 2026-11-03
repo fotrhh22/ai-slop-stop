@@ -5,6 +5,18 @@
 이 기록을 갱신하거나 코드를 push하기 위해 Pod를 다시 켜지 않는다.
 Supabase SQL 및 Render/Vercel 환경변수 적용은 사용자가 담당한다.
 
+후속 실제 복구: 사용자가 RTX 4090 새 Pod `ios5pyvfgia32z`를 확보했다.
+runpod_esg 키 접속, 비공개 백업의 API 키·원장 복원을 완료했다.
+기존 두 모델 BF16 동시 로딩은 CUDA OOM으로 실패했다. 이미지 모델은 BF16 그대로 유지하고
+Qwen만 `GPU_ROUTER_QUANTIZATION=int8`로 올리면 두 모델 워밍업 및 API 시작에 성공했다.
+bitsandbytes 0.50.2, 상주 VRAM 약 21910/24564MiB였다. 별도 실제 생성/판정 시험 결과로
+속도·전력을 기록해야 하며, 5090 BF16의 0.323Wh를 이 구성의 고정값으로 사용하지 않는다.
+INT8 양자화는 판정 출력에 영향을 줄 수 있으므로 기준 이미지로 정확도 검증이 별도로 필요하다.
+동일 이미지 비교 3회에서 생성·판정 모두 성공했다. Pod 내부 API 왕복 평균 8.2928초,
+생성 평균 1.3726초/0.1590Wh, 판정 평균 6.7555초/0.1873Wh, 합계 평균 0.3463Wh였다.
+이는 브라우저/Render/Supabase 지연을 제외한다. 인증된 외부 HTTPS health도 확인했다.
+새 주소는 `https://ios5pyvfgia32z-8000.proxy.runpod.net`이며 Render GPU_API_URL 갱신이 필요하다.
+
 ## 1. SSH 키, 서버 지문, 모델 SHA는 서로 다르다
 
 | 항목 | 의미 | 재생성 후 조치 |

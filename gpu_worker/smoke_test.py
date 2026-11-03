@@ -73,6 +73,7 @@ def main():
                 raise ValueError("router request ID mismatch")
             router_energy = RouterEnergyMeasurement.model_validate(routed["energy"])
             results[-1].update(router_status=routed["status"], router_energy=router_energy.public(),
+                               router_quantization=routed.get("router_quantization", "bf16"),
                                verdict=routed.get("verdict"), gpu_roundtrip_s=perf_counter() - roundtrip_start)
             args.output.write_text(json.dumps(results, indent=2))
             if routed["status"] != "succeeded" or router_energy.status != "measured":
