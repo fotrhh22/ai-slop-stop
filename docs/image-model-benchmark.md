@@ -167,3 +167,5 @@ Qwen 판정 processor는 `GPU_ROUTER_MAX_PIXELS`(기본 262144 = 512×512)로 �
 Qwen-Image Lightning는 LoRA/4스텝만 적용해서는 충분하지 않다.
 배포자 예제의 FlowMatchEulerDiscreteScheduler(shift=3에 해당하는 base/max_shift=log(3), shift_terminal=None)를 함께 적용한다.
 스케줄러 설정은 health 메타데이터에 기록한다. 초기 스케줄러 누락 실행은 최종 후보 비교에서 제외한다.
+
+RunPod Web Terminal에서 로그인한 HF 인증은 /workspace/.cache/huggingface/token 또는 /workspace/huggingface/token 경로도 확인한다. 인증값은 자식 프로세스 환경에만 전달하고 보고서·명령 인자·로그에 출력하지 않는다.

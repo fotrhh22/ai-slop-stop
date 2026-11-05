@@ -32,6 +32,12 @@ def main():
         import peft
         from huggingface_hub import get_token
         hf_token=get_token()
+        if not hf_token:
+            # RunPod web terminals may use a workspace HF_HOME not inherited by SSH.
+            for path in [Path('/workspace/.cache/huggingface/token'),Path('/workspace/huggingface/token')]:
+                if path.is_file():
+                    hf_token=path.read_text().strip()
+                    if hf_token:break
         for name in config['candidates']:
             if name not in CANDIDATES:raise ValueError('Unknown candidate')
             row={'candidate':name,'status':'running'};state['results'].append(row);save(status,state)
