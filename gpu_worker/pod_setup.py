@@ -118,6 +118,8 @@ def provision():
             if not any(name in identity['gpu'] for name in ['RTX 4090', 'RTX 5090']):
                 raise RuntimeError('This setup is validated only for RTX 4090/5090.')
             values = volume.configuration()
+            values['GPU_IMAGE_DEVICE'] = '0'
+            values['GPU_ROUTER_DEVICE'] = '1' if identity['gpu_count'] == 2 else '0'
             values['GPU_ROUTER_QUANTIZATION'] = 'int8' if memory < 28 * 1024**3 else 'bf16'
             env = ROOT / 'worker.env'
             fd = os.open(env, os.O_WRONLY | os.O_TRUNC)

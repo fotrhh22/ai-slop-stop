@@ -61,10 +61,14 @@ def runtime_identity():
     if sys.version_info[:2] != (3, 12) or torch.__version__ != '2.8.0+cu128' or torch.version.cuda != '12.8':
         raise RuntimeError('Use the validated PyTorch 2.8.0 CUDA 12.8 template; '
                            'other runtimes require a separate GPU acceptance test.')
-    if torch.cuda.device_count() != 1:
-        raise RuntimeError('Exactly one CUDA GPU is required.')
+    if torch.cuda.device_count() not in (1, 2):
+        raise RuntimeError('One or two CUDA GPUs are required.')
+    names = [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]
+    if len(set(names)) != 1:
+        raise RuntimeError('Use matching GPU models in the same Pod.')
     return {'python': sys.version.split()[0], 'torch': torch.__version__,
-            'cuda': torch.version.cuda, 'gpu': torch.cuda.get_device_name(0)}
+            'cuda': torch.version.cuda, 'gpu': torch.cuda.get_device_name(0),
+            'gpu_count': torch.cuda.device_count()}
 
 
 def install():

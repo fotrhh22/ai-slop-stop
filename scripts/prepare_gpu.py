@@ -62,8 +62,8 @@ class RunPodAPI:
 def validate_pod(pod, pod_id, gpu):
     if pod.get('id') != pod_id:
         raise RuntimeError('Pod identity mismatch.')
-    if 'RTX ' + gpu not in pod.get('gpu', {}).get('id', '') or pod.get('gpu', {}).get('count') != 1:
-        raise RuntimeError('Selected Pod must have exactly one RTX ' + gpu + '.')
+    if 'RTX ' + gpu not in pod.get('gpu', {}).get('id', '') or pod.get('gpu', {}).get('count') not in (1, 2):
+        raise RuntimeError('Selected Pod must have one or two RTX ' + gpu + ' GPUs.')
     if not {'22/tcp', '8000/http'}.issubset(set(pod.get('ports', []))):
         raise RuntimeError('Set 22/tcp and 8000/http before installation. No Pod edit was attempted.')
 

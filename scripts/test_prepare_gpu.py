@@ -19,6 +19,16 @@ def pod(status='RUNNING',gpu='4090'):
 
 
 class PrepareTests(TestCase):
+    def test_two_matching_gpus_allowed_but_other_counts_rejected(self):
+        for gpu in ('4090', '5090'):
+            value = pod(gpu=gpu)
+            value['gpu']['count'] = 2
+            prepare.validate_pod(value, 'pod1234', gpu)
+            for count in (0, 3):
+                value['gpu']['count'] = count
+                with self.assertRaises(RuntimeError):
+                    prepare.validate_pod(value, 'pod1234', gpu)
+
     def test_start_once_then_discover_new_ssh_address(self):
         api=Mock();api.get.side_effect=[pod('EXITED'),pod()]
         result=prepare.wait_for_pod(api,'pod1234','4090',time.monotonic()+10,Mock())

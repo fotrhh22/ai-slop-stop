@@ -54,8 +54,15 @@ def probe(settings, profile_id, pod_id):
                     for k in ('image_revision', 'router_revision')) and
                 health.get('router_quantization') == ('int8' if profile_id == 'open-4090' else 'bf16')):
             raise ValueError('identity')
-        return {k: health[k] for k in ('image_model', 'router_model', 'image_revision',
+        identity = {k: health[k] for k in ('image_model', 'router_model', 'image_revision',
             'router_revision', 'gpu_name', 'gpu_uuid', 'router_quantization')}
+        if health.get('router_gpu_uuid') is not None:
+            if (not re.fullmatch(r'GPU-[a-zA-Z0-9-]+', health['router_gpu_uuid']) or
+                    'RTX ' + profile_id[-4:] not in health.get('router_gpu_name', '')):
+                raise ValueError('router GPU identity')
+            identity.update(router_gpu_uuid=health['router_gpu_uuid'],
+                            router_gpu_name=health['router_gpu_name'])
+        return identity
     except (httpx.HTTPError, ValueError, TypeError):
         raise HTTPException(503, 'GPU_NOT_READY_OR_IDENTITY_MISMATCH') from None
 
@@ -98,7 +105,8 @@ def select(settings, store, profile_id, snapshot=None):
 
 def measurement_matches(settings, measurement, operation):
     identity = settings.gpu_identity
-    if identity and (measurement.gpu_uuid != identity['gpu_uuid'] or
+    gpu_uuid = identity.get('router_gpu_uuid', identity.get('gpu_uuid')) if operation != 'generate' else identity.get('gpu_uuid')
+    if identity and (measurement.gpu_uuid != gpu_uuid or
             measurement.model_revision != identity['image_revision' if operation == 'generate' else 'router_revision']):
         raise ValueError('GPU measurement runtime identity mismatch')
 

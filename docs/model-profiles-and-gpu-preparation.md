@@ -168,3 +168,27 @@ Render/Vercel 설정 변경, 자전거 및 PT-210 물리 출력은 이번 구현
 공식 근거: [RunPod REST v2 스키마](https://api.runpod.io/v2/openapi.json),
 [공식 Python SDK의 Pod 시작 구현](https://github.com/runpod/runpod-python/blob/main/runpod/api/ctl_commands.py),
 [Render 환경변수](https://render.com/docs/configure-environment-variables).
+
+
+### GPU 두 장을 사용하는 Pod
+
+같은 모델의 RTX 4090 또는 RTX 5090 1~2장을 지원한다. 기존 prepare 명령을 그대로 사용한다.
+두 장이면 GPU 0에 FLUX, GPU 1에 Qwen을 배치한다. API는 기존 8000 하나를 유지한다.
+4090의 Qwen INT8, 5090의 BF16 정책은 유지한다. 각 모델이 사용하는 GPU의 UUID와 Zeus 계측값을 따로 기록한다.
+생성·판정 사용량 합계는 해당 작업 구간의 담당 GPU 계측값이며, 다른 GPU의 대기 전력이나 Pod 전체 소비량을 포함하지 않는다.
+
+```bash
+cd /Users/hunhokang/Downloads/esg_campaign/output/zeus-migration
+./runpod prepare --profile open-4090
+```
+
+새 코드를 사용하려면 Render main 배포가 끝난 뒤 실행한다. 추가 환경변수나 SQL은 없다.
+준비 실패가 checking_pod에서 발생했다면 같은 명령을 다시 실행한다.
+이미 정상 worker가 실행 중이면 스크립트는 재시작하지 않는다. 실행 중 요청이 없는지 확인하고 기존 worker를 정상 종료한 뒤 준비한다.
+GPU 장수/배치가 달라지면 새 runtime으로 등록되므로 기존 참가자 대신 새 챌린지에서 확인한다.
+
+준비 완료 후 Pod Web Terminal에서 아래 명령으로 두 GPU의 메모리를 확인한다.
+
+```bash
+watch -n 1 nvidia-smi
+```

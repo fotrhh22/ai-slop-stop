@@ -27,6 +27,18 @@ def identity(gpu='4090'):
 
 
 class ProfilesTests(TestCase):
+    def test_two_gpu_identity_checks_judge_measurement_on_its_own_gpu(self):
+        response = Mock()
+        response.json.return_value = {**health(), 'router_gpu_uuid': 'GPU-judge',
+                                      'router_gpu_name': 'NVIDIA GeForce RTX 4090'}
+        with patch.object(profiles.httpx, 'get', return_value=response):
+            selected_identity = profiles.probe(self.settings, 'open-4090', 'pod1234')
+        settings = replace(self.settings, gpu_identity=selected_identity)
+        profiles.measurement_matches(settings, SimpleNamespace(gpu_uuid='GPU-judge', model_revision='b'*40), 'router')
+        profiles.measurement_matches(settings, SimpleNamespace(gpu_uuid='GPU-4090', model_revision='a'*40), 'generate')
+        with self.assertRaises(ValueError):
+            profiles.measurement_matches(settings, SimpleNamespace(gpu_uuid='GPU-4090', model_revision='b'*40), 'router')
+
     def setUp(self):
         self.settings = Settings(gemini_api_key='gemini-private', image_model='legacy-image',
             router_model='legacy-router', router_provider='gemini', public_app_origin='',

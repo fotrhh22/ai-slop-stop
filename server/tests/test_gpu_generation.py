@@ -192,7 +192,8 @@ class MeasurementWindowTests(unittest.TestCase):
         runner.width = runner.height = 1024
         runner.steps, runner.revision, runner.model_id = 30, "a" * 40, "test-model"
         runner.gpu_name, runner.gpu_uuid, runner.zeus_version = "test GPU", "GPU-test", "test"
-        runner.torch = NS(inference_mode=nullcontext, Generator=lambda **kwargs: NS(manual_seed=lambda seed: seed))
+        runner.gpu_index, runner.device = 0, "cuda:0"
+        runner.torch = NS(cuda=Mock(), inference_mode=nullcontext, Generator=lambda **kwargs: NS(manual_seed=lambda seed: seed))
         runner.monitor = Mock()
         runner.monitor.end_window.return_value = NS(total_energy=energy_j, time=20)
         def encode(out, format):

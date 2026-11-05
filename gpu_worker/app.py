@@ -81,6 +81,24 @@ class GenerateRequest(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000)
 
 
+def model_device(torch, role):
+    count = torch.cuda.device_count()
+    if count not in (1, 2):
+        raise RuntimeError("One or two dedicated CUDA GPUs are required")
+    default = 1 if role == "ROUTER" and count == 2 else 0
+    index = int(os.environ.get("GPU_" + role + "_DEVICE", str(default)))
+    if not 0 <= index < count:
+        raise RuntimeError("Configured model GPU is unavailable")
+    if count == 2:
+        other_role = "IMAGE" if role == "ROUTER" else "ROUTER"
+        other_default = 0 if other_role == "IMAGE" else 1
+        other = int(os.environ.get("GPU_" + other_role + "_DEVICE", str(other_default)))
+        if index == other:
+            raise RuntimeError("Two-GPU mode requires separate image and router devices")
+    torch.cuda.set_device(index)
+    return index, "cuda:" + str(index)
+
+
 class FluxRunner:
     def __init__(self):
         # Imports stay out of the HTTP module so CPU-only contract tests can run.
@@ -93,20 +111,19 @@ class FluxRunner:
         self.revision = os.environ.get("GPU_MODEL_REVISION", "")
         if not re.fullmatch(r"[a-f0-9]{40}", self.revision):
             raise RuntimeError("GPU_MODEL_REVISION must be an immutable Hugging Face commit SHA")
-        if torch.cuda.device_count() != 1:
-            raise RuntimeError("Expose exactly one dedicated GPU with CUDA_VISIBLE_DEVICES")
+        self.gpu_index, self.device = model_device(torch, "IMAGE")
         self.width = self.height = 1024
         self.steps = 4
         self.pipe = Flux2KleinPipeline.from_pretrained(self.model_id,
-            revision=self.revision, torch_dtype=torch.bfloat16, use_safetensors=True).to("cuda")
+            revision=self.revision, torch_dtype=torch.bfloat16, use_safetensors=True).to(self.device)
         self.pipe.set_progress_bar_config(disable=True)
         # Warm-up is outside every participant's measurement window.
         with torch.inference_mode():
             self.pipe(prompt="a red bicycle", width=self.width, height=self.height, num_inference_steps=4, guidance_scale=1.0)
-        torch.cuda.synchronize()
-        self.monitor = ZeusMonitor(gpu_indices=[0])
+        torch.cuda.synchronize(self.gpu_index)
+        self.monitor = ZeusMonitor(gpu_indices=[self.gpu_index])
         pynvml.nvmlInit()
-        device = torch.cuda.get_device_properties(0)
+        device = torch.cuda.get_device_properties(self.gpu_index)
         # Match UUID, not physical index 0: container device numbering may differ.
         device_uuid = str(device.uuid)
         if not device_uuid.startswith("GPU-"):
@@ -126,6 +143,7 @@ class FluxRunner:
             raise RuntimeError("GPU energy probe failed; do not serve unverified telemetry")
 
     def run(self, request):
+        self.torch.cuda.set_device(self.gpu_index)
         rid, seed = str(request.request_id), secrets.randbelow(2**31)
         start, wall = utcnow(), perf_counter()
         energy, image, error = None, None, None
@@ -136,7 +154,7 @@ class FluxRunner:
             with self.torch.inference_mode():
                 image = self.pipe(prompt=request.prompt, width=self.width, height=self.height,
                     num_inference_steps=self.steps, guidance_scale=1.0,
-                    generator=self.torch.Generator(device="cuda").manual_seed(seed)).images[0]
+                    generator=self.torch.Generator(device=self.device).manual_seed(seed)).images[0]
         except Exception:
             error = "GPU_GENERATION_FAILED"
             log.exception("GPU generation failed request_id=%s", rid)
@@ -185,25 +203,26 @@ class QwenRunner:
         self.revision = os.environ.get("GPU_ROUTER_REVISION", "")
         if not re.fullmatch(r"[a-f0-9]{40}", self.revision):
             raise RuntimeError("GPU_ROUTER_REVISION must be an immutable model commit SHA")
+        self.gpu_index, self.device = model_device(torch, "ROUTER")
         self.processor = AutoProcessor.from_pretrained(self.model_id, revision=self.revision)
         self.quantization = os.environ.get("GPU_ROUTER_QUANTIZATION", "bf16")
         kwargs = dict(revision=self.revision, torch_dtype=torch.bfloat16, attn_implementation="sdpa")
         if self.quantization == "int8":
-            kwargs.update(quantization_config=BitsAndBytesConfig(load_in_8bit=True), device_map={"": 0})
+            kwargs.update(quantization_config=BitsAndBytesConfig(load_in_8bit=True), device_map={"": self.gpu_index})
         elif self.quantization != "bf16":
             raise RuntimeError("GPU_ROUTER_QUANTIZATION must be bf16 or int8")
         self.model = Qwen3_5ForConditionalGeneration.from_pretrained(self.model_id, **kwargs)
         if self.quantization == "bf16":
-            self.model = self.model.to("cuda")
+            self.model = self.model.to(self.device)
         self.model.eval()
-        self.monitor = ZeusMonitor(gpu_indices=[0])
+        self.monitor = ZeusMonitor(gpu_indices=[self.gpu_index])
         self.system = (Path(__file__).resolve().parents[1] / "server/prompts/evaluate.md").read_text()
         self.system += '\nJSON 형식: {"verdict":"PASS 또는 FAIL","reason":"한국어 한 문장","criteria":{"subject":"MATCH 또는 MISMATCH","composition":"MATCH 또는 MISMATCH","color":"MATCH 또는 MISMATCH","background":"MATCH 또는 MISMATCH"}}'
-        # Use the actual resident Flux GPU's identity; startup uses one CUDA device.
-        self.gpu_uuid = str(torch.cuda.get_device_properties(0).uuid)
+        # Record the judge GPU separately when generation uses another device.
+        self.gpu_uuid = str(torch.cuda.get_device_properties(self.gpu_index).uuid)
         if not self.gpu_uuid.startswith("GPU-"):
             self.gpu_uuid = "GPU-" + self.gpu_uuid
-        self.gpu_name = torch.cuda.get_device_name(0)
+        self.gpu_name = torch.cuda.get_device_name(self.gpu_index)
         self.zeus_version = version("zeus")
         from PIL import Image
         out = io.BytesIO()
@@ -228,6 +247,7 @@ class QwenRunner:
         return image
 
     def run(self, request):
+        self.torch.cuda.set_device(self.gpu_index)
         from server.energy import RouterEnergyMeasurement
         from server.verdict import Verdict
         target, generated = self.decode_image(request.target_image), self.decode_image(request.generated_image)
@@ -241,7 +261,7 @@ class QwenRunner:
             self.monitor.begin_window(rid)
             opened = True
             inputs = self.processor.apply_chat_template(messages, tokenize=True, add_generation_prompt=True,
-                return_dict=True, return_tensors="pt", enable_thinking=False).to("cuda")
+                return_dict=True, return_tensors="pt", enable_thinking=False).to(self.device)
             with self.torch.inference_mode():
                 output = self.model.generate(**inputs, max_new_tokens=256, do_sample=False, use_cache=True)
         except Exception:
@@ -314,7 +334,11 @@ def create_app(runner=None, ledger_path=None, api_key=None, judge=None):
                 "router_revision": getattr(app.state.judge, 'revision', None),
                 "gpu_name": getattr(app.state.runner, 'gpu_name', None),
                 "gpu_uuid": getattr(app.state.runner, 'gpu_uuid', None),
-                "router_quantization": getattr(app.state.judge, 'quantization', None)}
+                "router_quantization": getattr(app.state.judge, 'quantization', None),
+                "router_gpu_name": getattr(app.state.judge, 'gpu_name', None),
+                "router_gpu_uuid": getattr(app.state.judge, 'gpu_uuid', None),
+                "image_device": getattr(app.state.runner, 'device', None),
+                "router_device": getattr(app.state.judge, 'device', None)}
 
     @app.post("/v1/generate", dependencies=[Depends(authorize)])
     def generate(request: GenerateRequest):
