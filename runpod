@@ -1,4 +1,8 @@
 #!/bin/sh
+if [ "$1" = benchmark-router ]; then
+  shift
+  exec python3 "$(dirname "$0")/scripts/benchmark_router.py" "$@"
+fi
 if [ "$1" = benchmark ]; then
   shift
   exec python3 "$(dirname "$0")/scripts/benchmark_images.py" "$@"
