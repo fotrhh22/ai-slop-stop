@@ -42,3 +42,6 @@ __pycache__/
 
 # os/editor
 .DS_Store
+
+# Local model benchmark evidence and generated images
+/benchmark-results/

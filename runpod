@@ -1,4 +1,8 @@
 #!/bin/sh
+if [ "$1" = benchmark ]; then
+  shift
+  exec python3 "$(dirname "$0")/scripts/benchmark_images.py" "$@"
+fi
 if [ "$1" = prepare ]; then
   shift
   exec python3 "$(dirname "$0")/scripts/prepare_gpu.py" "$@"
