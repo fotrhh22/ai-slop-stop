@@ -1,0 +1,3 @@
+# Preserve the validated RunPod template; never upgrade CUDA Torch through dependencies.
+torch==2.8.0+cu128
+triton==3.4.0

@@ -1,0 +1,2 @@
+# CUDA extension: install only after Torch/build tools, with --no-build-isolation.
+causal-conv1d==1.7.0

@@ -203,6 +203,8 @@ class QwenRunner:
         self.revision = os.environ.get("GPU_ROUTER_REVISION", "")
         if not re.fullmatch(r"[a-f0-9]{40}", self.revision):
             raise RuntimeError("GPU_ROUTER_REVISION must be an immutable model commit SHA")
+        from gpu_worker.kernels import check
+        self.fast_path_versions = check()
         self.gpu_index, self.device = model_device(torch, "ROUTER")
         self.processor = AutoProcessor.from_pretrained(self.model_id, revision=self.revision)
         self.quantization = os.environ.get("GPU_ROUTER_QUANTIZATION", "bf16")
@@ -338,7 +340,8 @@ def create_app(runner=None, ledger_path=None, api_key=None, judge=None):
                 "router_gpu_name": getattr(app.state.judge, 'gpu_name', None),
                 "router_gpu_uuid": getattr(app.state.judge, 'gpu_uuid', None),
                 "image_device": getattr(app.state.runner, 'device', None),
-                "router_device": getattr(app.state.judge, 'device', None)}
+                "router_device": getattr(app.state.judge, 'device', None),
+                "router_fast_path_versions": getattr(app.state.judge, 'fast_path_versions', None)}
 
     @app.post("/v1/generate", dependencies=[Depends(authorize)])
     def generate(request: GenerateRequest):

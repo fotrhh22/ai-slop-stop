@@ -10,3 +10,11 @@ nvidia-ml-py==13.615.71
 huggingface-hub==2.4.0
 tokenizers==0.23.3
 bitsandbytes==0.50.2
+# Qwen3.5 Gated DeltaNet fast path (shared by 4090 and 5090).
+flash-linear-attention==0.6.0
+fla-core==0.6.0
+einops==0.8.2
+ninja==1.13.2
+packaging==25.0
+setuptools==80.9.0
+wheel==0.45.1

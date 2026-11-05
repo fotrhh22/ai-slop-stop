@@ -20,8 +20,7 @@ def main():
     if args.command == 'install':
         subprocess.run([sys.executable, '-m', 'venv', '--system-site-packages',
                         str(volume.RUNTIME)], check=True)
-        subprocess.run([str(python), '-m', 'pip', 'install', '-r',
-                        str(volume.ROOT / 'gpu_worker/requirements.lock.txt')], check=True)
+        volume.install_dependencies(python)
         (volume.RUNTIME / 'runtime.json').write_text(json.dumps(identity))
         print('Ephemeral setup complete. Stop/edit may erase it; back up before stopping.')
     else:

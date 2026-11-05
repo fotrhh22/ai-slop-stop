@@ -71,13 +71,26 @@ def runtime_identity():
             'gpu_count': torch.cuda.device_count()}
 
 
+
+def install_dependencies(python):
+    """Both persistent and ephemeral Pods use the same constrained fast-path install."""
+    constraints = str(ROOT / 'gpu_worker/runtime.constraints.txt')
+    pip = [str(python), '-m', 'pip', 'install', '-c', constraints]
+    subprocess.run(pip + ['-r', str(ROOT / 'gpu_worker/requirements.lock.txt')], check=True)
+    env = os.environ.copy()
+    env.setdefault('MAX_JOBS', '2')
+    subprocess.run(pip + ['--no-build-isolation', '-r',
+        str(ROOT / 'gpu_worker/kernel-requirements.lock.txt')], check=True, env=env)
+    # A successful pip install is insufficient when a CUDA extension cannot import.
+    subprocess.run([str(python), '-m', 'gpu_worker.kernels'], cwd=ROOT, check=True)
+
+
 def install():
     check_mount()
     identity = runtime_identity()
     configuration()
     subprocess.run([sys.executable, '-m', 'venv', '--system-site-packages', str(RUNTIME)], check=True)
-    subprocess.run([str(RUNTIME / 'bin/python'), '-m', 'pip', 'install',
-                    '-r', str(ROOT / 'gpu_worker/requirements.lock.txt')], check=True)
+    install_dependencies(RUNTIME / 'bin/python')
     (RUNTIME / 'runtime.json').write_text(json.dumps(identity, indent=2))
     print('Runtime installed. Start the worker next; credentials were not printed.')
 

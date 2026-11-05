@@ -192,3 +192,20 @@ GPU 장수/배치가 달라지면 새 runtime으로 등록되므로 기존 참�
 ```bash
 watch -n 1 nvidia-smi
 ```
+
+
+### Qwen 최적화 커널 공통 설치
+
+4090/5090, GPU 1장/2장, 임시/영구 볼륨 설치 모두 `volume.install_dependencies`를 사용한다.
+`flash-linear-attention==0.6.0`, `fla-core==0.6.0`, `causal-conv1d==1.7.0`을 설치한다.
+Torch 2.8.0+cu128 및 Triton 3.4.0은 constraints로 유지한다.
+causal-conv1d는 build 도구 설치 후 `--no-build-isolation`으로 설치하며, wheel이 없으면 컴파일이 필요할 수 있다.
+설치 후 네 개 fast-path 함수 import를 검사하고, worker 시작 시에도 재확인한다.
+실패하면 준비를 중단한다. health의 `router_fast_path_versions`에서 설치 버전을 확인할 수 있다.
+이 확인은 import/환경 확인이며 GPU 실행 및 정확성·속도 비교를 대신하지 않는다.
+첫 실행에는 Triton 컴파일 시간이 추가될 수 있으며, 시작 시 기존 워밍업을 거친다.
+
+이미 실행 중인 worker는 prepare가 자동 재시작하지 않으므로 변경 사항이 소급 적용되지 않는다.
+진행 중 요청이 없는 상태에서 기존 worker를 종료한 뒤 새 커밋의 prepare를 실행하거나,
+새 Pod에서 prepare를 실행한다. 개별 서버에 수동 pip 설치를 반복할 필요는 없다.
+이 변경의 GPU별 설치 호환성과 실제 속도 개선 폭은 아직 실측하지 않았다.

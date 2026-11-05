@@ -12,6 +12,25 @@ from gpu_worker import volume
 
 
 class VolumeTests(unittest.TestCase):
+    def test_shared_install_preserves_runtime_and_verifies_extensions(self):
+        with patch.object(volume.subprocess, 'run') as run:
+            volume.install_dependencies(Path('/test/venv/bin/python'))
+        calls = run.call_args_list
+        self.assertEqual(len(calls), 3)
+        self.assertIn('-c', calls[0].args[0])
+        self.assertTrue(calls[0].args[0][-1].endswith('requirements.lock.txt'))
+        self.assertIn('--no-build-isolation', calls[1].args[0])
+        self.assertTrue(calls[1].args[0][-1].endswith('kernel-requirements.lock.txt'))
+        self.assertEqual(calls[2].args[0], ['/test/venv/bin/python', '-m', 'gpu_worker.kernels'])
+        self.assertTrue(all(c.kwargs['check'] for c in calls))
+
+    def test_failed_extension_install_does_not_report_success(self):
+        import subprocess
+        with patch.object(volume.subprocess, 'run', side_effect=[None, subprocess.CalledProcessError(1, 'pip')]) as run:
+            with self.assertRaises(subprocess.CalledProcessError):
+                volume.install_dependencies(Path('/test/python'))
+        self.assertEqual(run.call_count, 2)
+
     def test_refuses_workspace_on_container_root(self):
         result = json.dumps({'filesystems': [{'target': '/', 'source': 'overlay', 'fstype': 'overlay'}]})
         with patch.object(volume.subprocess, 'check_output', return_value=result):
