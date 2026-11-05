@@ -2,8 +2,8 @@
 
 사이트·Render·Supabase를 거치지 않고 준비된 Pod의 이미지 생성 API를 직접 호출한다.
 현재 도구는 이미 실행 중인 worker의 모델을 시험한다. 모델 다운로드/교체/Pod 시작은 하지 않는다.
-Z-Image/Klein 9B/Qwen-Image의 모델별 로더는 아직 구현되지 않았으며 이 도구가 대신 설치하지 않는다.
-이후 worker에 모델별 로더를 추가하면 같은 테스트 파일과 보고서 형식을 재사용한다.
+후보별 로더와 전용 실행 파일은 아래의 독립 후보 비교 경로에서 사용한다.
+기본 API 테스트는 현재 실행 중인 worker 모델을 바꾸지 않는다.
 
 ## 실행 위치: Mac 터미널
 
@@ -57,3 +57,99 @@ python3 scripts/benchmark_images.py --report /절대경로/results.json
 ```
 
 현재 참가자 서비스 설정이나 DB 기록은 변경하지 않는다. 생성 결과는 Git에서 제외한다.
+
+
+## 독립 후보 비교: 모델별 전용 스크립트
+
+- `benchmarks/z_image_turbo.py`: Z-Image-Turbo BF16, 9 scheduler steps(공식 Turbo 설정).
+- `benchmarks/qwen_image_lightning_nf4.py`: Qwen-Image-2512, transformer/text encoder NF4, Lightning 4-step BF16 LoRA, true CFG 1.
+- `benchmarks/klein_9b_nf4.py`: Klein 9B distilled, transformer/text encoder NF4, 4 steps, guidance 1.
+
+프롬프트는 세 후보에서 동일한 한국어 원문을 쓴다. 번역·확장·모델별 내용 추가를 하지 않는다.
+모든 모델을 1024×1024, 시드 42+프롬프트 인덱스+반복 인덱스×100으로 실행한다.
+모델별 다른 샘플링 설정을 기록하므로 동일 시드가 같은 이미지를 의미하지는 않는다.
+단계 수·가중치 revision·양자화 구성·Lightning revision/file·offload 여부를 보고서에 기록한다.
+Z-Image는 기본 BF16 비교이며 메모리를 줄여야 할 때 `--quantization nf4`를 명시할 수 있다.
+NF4를 FP8 연산 가속으로 표시하지 않는다. NF4에서는 VAE를 양자화하지 않는다.
+
+최신 prepare로 공통 의존성(PEFT, FLA, causal-conv1d 포함)이 설치된 Pod를 사용한다.
+실행 시 `/workspace/ai-slop-benchmarks/<실행ID>`에 커밋된 테스트 소스만 전송한다.
+운영 worker 코드·설정·원장과 Render 등록은 바꾸지 않는다.
+후보마다 별도 Python 프로세스를 순차 실행해서 모델 사이에 CUDA 메모리를 해제한다.
+다운로드·모델 로딩·각 모델 1회 워밍업은 생성 시간/전력 통계에서 제외한다.
+첫 GPU 실측 전까지 설정/로더 구현 상태이며, 품질·속도·GPU별 호환성을 검증한 것은 아니다.
+
+### 사전 조건: 테스트할 GPU를 비워 둘 것
+
+이미 운영 worker가 해당 GPU를 점유 중이면 `GPU_BUSY_STOP_SERVICE_BEFORE_BENCHMARK`로 실패한다.
+prepare 완료 직후는 worker가 GPU를 점유하므로 그대로 후보 비교를 시작하지 않는다.
+동일 Pod를 사용할 때는 진행 중 참가자 요청이 없는 것을 확인한 다음 Pod 터미널에서 알려진 worker만 정상 종료한다.
+
+```bash
+python - <<'PY_STOP'
+import os, signal
+from pathlib import Path
+pid = int(Path('/workspace/ai-slop-stop/worker.pid').read_text())
+command = (Path('/proc') / str(pid) / 'cmdline').read_bytes()
+if b'uvicorn' not in command or b'gpu_worker.app:app' not in command:
+    raise RuntimeError('PID does not belong to the expected worker; nothing stopped')
+os.kill(pid, signal.SIGTERM)
+print('Worker graceful shutdown requested. Wait until nvidia-smi shows the GPU is free.')
+PY_STOP
+```
+
+후보 비교가 끝난 뒤 서비스 재개는 Mac에서 기존 `./runpod prepare --profile open-5090`을 실행한다.
+4090이면 open-4090으로 바꾼다. prepare는 운영 모델 설정을 유지하며 후보를 서비스에 등록하지 않는다.
+이미 healthy인 worker에는 prepare가 새 의존성을 설치하지 않는다. 새 PEFT/커널 설치가 필요하면
+먼저 worker를 종료한 뒤 prepare로 설치/시작하고, 비교 전에 다시 종료한다.
+운영 프로세스를 자동 종료하지 않는다. 진행 중 챌린지가 없는 시간에 worker를 정상 종료하거나 별도 유휴 Pod에서 실행한다.
+메모리가 부족하다고 서비스 모델을 자동 언로드하거나 CPU offload로 전환하지 않는다.
+CPU offload가 필요하면 `--offload`를 명시하고 성능 비교에 그 차이를 반영한다.
+NF4 로딩도 원본 가중치를 다운로드하므로 VRAM 절감이 디스크 사용량 절감을 뜻하지 않는다.
+Qwen-Image 원본 가중치만 수십 GB이므로 세 후보를 저장할 디스크 여유가 필요하다.
+각 모델의 로딩 전 디스크 여유를 results.json에 기록한다.
+Klein 9B는 Hugging Face 모델 이용 조건 동의 및 해당 계정의 접근 권한이 필요할 수 있다.
+토큰이 필요하면 Pod의 표준 Hugging Face 인증을 사용한다. API 키/SSH 키를 프롬프트나 보고서에 넣지 않는다.
+
+### Mac에서 한 후보 실행
+
+```bash
+cd /Users/hunhokang/Downloads/esg_campaign/output/zeus-migration
+./runpod benchmark --profile open-5090 --candidate z-image-turbo
+./runpod benchmark --profile open-5090 --candidate qwen-image-lightning-nf4
+./runpod benchmark --profile open-5090 --candidate klein-9b-nf4
+```
+
+세 후보를 한 번에 순서대로 실행하려면:
+
+```bash
+./runpod benchmark --profile open-5090 --candidate all
+```
+
+4090도 `--profile open-4090`만 바꾼다. GPU 두 장 중 비어 있는 두 번째 장을 사용할 때는 `--device 1`을 지정한다.
+초기 모델 설치는 다운로드를 포함해 오래 걸릴 수 있다. 각 후보 실행은 최대 1시간이며 시간 초과 시 해당 프로세스가 종료된다.
+인터넷/SSH가 끊겨도 이미 시작한 원격 실행은 계속될 수 있다. 출력된 Run ID로 재수집한다.
+원격 GPU 부하가 없다고 판단해서 자동으로 새 생성을 반복하지 않는다.
+
+```bash
+./runpod benchmark --profile open-5090 --collect 출력된_RUN_ID
+# 같은 프로필에서 가장 최근에 시작한 실행:
+./runpod benchmark --profile open-5090 --collect latest
+```
+
+결과는 `benchmark-results/candidates-<실행ID>/comparison.html`에서 나란히 확인한다.
+모델별 report.html/results.json/summary.json/PNG 및 실패 로그도 함께 수집한다.
+일부 모델 실패는 전체 성공으로 표시하지 않는다. 수집 명령은 추론을 재실행하지 않는다.
+성공한 모델을 다음에 다시 실행하면 새로운 테스트이므로, 중복 생성을 피하려면 collect를 사용한다.
+생성 GPU에 대해 50ms NVML 표본 최대값과 PyTorch peak allocated/reserved를 기록한다.
+전력은 담당 GPU의 생성 구간만 포함한다. 유휴 GPU·CPU·다운로드 전력은 포함하지 않는다.
+
+### 판정 경로의 별도 최적화
+
+위 후보들은 이미지 생성 모델이다. FLA/causal-conv1d는 현재 Qwen3.5 판정 모델의 fast path에 적용된다.
+이미 공통 설치 경로에서 두 커널을 설치/검사한다. 후보 이미지 생성에 두 커널이 자동 적용된다고 주장하지 않는다.
+Qwen 판정 processor는 `GPU_ROUTER_MAX_PIXELS`(기본 262144 = 512×512)로 이미지당 입력 면적을 제한한다.
+전처리 후 실제 image_grid_thw를 확인해 각 이미지의 시각 토큰 상한을 초과하면 GPU 전송 전에 중단한다.
+허용 설정 범위는 65536~1048576 pixels이며 기본값 사용 시 추가 환경변수는 필요 없다.
+후보 품질 비교에서는 Qwen/CLIP 판정을 호출하지 않는다. 이미지 생성 자체의 품질과 비용을 분리해서 보고한다.
+기존 운영 사이트의 이미지 모델은 이 테스트로 자동 교체되지 않는다. 후보 선정 후 별도로 전환한다.

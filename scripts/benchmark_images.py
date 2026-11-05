@@ -134,10 +134,11 @@ def report(manifest):
     evidence = json.loads(manifest.read_text())
     rows = evidence['results']
     good = [r for r in rows if r['status'] == 'succeeded']
-    times = [r['api_s'] for r in good]
+    times = [r.get('api_s', r.get('elapsed_s')) for r in good]
     energies = [r['energy_mwh'] for r in good if r.get('energy_mwh') is not None]
     summary = {'successful': len(good), 'attempted': len(rows),
-        'mean_api_s': statistics.mean(times) if times else None,
+        'mean_elapsed_s': statistics.mean(times) if times else None,
+        'timing_scope': 'direct_generation' if evidence.get('mode')=='offline_generation' else 'worker_api_roundtrip',
         'mean_generation_mwh': statistics.mean(energies) if energies else None,
         'energy_measured_count': len(energies), 'quality': 'not_automatically_scored'}
     save(manifest.parent / 'summary.json', summary)
@@ -145,15 +146,16 @@ def report(manifest):
     parts = ['<!doctype html><meta charset="utf-8"><title>한국어 이미지 모델 비교</title>',
         '<style>body{font:16px system-ui;max-width:1100px;margin:30px auto;padding:16px;background:#f5f5f5}article{background:white;padding:20px;margin:24px 0;border-radius:12px}img{max-width:100%;max-height:650px}pre{white-space:pre-wrap}li{margin:5px}</style>',
         '<h1>한국어 이미지 생성 결과</h1>', '<p>이미지 생성만 측정. 번역·CLIP·Qwen 판정·웹사이트·DB 호출 없음. 품질은 아래 이미지와 조건을 보고 별도로 평가.</p>',
-        '<p>VRAM은 250ms 간격 NVML 표본의 최대값이며 순간 최대치와 다를 수 있음. 전력은 담당 GPU 생성 구간만 포함. 시드는 실행별 무작위.</p>',
-        '<h2>Worker 설정</h2><pre>'+esc(json.dumps(evidence['health'],ensure_ascii=False,indent=2))+'</pre>',
+        '<p>VRAM 표본 간격: worker API 250ms / 후보 직접 실행 50ms. 전력은 담당 GPU 생성 구간만 포함. 후보 직접 실행은 고정 시드를 사용하며 웹 전체 시간과 다름.</p>',
+        '<p>상태: '+esc(evidence.get('status','worker API'))+' / '+esc(evidence.get('error',''))+'</p>',
+        '<h2>모델 설정</h2><pre>'+esc(json.dumps(evidence['health'],ensure_ascii=False,indent=2))+'</pre>',
         '<h2>요약</h2><pre>'+esc(json.dumps(summary,ensure_ascii=False,indent=2))+'</pre>']
     if evidence.get('memory_error'): parts.append('<p>'+esc(evidence['memory_error'])+'</p>')
     for row in rows:
         parts.extend(['<article><h2>'+esc(row['case_id'])+'</h2><p>'+esc(row['prompt'])+'</p>',
             '<ul>'+''.join('<li>□ '+esc(c)+'</li>' for c in row['criteria'])+'</ul>'])
         if row.get('image'): parts.append('<img src="'+esc(row['image'])+'">')
-        stats = {k:row[k] for k in ['status','error','api_s','gpu_s','energy_mwh','vram_sampled_peak'] if k in row}
+        stats = {k:row[k] for k in ['status','error','api_s','elapsed_s','gpu_s','energy_mwh','vram_sampled_peak','torch_peak_allocated_mib','torch_peak_reserved_mib'] if k in row}
         parts.append('<pre>'+esc(json.dumps(stats,ensure_ascii=False,indent=2))+'</pre></article>')
     (manifest.parent/'report.html').write_text('\n'.join(parts),encoding='utf-8')
     return summary
@@ -162,6 +164,11 @@ def report(manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', choices=['open-4090','open-5090'])
+    parser.add_argument('--candidate', choices=['all','z-image-turbo','klein-9b-nf4','qwen-image-lightning-nf4'])
+    parser.add_argument('--collect', help='Collect a previous candidate benchmark run ID without GPU calls')
+    parser.add_argument('--device', type=int, choices=[0,1], default=0)
+    parser.add_argument('--offload', action='store_true', help='Explicit CPU offload; recorded in report')
+    parser.add_argument('--quantization', choices=['bf16','nf4'])
     parser.add_argument('--cases', type=Path, default=ROOT/'benchmarks/korean-image-prompts.json')
     parser.add_argument('--repeat', type=int, choices=range(1,4), default=1)
     parser.add_argument('--report', type=Path, help='Rebuild report from results.json; no GPU calls')
@@ -169,6 +176,10 @@ def main():
     if args.report:
         print(json.dumps(report(args.report.resolve()),ensure_ascii=False)); return
     if not args.profile: parser.error('--profile is required')
+    if args.candidate or args.collect:
+        from scripts.benchmark_candidates import run
+        run(args)
+        return
     cases = json.loads(args.cases.read_text(encoding='utf-8'))
     if not isinstance(cases,list) or not 1 <= len(cases) <= 20: parser.error('Use 1–20 test cases')
     for c in cases:

@@ -1,4 +1,4 @@
-"""One process, one GPU, one generation window. Run with uvicorn --workers 1.
+"""One process, one or two GPUs, one generation window. Run with uvicorn --workers 1.
 
 Persistent request IDs prevent a network retry from repeating generation.
 Do not expose this service without GPU_API_KEY and an HTTPS reverse proxy.
@@ -207,6 +207,8 @@ class QwenRunner:
         self.fast_path_versions = check()
         self.gpu_index, self.device = model_device(torch, "ROUTER")
         self.processor = AutoProcessor.from_pretrained(self.model_id, revision=self.revision)
+        from gpu_worker.vision_limits import configure
+        self.max_pixels = configure(self.processor)
         self.quantization = os.environ.get("GPU_ROUTER_QUANTIZATION", "bf16")
         kwargs = dict(revision=self.revision, torch_dtype=torch.bfloat16, attn_implementation="sdpa")
         if self.quantization == "int8":
@@ -263,7 +265,10 @@ class QwenRunner:
             self.monitor.begin_window(rid)
             opened = True
             inputs = self.processor.apply_chat_template(messages, tokenize=True, add_generation_prompt=True,
-                return_dict=True, return_tensors="pt", enable_thinking=False).to(self.device)
+                return_dict=True, return_tensors="pt", enable_thinking=False)
+            from gpu_worker.vision_limits import verify
+            self.vision_tokens = verify(inputs, self.processor, self.max_pixels)
+            inputs = inputs.to(self.device)
             with self.torch.inference_mode():
                 output = self.model.generate(**inputs, max_new_tokens=256, do_sample=False, use_cache=True)
         except Exception:
@@ -341,7 +346,8 @@ def create_app(runner=None, ledger_path=None, api_key=None, judge=None):
                 "router_gpu_uuid": getattr(app.state.judge, 'gpu_uuid', None),
                 "image_device": getattr(app.state.runner, 'device', None),
                 "router_device": getattr(app.state.judge, 'device', None),
-                "router_fast_path_versions": getattr(app.state.judge, 'fast_path_versions', None)}
+                "router_fast_path_versions": getattr(app.state.judge, 'fast_path_versions', None),
+                "router_max_pixels": getattr(app.state.judge, 'max_pixels', None)}
 
     @app.post("/v1/generate", dependencies=[Depends(authorize)])
     def generate(request: GenerateRequest):
