@@ -6,7 +6,7 @@ from unittest import TestCase
 from unittest.mock import Mock, patch
 import sys
 
-from gpu_worker.image_candidates import CANDIDATES, generation_kwargs, load_pipeline
+from gpu_worker.image_candidates import CANDIDATES, LIGHTNING_SCHEDULER, generation_kwargs, load_pipeline
 from gpu_worker import vision_limits
 
 
@@ -30,6 +30,10 @@ class CandidateTests(TestCase):
         with patch.dict(sys.modules,{'torch':torch,'diffusers':diffusers,'diffusers.quantizers':quant}):
             loaded,metadata=load_pipeline(c,0)
         self.assertIs(loaded,pipe)
+        diffusers.FlowMatchEulerDiscreteScheduler.from_config.assert_called_once_with(LIGHTNING_SCHEDULER)
+        self.assertIsNone(LIGHTNING_SCHEDULER['shift_terminal'])
+        self.assertEqual(LIGHTNING_SCHEDULER['base_shift'],LIGHTNING_SCHEDULER['max_shift'])
+        self.assertIs(diffusers.QwenImagePipeline.from_pretrained.call_args.kwargs['scheduler'],diffusers.FlowMatchEulerDiscreteScheduler.from_config.return_value)
         self.assertEqual(quant.PipelineQuantizationConfig.call_args.kwargs['components_to_quantize'],['transformer','text_encoder'])
         self.assertEqual(quant.PipelineQuantizationConfig.call_args.kwargs['quant_kwargs']['bnb_4bit_quant_type'],'nf4')
         pipe.load_lora_weights.assert_called_once_with(c.lightning_repo,revision=c.lightning_revision,

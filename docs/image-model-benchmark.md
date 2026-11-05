@@ -162,3 +162,8 @@ Qwen 판정 processor는 `GPU_ROUTER_MAX_PIXELS`(기본 262144 = 512×512)로 �
 디스크 여유가 70GiB 미만이면 Qwen-Image transformer를 먼저 NF4로 로딩한 후 전용 다운로드 캐시를
 삭제하고 text encoder를 읽는다. VRAM 양자화·생성 조건은 유지하고 로딩 방식의 차이를 기록한다.
 공개 모델 두 개만 비교하려면 `--candidate public`을 사용한다. Klein 9B 인증 요청은 발생하지 않는다.
+
+
+Qwen-Image Lightning는 LoRA/4스텝만 적용해서는 충분하지 않다.
+배포자 예제의 FlowMatchEulerDiscreteScheduler(shift=3에 해당하는 base/max_shift=log(3), shift_terminal=None)를 함께 적용한다.
+스케줄러 설정은 health 메타데이터에 기록한다. 초기 스케줄러 누락 실행은 최종 후보 비교에서 제외한다.

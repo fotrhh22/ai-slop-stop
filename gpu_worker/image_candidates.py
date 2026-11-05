@@ -29,6 +29,16 @@ CANDIDATES = {
 
 CANDIDATES = {name:CANDIDATES[name] for name in ('z-image-turbo','qwen-image-lightning-nf4','klein-9b-nf4')}
 
+# LightX2V's Qwen-Image-2512 distillation uses shift=3 and no terminal shift.
+LIGHTNING_SCHEDULER = {
+    'base_image_seq_len':256, 'base_shift':1.0986122886681098,
+    'invert_sigmas':False, 'max_image_seq_len':8192, 'max_shift':1.0986122886681098,
+    'num_train_timesteps':1000, 'shift':1.0, 'shift_terminal':None,
+    'stochastic_sampling':False, 'time_shift_type':'exponential',
+    'use_beta_sigmas':False, 'use_dynamic_shifting':True,
+    'use_exponential_sigmas':False, 'use_karras_sigmas':False,
+}
+
 def generation_kwargs(candidate, prompt, seed, torch, device):
     kwargs = dict(prompt=prompt, width=1024, height=1024,
         num_inference_steps=candidate.steps, generator=torch.Generator(device=device).manual_seed(seed))
@@ -81,6 +91,8 @@ def load_pipeline(candidate, device, quantization=None, offload=False, stream_ca
             quant_kwargs=dict(load_in_4bit=True,bnb_4bit_quant_type='nf4',
                 bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True),
             components_to_quantize=['text_encoder'])
+    if candidate.lightning_repo:
+        kwargs['scheduler'] = diffusers.FlowMatchEulerDiscreteScheduler.from_config(LIGHTNING_SCHEDULER)
     pipe = getattr(diffusers, candidate.pipeline).from_pretrained(candidate.model, **kwargs)
     if candidate.lightning_repo:
         pipe.load_lora_weights(candidate.lightning_repo, revision=candidate.lightning_revision,
@@ -92,4 +104,5 @@ def load_pipeline(candidate, device, quantization=None, offload=False, stream_ca
     pipe.set_progress_bar_config(disable=True)
     return pipe, {**asdict(candidate), 'quantization':quantization,
                   'quantized_components':['transformer','text_encoder'] if quantization=='nf4' else [],
-                  'offload':offload, 'streamed_download_cache':stream_cache, 'width':1024, 'height':1024}
+                  'offload':offload, 'streamed_download_cache':bool(stream_cache and candidate.pipeline=='QwenImagePipeline' and quantization=='nf4'),
+                  'lightning_scheduler':dict(LIGHTNING_SCHEDULER) if candidate.lightning_repo else None, 'width':1024, 'height':1024}
