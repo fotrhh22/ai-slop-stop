@@ -11,8 +11,8 @@ zeus>=0.10,<1
 nvidia-ml-py>=12
 bitsandbytes>=0.50,<1
 # Optional dependencies required by our Qwen fast-path deployment.
-flash-linear-attention==0.6.0
-fla-core==0.6.0
+flash-linear-attention==0.5.0
+fla-core==0.5.0
 einops==0.8.2
 # causal-conv1d is installed separately by volume.install_dependencies.
 peft==0.21.2
