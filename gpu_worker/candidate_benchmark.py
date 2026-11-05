@@ -30,6 +30,7 @@ def main(candidate_id):
     parser.add_argument('--repeat', type=int, choices=range(1,4), default=1)
     parser.add_argument('--quantization', choices=['bf16','nf4'])
     parser.add_argument('--offload', action='store_true')
+    parser.add_argument('--stream-cache', action='store_true')
     args = parser.parse_args()
     os.environ.setdefault('HF_HOME','/workspace/huggingface')
     folder = args.output
@@ -63,7 +64,7 @@ def main(candidate_id):
         evidence['disk_free_gib_before_load']=shutil.disk_usage('/workspace').free/1024**3
         save(manifest,evidence)
         start = time.monotonic()
-        pipe, metadata = load_pipeline(candidate,args.device,args.quantization,args.offload)
+        pipe, metadata = load_pipeline(candidate,args.device,args.quantization,args.offload,args.stream_cache)
         if metadata['quantization'] == 'nf4':
             if not all(getattr(getattr(pipe,c), 'is_loaded_in_4bit', False) for c in ['transformer','text_encoder']):
                 raise RuntimeError('NF4_NOT_APPLIED_TO_BOTH_COMPONENTS')

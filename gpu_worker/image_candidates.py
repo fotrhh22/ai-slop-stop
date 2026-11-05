@@ -39,7 +39,7 @@ def generation_kwargs(candidate, prompt, seed, torch, device):
     return kwargs
 
 
-def load_pipeline(candidate, device, quantization=None, offload=False):
+def load_pipeline(candidate, device, quantization=None, offload=False, stream_cache=False):
     import torch
     import diffusers
     from diffusers.quantizers import PipelineQuantizationConfig
@@ -54,6 +54,33 @@ def load_pipeline(candidate, device, quantization=None, offload=False):
                 bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True),
             components_to_quantize=['transformer', 'text_encoder'])
     torch.cuda.set_device(device)
+    if stream_cache and candidate.pipeline == 'QwenImagePipeline' and quantization == 'nf4':
+        # A 50GB ephemeral disk cannot hold the complete BF16 transformer and
+        # encoder at once. Quantize the transformer first, then discard only
+        # this run's explicitly owned download cache before fetching the encoder.
+        import gc
+        import os
+        import shutil
+        from pathlib import Path
+        from diffusers import BitsAndBytesConfig, QwenImageTransformer2DModel
+        home = Path(os.environ['HF_HOME']).resolve()
+        if not (home / '.candidate-owned-cache').is_file():
+            raise RuntimeError('Streaming requires a private benchmark-owned cache')
+        cache = home / 'hub'
+        transformer = QwenImageTransformer2DModel.from_pretrained(candidate.model,
+            revision=candidate.revision, subfolder='transformer', cache_dir=str(cache),
+            torch_dtype=torch.bfloat16, device_map={'':device}, low_cpu_mem_usage=True,
+            quantization_config=BitsAndBytesConfig(load_in_4bit=True,bnb_4bit_quant_type='nf4',
+                bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True))
+        torch.cuda.synchronize(device)
+        gc.collect()
+        if cache.exists():shutil.rmtree(cache)
+        kwargs['transformer'] = transformer
+        kwargs['quantization_config'] = PipelineQuantizationConfig(
+            quant_backend='bitsandbytes_4bit',
+            quant_kwargs=dict(load_in_4bit=True,bnb_4bit_quant_type='nf4',
+                bnb_4bit_compute_dtype=torch.bfloat16,bnb_4bit_use_double_quant=True),
+            components_to_quantize=['text_encoder'])
     pipe = getattr(diffusers, candidate.pipeline).from_pretrained(candidate.model, **kwargs)
     if candidate.lightning_repo:
         pipe.load_lora_weights(candidate.lightning_repo, revision=candidate.lightning_revision,
@@ -65,4 +92,4 @@ def load_pipeline(candidate, device, quantization=None, offload=False):
     pipe.set_progress_bar_config(disable=True)
     return pipe, {**asdict(candidate), 'quantization':quantization,
                   'quantized_components':['transformer','text_encoder'] if quantization=='nf4' else [],
-                  'offload':offload, 'width':1024, 'height':1024}
+                  'offload':offload, 'streamed_download_cache':stream_cache, 'width':1024, 'height':1024}
