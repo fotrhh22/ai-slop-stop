@@ -91,7 +91,7 @@ def run(args):
     remote='/workspace/ai-slop-benchmarks/'+run_id
     if not args.collect:
         cases=json.loads(args.cases.read_text(encoding='utf-8'));validate_cases(cases)
-        candidates=(list(CANDIDATES) if args.candidate=='all' else
+        candidates=([name for name in CANDIDATES if name!='klein-4b-bf16'] if args.candidate=='all' else
             ['z-image-turbo','qwen-image-lightning-nf4'] if args.candidate=='public' else [args.candidate])
         last_run.write_text(json.dumps({'run_id':run_id,'profile':args.profile}))
         last_run.chmod(0o600)

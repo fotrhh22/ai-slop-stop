@@ -169,3 +169,15 @@ Qwen-Image Lightning는 LoRA/4스텝만 적용해서는 충분하지 않다.
 스케줄러 설정은 health 메타데이터에 기록한다. 초기 스케줄러 누락 실행은 최종 후보 비교에서 제외한다.
 
 RunPod Web Terminal에서 로그인한 HF 인증은 /workspace/.cache/huggingface/token 또는 /workspace/huggingface/token 경로도 확인한다. 인증값은 자식 프로세스 환경에만 전달하고 보고서·명령 인자·로그에 출력하지 않는다.
+
+
+### 기존 Klein 4B 재비교
+
+수정된 공통 한국어 5개를 기존 서비스와 같은 BF16, 4 steps, guidance 1, 고정 model revision으로 시험한다.
+해상도·시드·워밍업 규칙은 다른 후보와 동일하다. 다른 후보는 다시 생성하지 않는다.
+
+```bash
+./runpod benchmark --profile open-5090 --candidate klein-4b-bf16
+```
+
+`--candidate all`은 기존 의미대로 교체 후보 3개만 실행하며 4B 기준 모델은 위 옵션으로 명시한다.

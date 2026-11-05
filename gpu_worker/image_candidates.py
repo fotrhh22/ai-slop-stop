@@ -16,6 +16,8 @@ class Candidate:
 
 
 CANDIDATES = {
+    'klein-4b-bf16': Candidate('black-forest-labs/FLUX.2-klein-4B',
+        'e7b7dc27f91deacad38e78976d1f2b499d76a294', 'Flux2KleinPipeline', 4, 1.0, 'bf16'),
     'z-image-turbo': Candidate('Tongyi-MAI/Z-Image-Turbo',
         'f332072aa78be7aecdf3ee76d5c247082da564a6', 'ZImagePipeline', 9, 0.0, 'bf16'),
     'klein-9b-nf4': Candidate('black-forest-labs/FLUX.2-klein-9B',
@@ -27,7 +29,7 @@ CANDIDATES = {
 }
 
 
-CANDIDATES = {name:CANDIDATES[name] for name in ('z-image-turbo','qwen-image-lightning-nf4','klein-9b-nf4')}
+CANDIDATES = {name:CANDIDATES[name] for name in ('klein-4b-bf16','z-image-turbo','qwen-image-lightning-nf4','klein-9b-nf4')}
 
 # LightX2V's Qwen-Image-2512 distillation uses shift=3 and no terminal shift.
 LIGHTNING_SCHEDULER = {

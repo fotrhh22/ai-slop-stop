@@ -164,7 +164,7 @@ def report(manifest):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--profile', choices=['open-4090','open-5090'])
-    parser.add_argument('--candidate', choices=['all','public','z-image-turbo','klein-9b-nf4','qwen-image-lightning-nf4'])
+    parser.add_argument('--candidate', choices=['all','public','klein-4b-bf16','z-image-turbo','klein-9b-nf4','qwen-image-lightning-nf4'])
     parser.add_argument('--collect', help='Collect a previous candidate benchmark run ID without GPU calls')
     parser.add_argument('--device', type=int, choices=[0,1], default=0)
     parser.add_argument('--offload', action='store_true', help='Explicit CPU offload; recorded in report')

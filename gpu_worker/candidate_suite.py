@@ -9,7 +9,8 @@ import sys
 import time
 from gpu_worker.image_candidates import CANDIDATES
 
-MODULES = {'z-image-turbo':'benchmarks.z_image_turbo',
+MODULES = {'klein-4b-bf16':'benchmarks.klein_4b_bf16',
+           'z-image-turbo':'benchmarks.z_image_turbo',
            'klein-9b-nf4':'benchmarks.klein_9b_nf4',
            'qwen-image-lightning-nf4':'benchmarks.qwen_image_lightning_nf4'}
 
