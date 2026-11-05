@@ -1,60 +1,141 @@
 # AI SLOP STOP CHALLENGE
 
-STAFF ON/OFF와 수동 PASS를 복구했습니다. 기존 DB에는 `supabase/migrations/202611040005_restore_staff_pass.sql`을 적용하세요.
+Google의 프롬프트 학습 서비스 **[Say What You See](https://artsandculture.google.com/experiment/say-what-you-see/jwG3m7wQShZngw)**의 이미지 재현 챌린지 형식을 가져와, AI 생성 과정의 자원 소비를 기록하고 자전거 페달링으로 체감하는 오프라인 경험으로 확장한 캠페인입니다.
 
-새 자전거 연동(Phase 0–5)의 SQL·환경변수·배포·실행 순서는 [적용 안내](docs/campaign-bike-rollout.md)를 먼저 확인하세요.
-모델 선택·운영자 GPU 준비는 [Phase 6–7 안내](docs/model-profiles-and-gpu-preparation.md)를 따르세요.
-Phase 8은 전체 현장 검증, Phase 9는 대체 오픈모델 교체·검증입니다.
-미통과 세션의 24시간 자동 삭제 설정은 [정리 안내](docs/abandoned-session-cleanup.md)를 확인하세요.
-Bike 대기 목록의 × 삭제 기능은 [적용 안내](docs/delete-waiting-participant.md)를 확인하세요.
-**최신 Gemini 자전거 규칙:** [GPU 실측 평균 346.3 mWh 고정 비교 목표](docs/gemini-reference-bike-target.md)를 사용합니다. 수동 입력은 없습니다.
-Gemini는 토큰만 표시하고, AI PASS에서 자동 인쇄하지 않습니다. 자전거 계측 종료가 최종 출력 트리거입니다.
+목표 이미지 관찰 → 프롬프트 입력 → 이미지 생성·판정 → 누적 사용량 확인 → 참가자 코드 → 자전거 발전 체험 → 최종 영수증 출력으로 이어집니다. Google 서비스는 프롬프트 작성·이미지 관찰 학습의 레퍼런스이며, 자원 계측과 오프라인 연결은 이 캠페인에서 추가한 부분입니다.
 
-목표 이미지를 설정하고 프롬프트로 이미지를 생성한 뒤, Gemini의 항목별 이미지 비교와 PASS/FAIL을 확인하는 채팅형 챌린지입니다.
+| 접속·소스 | 링크 |
+|---|---|
+| 챌린지 웹 | **https://ai-slop-stop.vercel.app/** |
+| 챌린지·API·GPU·프린터 코드 | https://github.com/fotrhh22/ai-slop-stop |
+| 자전거 계측·대시보드 코드 | https://github.com/fotrhh22/ai-slop-bike-calculation |
 
-선택적 RunPod 전환은 FLUX.2 Klein 4B 생성 + Qwen3.5-4B 판정과 Zeus GPU 계측을 지원합니다.
-기본값은 Gemini이며 SQL·환경변수·운영 배포 후 전환합니다.
-설정 순서는 [Render 연결 가이드](docs/render-runpod-connection.md),
-다음 회차의 SSH·URL·임시 저장 공간 복구는 [RunPod 단기 운영 기록](docs/runpod-session-operations.md)을 참고하세요.
-SSH 등록 후 나머지 준비를 한 명령으로 실행하는 도구는 [RunPod 자동화](docs/runpod-automation.md)에 있습니다.
+**검증 상태 — 2026-11-05:** 캠페인 기술 검증은 운영자 확인 기준으로 완료했습니다. 실제 자전거 발전·FNB58 수신·참가자 연계·측정 종료·PT-210 종이 출력을 포함합니다. 생성 후보 선정과 판정 프롬프트 비교 결과는 [검증 보고서](docs/model-validation-results.md)에 별도로 공개합니다. Klein 9B/체크리스트의 후보 검증 완료가 운영 모델 교체 완료를 뜻하지는 않습니다. 캠페인 이후 AI 사용 감소 효과는 기술 검증과 별도입니다.
 
-로컬 Mac에서 CLIP을 먼저 실행하고 Render에 유사도만 반환하는 선택적 구성은 [clip_worker/README.md](clip_worker/README.md)를 참고하세요. 기본 `CLIP_MODE=off`이며, `observe`로 검증한 뒤 기준값을 보정하면 `gate`로 LLM 호출을 줄일 수 있습니다.
+## 참가자 경험과 실행 구조
 
-## 구성
+```text
+챌린지 웹(Vercel)
+  → API(Render) → Gemini 또는 RunPod 생성·판정 → Supabase 사용량·이미지 저장
+  → AI/STAFF PASS → 성공 영수증·참가자 코드·자전거 대기 기록
+  → Mac 측정소에서 참가자 선택·목표 자동 입력
+  → FNB58 실측 수신·페달링·환산 에너지 누적
+  → 자동/수동 종료 → 종료 결과 DB 저장·인쇄 큐 생성
+  → Mac printer_bridge → CUPS → PT-210
+```
 
-- `web/`: React + TypeScript + Vite 프런트엔드
-- `server/`: FastAPI, Gemini 이미지 생성·직접 비교 판정
-- 실제 모드에서는 세션·프롬프트·모델 호출/토큰을 Supabase에 기록하고, 첫 PASS 이미지와 누적값을 저장해 영수증을 발급합니다.
-- 현재 화면 목록·세션 접근 토큰·FAIL 이미지는 브라우저 메모리에만 유지됩니다. 새로고침하면 UI 세션은 초기화되지만 DB 기록은 남습니다.
+PASS 시 웹 영수증을 만들고 자전거 목록에 등록합니다. **AI PASS 자체로 종이를 자동 출력하지 않습니다.** 같은 참가자 코드로 AI 기록·자전거 결과·최종 영수증을 연결합니다.
 
-Supabase 초기 SQL과 **영수증용 추가 SQL**의 실행 순서·테이블 설명은 [supabase/README.md](supabase/README.md)에 있습니다.
+## 기술 스택
 
-## 로컬 실행
+| 계층 | 기술·역할 |
+|---|---|
+| 웹 | React 18, TypeScript, Vite 5 / Vercel |
+| API | Python 3.11, FastAPI, Uvicorn, Pydantic, HTTPX / Render |
+| 저장 | Supabase PostgreSQL·Storage |
+| 자체 GPU | RunPod, PyTorch, Diffusers, Transformers, bitsandbytes |
+| GPU 계측 | Zeus·NVML: 생성·판정 GPU 실행 구간 에너지 |
+| 이미지 유사도 | 선택적 Mac CLIP ViT-B/32, MPS/CPU |
+| 현장 측정소 | 별도 Bike 저장소의 FastAPI·SQLite·hidapi·Bleak |
+| 출력 | Pillow·Atkinson·ESC/POS·macOS CUPS·PT-210 |
 
-아래 명령은 프로젝트 루트를 기준으로 실행합니다.
+## 모델 경로와 검증 결과
 
-### 백엔드
+기본 프로필은 Gemini입니다. 자체 GPU 프로필 `open-4090` / `open-5090`은 사용 가능한 GPU에 따라 선택하며, GPU 종류와 모델 종류는 별개입니다. 현재 운영 worker의 생성 경로는 Klein 4B, 판정은 Qwen3.5-4B입니다. 생성 교체 후보는 **Klein 9B NF4로 잠정 선정**했습니다. 후보 로더는 벤치마크 경로이며 단순 환경변수 변경만으로 운영 모델이 교체되지는 않습니다.
+
+RTX 5090 1장·동일 한국어 프롬프트 5개·1024×1024·동일 시드 규칙, 워밍업 제외 결과:
+
+| 생성 모델 | 설정 | 평균 생성 시간 | 평균 생성 에너지 | GPU 점유 최대 표본 |
+|---|---|---:|---:|---:|
+| Klein 4B | BF16·4스텝 | 1.07초 | 142.7mWh | 20.72GiB |
+| **Klein 9B** | **NF4·4스텝** | **2.05초** | **291.2mWh** | **16.02GiB** |
+| Qwen-Image-2512 | NF4＋Lightning·4스텝 | 2.26초 | 313.8mWh | 22.45GiB |
+| Z-Image-Turbo | BF16·9스텝 | 2.99초 | 446.6mWh | 25.57GiB |
+
+실제 생성 이미지·지시 이행 분석·판정/CLIP 비교는 **[모델 검증 결과](docs/model-validation-results.md)**에서 확인할 수 있습니다. NVML 메모리 최대는 50ms 표본입니다. 단독 모델 수치를 웹 전체 시간·4090 성능·동시 상주 메모리로 해석하지 않습니다.
+
+판정 비교는 저장된 10쌍(사전 PASS 4 / FAIL 6)을 사용했습니다.
+
+| 판정 | 기준 일치 | 정답→FAIL | 오답→PASS |
+|---|---:|---:|---:|
+| Qwen 기존 | 8/10 | 0/4 | 2/6 |
+| Qwen 목표별 체크리스트 | 10/10 | 0/4 | 0/6 |
+| Gemini 기존 | 9/10 | 1/4 | 0/6 |
+
+운영 우선순위는 **적절한 결과를 FAIL시키는 오류를 줄이는 것**입니다. 체크리스트는 추가 정보를 받았으므로 모델 자체의 순위로 해석하지 않습니다. 개선안은 아직 운영 프롬프트에 적용하지 않았습니다.
+
+### CLIP
+
+[운영 워커](clip_worker/README.md)는 Mac에서 이미지 임베딩 코사인을 계산해 API에 전달하는 선택적 구성입니다. `observe`는 점수 기록, `gate`는 설정한 임계값 미만에서 후속 판정을 생략하는 기능입니다. 현재 비교 표본에서는 정답·오답 점수가 겹쳤으므로, 낮은 CLIP 점수만으로 탈락시키는 기준을 채택하지 않습니다. 코사인은 정답 확률이나 일치율이 아닙니다.
+
+운영과 분리된 [오프라인 비교](docs/clip-offline-audit.md)는 저장된 이미지 쌍을 Mac에서 읽고 기존 판정과 함께 CSV·JSON·HTML로 내보냅니다. Render·RunPod·Gemini 호출이나 운영 DB 변경은 없습니다. 최초 실행에는 CLIP 가중치 다운로드가 필요할 수 있습니다.
+
+## 사용량·에너지 기록
+
+- **Gemini:** `gemini-3.1-flash-lite-image` 생성, `gemini-3.5-flash-lite` 판정. 실제 모델 설정은 `/health`에 표시합니다. 영수증에는 제공된 토큰만 기록하며 Wh로 임의 환산하지 않습니다.
+- **자체 GPU:** 생성·판정별 Zeus/NVML 에너지와 모델·revision·GPU·실행 시간 등을 기록합니다. 첫 PASS까지 측정된 누적 GPU 에너지를 비교 목표로 사용합니다. 필요한 계측이 누락되면 목표를 확정하지 않습니다.
+- **계측 범위:** GPU 실행 구간의 에너지이며 상주 모델 유휴 소비가 포함될 수 있습니다. CLIP·CPU·냉각·네트워크·모델 다운로드를 포함한 서비스 전체 소비량은 아닙니다. 미계측은 0이 아닙니다.
+- 타임아웃은 FAIL과 구분합니다. 공급자 처리 여부가 미확인인 요청을 자동 재시도하지 않고 호출 원장에 남깁니다. 영수증 저장 재시도는 모델을 다시 호출하지 않습니다.
+
+## ID·DB·자전거 연결
+
+```text
+challenges(UUID) → attempts·api_calls → successes
+  → campaign_entries(8자리 코드·모델/사용량 스냅샷·목표)
+  → bike_results(자전거 session UUID·최종값·종료 사유)
+  → print_jobs(lease·출력 상태·CUPS 작업 ID)
+```
+
+내부 challenge UUID는 시작 시, 현장 참가자 코드는 PASS 시 생성합니다. 코드는 고유 제약·충돌 재시도로 중복을 방지합니다. AI 또는 STAFF PASS를 구분하고 원래 판정·사용량을 보존합니다. STAFF ON/OFF는 별도 인증/RBAC 기능이 아닙니다.
+
+Mac은 측정소별 waiting/measuring 목록을 동기화합니다. 선택하면 코드·목표를 표시하고, 시작 시 서버 claim으로 해당 참가자를 세션에 연결합니다. 실측 모드·최근 유효 수신·유효 목표·claim 성공이 필요합니다. 측정 표본은 Mac SQLite에서 누적하고 로컬 대시보드에 전달하며, 종료 결과는 outbox로 클라우드에 동기화합니다.
+
+- 자체 GPU 목표: 참가자의 첫 PASS까지 누적 생성＋판정 GPU 실측 에너지.
+- Gemini 목표: **346.3mWh 고정 비교 기준**. 과거 RTX 4090 Klein 4B BF16＋Qwen INT8 3회 평균이며 **Gemini 소비량 측정/추정값이 아닙니다**. [상세](docs/gemini-reference-bike-target.md)
+- 미통과 기록은 [24시간 자동 정리](docs/abandoned-session-cleanup.md), 사용하지 않은 대기 기록은 [목록 × 삭제](docs/delete-waiting-participant.md)를 지원합니다.
+
+### ×100 환산
+
+현재 장치의 대표 실측 0.55W를 **55W급 발전 비교 기준**으로 확대하기 위해 고정 100배를 적용합니다. 55W는 모든 자전거 발전기의 공통 출력이나 현재 장비의 실제 출력이 아닙니다.
+
+```text
+환산 발전량 = 원본 실측 Wh × 100
+환산 달성률 = 환산 발전량 / 목표 Wh × 100
+```
+
+원본·배율·환산값은 구분해 저장합니다. 화면·영수증에는 환산값과 그 의미를 표시합니다. 실제 출력이 0.36W이면 환산 출력도 36W이며 항상 55W가 되는 것은 아닙니다. 0.55W 유지 시 Gemini 비교 목표 346.3mWh에 약 22.7초가 필요합니다. 실제 AI 전력 공급·상쇄를 뜻하지 않습니다.
+
+## 종료·최종 영수증·PT-210
+
+| 이벤트 | 결과 |
+|---|---|
+| AI/STAFF PASS | 웹 영수증·자전거 대기 등록, 종이 자동 출력 없음 |
+| 원본 Wh×100 ≥ 목표 | 누적 자동 종료·최종값 고정 |
+| 미달 상태의 수동 종료 | 최종값 고정, 동일하게 인쇄 대상 |
+| 종료 결과 서버 저장 | bike_results 저장＋참가자 ended＋print_jobs 생성 |
+| 프린터 브리지 작업 수신 | 최종 영수증 렌더링·CUPS 전송 |
+| 같은 세션의 SENT＋CUPS ID 확인 | 측정 화면 초기화·다음 참가자 선택 대기 |
+
+네트워크가 끊기면 Mac에 결과를 보존하고 재연결 후 전송합니다. 같은 종료 이벤트를 재전송해도 인쇄 작업을 추가하지 않습니다. journal·lease로 중복을 방지하며 전송 여부가 불명확하면 UNKNOWN으로 남기고 자동 재출력하지 않습니다. SENT는 CUPS 접수이고, 실제 종이 배출 감지 신호는 아닙니다. 실제 PT-210 출력 검증은 완료했습니다.
+
+영수증은 384도트 폭(이미지 본문 360도트), 한글·이미지·참가자 코드·AI 사용량·환산 발전량·달성률·시간·종료 사유를 담습니다. 사진에는 **Atkinson 오류 확산**, 문자는 선명한 흑백 렌더링을 적용합니다. 동일 사진의 Atkinson/Floyd–Steinberg/Bayer/Blue Noise 비교 과정을 거쳐 최종 Atkinson을 사용하며, 웹 미리보기와 출력 커널을 맞췄습니다. [프린터 설치·실행](printer_bridge/README.md)
+
+## 로컬 개발
+
+### API
 
 ```sh
-python3 -m venv .venv
+python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r server/requirements.txt
-cp .env.example .env
+cp .env.example .env.local
+# .env.local에 Gemini·Supabase 등 실제 설정 입력
+python -m uvicorn server.main:app --host 127.0.0.1 --port 8000 --workers 1
 ```
 
-프로젝트 루트 `.env` 또는 `.env.local`에 `GEMINI_API_KEY`와 사용할 실제 Gemini 모델 ID를 설정합니다. 환경변수 우선순위는 셸/호스트 설정 → 루트 `.env.local` → 루트 `.env`입니다. 예시 Gemini 모델 ID의 제공 여부는 사용하는 계정에서 확인해야 합니다. 프런트엔드 주소를 변경하면 `PUBLIC_APP_ORIGIN`도 맞춥니다.
+API 기본 의존성에는 GPU/CLIP 모델이 없습니다. GPU는 Pod에서, 선택적 CLIP은 Mac에서 별도 실행합니다. 환경변수 우선순위는 셸/호스트 → 루트 `.env.local` → `.env`입니다.
 
-```sh
-python -m uvicorn server.main:app --host 127.0.0.1 --port 8000
-```
-
-상태 확인: `http://127.0.0.1:8000/health`. `evaluation_method=gemini_vision`은 두 이미지를 Gemini Router에 전달하는 구성입니다. 실제 API 연결 성공 여부는 생성 → Try로 확인합니다.
-
-로컬 추론 모델·가중치 다운로드·torch 의존성은 없습니다. Try에서는 목표/생성 이미지를 직접 비교해 피사체·구도·색감·배경의 정성 평가와 PASS/FAIL 및 이유를 반환합니다. 숫자 유사도는 계산·저장하지 않습니다.
-
-### 프런트엔드
-
-별도 터미널에서 실행합니다.
+### 웹
 
 ```sh
 cd web
@@ -63,114 +144,38 @@ cp .env.example .env.local
 npm run dev
 ```
 
-`http://127.0.0.1:5173`에서 접속합니다. `web/.env.local`의 `VITE_USE_MOCK=true`는 샘플 이미지·가짜 판정을 사용하며, `false`는 실제 백엔드를 호출합니다. 환경변수를 변경하면 개발 서버를 재시작합니다.
+`VITE_USE_MOCK=false`는 실제 API, `true`는 샘플입니다. 분리 배포는 `VITE_API_BASE`와 서버의 `PUBLIC_APP_ORIGIN`을 맞춥니다. 운영 웹은 참가자 영수증에서 현장 프린터를 직접 조작하지 않습니다.
+
+### 현장 프로그램
+
+자전거 프로그램은 [Bike 저장소](https://github.com/fotrhh22/ai-slop-bike-calculation#실행)에서 별도 터미널로 실행합니다. 이 저장소에서는 다음을 실행합니다.
 
 ```sh
-cd web
-npm run build
+python -m pip install -r printer_bridge/requirements.txt
+python -m printer_bridge.worker --env printer_bridge/.env.local --status
+python -m printer_bridge.worker --env printer_bridge/.env.local --run
 ```
 
-## Git에 포함하지 않는 파일
+`PRINT_WORKER_TOKEN`은 Render와 같은 값, `PRINT_CUPS_QUEUE`는 실제 설치 큐를 사용합니다. 기존 출력 journal은 임의 삭제하지 않습니다.
 
-실제 `.env` 파일, 비밀키, 가상환경, `node_modules`, 빌드 결과, 모델 캐시와 루트의 참고용 PDF/Word 문서는 제외합니다. 환경변수 예시와 `package-lock.json`은 포함합니다.
+## 배포·GPU 운영 문서
 
-STAFF ON이면 생성된 이미지를 평가 전·FAIL 여부와 관계없이 버튼 한 번으로 수동 PASS 처리합니다. 추가 인증이나 입력 폼은 없습니다. DB 영수증의 이름은 `이름 미입력`, 사유는 `STAFF 버튼으로 수동 승인`으로 기록합니다. 원래 Router 판정은 덮어쓰지 않습니다. 로컬 API는 Vite 프록시를 사용하며 분리 배포는 `VITE_API_BASE`와 백엔드 `PUBLIC_APP_ORIGIN`을 설정합니다.
+- [DB migration 순서](supabase/README.md): 기존 DB에는 적용하지 않은 후속 migration을 순서대로 적용합니다.
+- [자전거·프린터 적용](docs/campaign-bike-rollout.md), [STAFF 복구 SQL](supabase/migrations/202611040005_restore_staff_pass.sql)
+- [모델 프로필·GPU 준비](docs/model-profiles-and-gpu-preparation.md), [RunPod 자동화](docs/runpod-automation.md)
+- [Render–RunPod 연결](docs/render-runpod-connection.md), [Pod 복구·백업](docs/runpod-session-operations.md)
+- [생성 후보 실행](docs/image-model-benchmark.md), [판정 비교](docs/router-benchmark.md), [검증 결과·대표 이미지](docs/model-validation-results.md)
 
-## Render 무료 백엔드 배포
+새 Pod는 SSH 공개키·HTTP 8888/8000 설정 후 `./runpod prepare --profile open-4090` 또는 `open-5090`을 사용합니다. 같은 GPU 종류 1/2장을 지원합니다. 준비 스크립트의 자동화는 임시 저장소를 영구 저장소로 바꾸지 않습니다. 네트워크 볼륨은 모델 캐시·파일 보존용이며 VRAM을 늘리지 않습니다.
 
-`render.yaml`은 싱가포르 리전의 `free` **Python 네이티브 웹서비스** 하나를 정의합니다. `.python-version`으로 Python 3.11을 선택하고 `server/requirements.txt`의 웹/API 의존성만 설치합니다. Dockerfile은 사용하지 않습니다. DB는 Supabase를 사용하므로 Render DB/디스크를 만들지 않습니다. Render 연결과 실제 배포는 사용자가 진행합니다.
+Render는 `server/requirements.txt`만 설치하고 `python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1`로 실행합니다. Vercel Root Directory는 `web`입니다. SQL·프로필·측정소·프린터 토큰을 포함한 실제 설정은 위 적용 문서를 따릅니다.
 
-1. 이 변경을 GitHub에 push한 뒤 Blueprint로 저장소를 연결하거나 직접 Web Service를 설정합니다. Root Directory는 **비워두고**, Language/Runtime은 **Python 3**를 선택합니다.
-2. 직접 설정할 경우 Build Command와 Start Command는 아래와 같습니다. 기존 수동 설정 서비스는 Build Command도 직접 변경한 뒤 **Clear build cache & deploy**로 재배포해 과거 ML 의존성 캐시를 제거합니다.
-
-```sh
-# Build Command
-pip install -r server/requirements.txt
-
-# Start Command
-python -m uvicorn server.main:app --host 0.0.0.0 --port $PORT --workers 1
-```
-
-3. 다음 환경변수를 입력합니다. `sync: false` 변수는 이후 Blueprint sync에서 새 값을 요구하지 않으므로 변경은 서비스 Environment에서 처리합니다.
-
-| 변수 | 입력값 |
-|---|---|
-| `GEMINI_API_KEY` | 이미지 생성·Router용 서버 키 |
-| `GEMINI_IMAGE_MODEL` | 계정에서 사용 가능한 이미지 생성 모델 ID |
-| `GEMINI_ROUTER_MODEL` | 계정에서 사용 가능한 이미지 판정 모델 ID |
-| `SUPABASE_URL` | 생성한 Supabase 프로젝트 URL |
-| `SUPABASE_SECRET_KEY` | 서버용 secret key 또는 legacy service-role key |
-
-4. 먼저 **Render**에서 `/health` 응답과 실제 생성 → Try를 확인합니다. `PORT`는 Render가 제공합니다. `PUBLIC_APP_ORIGIN`은 아직 입력하지 않아도 기본 로컬 주소로 서버가 기동합니다. 이는 프런트의 브라우저 호출 허용 설정이며 모델 실행에 필요한 키가 아닙니다.
-5. 이후 **Vercel**에서 Root Directory=`web`, `VITE_USE_MOCK=false`, `VITE_API_BASE=https://실제-서비스.onrender.com`으로 설정 후 배포합니다. Vercel 주소가 정해지면 Render 환경변수에 `PUBLIC_APP_ORIGIN=https://실제-프런트.vercel.app`을 추가하고 재배포합니다. Origin 값 끝에는 `/`를 넣지 않습니다.
-
-실제 모드는 Supabase URL·서버 키와 스키마/버킷 설정이 필요합니다. 기존 초기/영수증 SQL을 실행했다면 `202610190003_remove_similarity.sql`만 추가 실행합니다. 새 DB는 migrations의 세 파일을 번호순으로 실행합니다. 세 번째 파일은 `attempts.similarity_raw`, `attempts.similarity_display` 컬럼을 삭제하며, 새 백엔드는 컬럼 삭제 전후 모두 작동합니다. 기존 `/api/generate`, `/api/evaluate`는 DB 설정 시 비활성화되며 새 UI는 `/api/challenges/...` 세션 API를 사용하므로 백엔드와 프런트를 함께 업데이트해야 합니다.
-
-## 이미지 생성 대기 시간
-
-기본 이미지 생성 모델은 `gemini-3.1-flash-lite-image`이며 최소 추론과 기본 1K 출력을 사용합니다. 기존 Render 서비스는 `GEMINI_IMAGE_MODEL` 환경변수도 직접 변경해야 합니다. 입력창 모델명은 `/health`에서 읽어 실제 서버 설정을 표시합니다. 이미지 생성 요청은 SDK 대기 제한 60초, 자동 재시도 0회로 처리합니다. 오류·시간 초과는 원장에 기록하며 사용자가 프롬프트를 다시 입력할 때 새 시도를 만듭니다. 모델 전환 후의 실제 속도와 생성 품질은 배포 환경에서 확인해야 합니다.
-
-## 판정 대기 시간
-
-- Router에 보내는 사본은 긴 변을 최대 1024px로 줄이고 큰 PNG 등의 전송량을 JPEG 압축으로 낮춥니다. 작은 원본은 재인코딩하지 않습니다. 원본 해시와 성공 이미지 저장에는 원본을 사용합니다. 작은 글자·미세 디테일은 축소 과정에서 손실될 수 있습니다.
-- 기본 Router는 `gemini-3.5-flash-lite` + `thinking_level=MINIMAL`입니다. 기존 `GEMINI_ROUTER_MODEL` 환경변수가 있으면 그 값이 우선하므로 Render에서 직접 바꿔야 합니다. 일반 Gemini 3 Flash를 선택하면 LOW를 사용합니다. 이미지 생성 모델 설정은 변경하지 않습니다. 낮은 추론 강도의 판정 품질은 실제 목표 이미지로 확인해야 합니다.
-- 새 UI는 `POST /evaluations`로 작업 ID를 받고 `GET /evaluations/{job_id}`로 2초마다 진행 상태를 확인합니다. 긴 Gemini 요청을 브라우저 연결 하나에 묶지 않습니다. 상태 조회는 DB·모델 호출 없이 서버의 완료 상태만 확인합니다. 시작 요청 재전송은 동일 작업 ID를 재사용합니다.
-- Router는 SDK 대기 제한 45초, 자동 재시도 0회입니다. 시간 초과는 평가 FAIL과 구분된 오류이며, 알 수 없는 토큰은 원장에 누락으로 남깁니다. 사용자가 다시 Try할 때만 새 판정을 요청합니다.
-- 추가 DB SQL·외부 큐 서비스는 없습니다. 현재 단일 Render 프로세스(`--workers 1`)에서 동시에 최대 2개 작업을 실행합니다. 진행 작업은 재배포·프로세스 재시작 시 중단되며 UI에 명시적 오류를 표시합니다. 완료된 판정·모델 호출 원장은 기존 DB에 저장됩니다. 프로세스 강제 종료로 남은 `api_calls.pending`은 아래 영수증 설명대로 별도 확인해야 합니다.
-- `gemini_api operation=router attempt=... elapsed_ms=...` 로그는 DB 원장 저장을 제외한 실제 SDK 요청 시간을 기록합니다. 앞선 `evaluation stage=router` 로그와 비교하면 DB/이미지 준비 시간과 공급자 응답 대기를 구분할 수 있습니다.
-- Supabase HTTP 연결을 재사용합니다.
-- 새 UI는 판정 저장 직후 PASS/FAIL을 표시하고, PASS 영수증 업로드·검증은 별도 요청으로 자동 진행합니다. 저장 실패는 영수증 재시도로 처리하며 Router를 다시 호출하지 않습니다.
-- Render 로그의 `evaluation stage=... elapsed_ms=...`로 authorize, verify_image, download_target, router, save_verdict 시간을 구분합니다. router 시간은 이미지 준비·호출 원장 기록·Gemini 재시도까지 포함합니다. 운영 응답 시간은 별도 측정해야 합니다.
-
-## PASS 영수증
-
-- Router PASS 또는 STAFF 승인 → 성공 이미지 업로드 → DB의 첫 PASS 확정 → 성공 행·호출 원장·Storage 이미지를 다시 읽어 대조 → 채팅 안에 영수증 카드 표시 순서입니다.
-- 화면·인쇄 영수증에는 성공 이미지, 프롬프트 원문, 성공 시각(한국 시간), 승인 방식, AI 판정의 통과 이유, 누적 이미지 생성·판정 요청 수, 총 사용 토큰과 모델별 토큰 합계를 표시합니다. 내부 ID, 검증 항목과 호출 원장은 출력하지 않으며 DB에 보관합니다. 사용량이 누락된 경우 확인된 합계임을 짧게 표시합니다.
-- API 타임아웃 등 토큰을 확인할 수 없는 호출은 NULL로 남기고 영수증에 일부 사용량이 미확인임을 표시합니다. 확인된 토큰 합계를 전체 사용량으로 단정하지 않습니다.
-- 저장 실패 시 PASS 카드에 저장 재시도를 표시합니다. 저장 재시도·영수증 새로고침·인쇄는 유료 모델을 다시 호출하지 않습니다.
-- 영수증의 **인쇄 / PDF 저장** 버튼으로 브라우저 인쇄 대화상자를 엽니다. 프린터 자동 출력이나 물리 프린터 연동은 포함하지 않습니다.
-- Mock 영수증에는 DB 저장이 아닌 샘플이라고 표시하며 실제 측정값을 만들지 않습니다.
-- 서버 중단이나 DB 장애로 `api_calls.pending`이 남으면 성공 확정을 차단합니다. 공급자 응답을 복구해 갱신하거나, 확인 불가능하면 관리자가 `status=unknown`, `finished_at=현재 시각`으로 정리해야 합니다. 사용량을 임의로 0으로 만들지 않습니다.
-
-검증 명령:
+## 개발 검증
 
 ```sh
 python -m unittest discover -s server/tests -v
 (cd web && npm run test:evaluation && npm run build)
-render blueprints validate render.yaml --output json --confirm
+python -m unittest benchmarks.test_clip_local
 ```
 
-Render CLI 검증은 Render 인증이 필요합니다. 단위 테스트는 실제 API를 호출하지 않고 이미지 입력 검증·멀티모달 평가 계약·API 오류·PASS/STAFF 영수증 누적과 재시도를 검증합니다. 운영 배포의 메모리 사용량은 Render Metrics에서 별도로 확인합니다.
-
-토큰 기반 에너지 추정의 연구 근거·계산 방식·한계와 후속 구현 순서는 [설계 제안](docs/energy-estimation-proposal.md)에 정리했습니다. 현재 영수증에 에너지 실측값이나 임의 추정값을 표시하지 않습니다.
-
-## 열전사 사진 미리보기
-
-PASS 후 채팅 하단 영수증에서 **열전사 미리보기**를 선택하면 출력용 흑백 사본을 확인할 수 있습니다. 기본은 Atkinson이고 Floyd–Steinberg, Ordered Bayer, Ordered Blue Noise도 선택할 수 있습니다. Bayer는 8×8 규칙 패턴, Blue Noise는 void-and-cluster로 사전 생성한 64×64 임계값 타일을 사용합니다. 모든 방식은 원본에서 독립적으로 변환하며 중복 적용하지 않습니다.
-
-용지 폭은 58/80mm 프리셋이며, 실제 인쇄 도트 폭과 DPI를 프린터 사양에 맞춥니다. 프리셋은 203dpi에서 각각 384/576dots이고 사용자 수정이 가능합니다. 밝기·대비를 조정한 뒤 **흑백 PNG 저장**으로 가공 결과를 받을 수 있습니다. **열전사 인쇄 / PDF 저장**은 같은 미리보기 이미지를 사용하며 사진 준비가 끝나기 전에는 비활성화됩니다. 인쇄 대화상자의 용지와 배율 100%를 확인해야 합니다. 브라우저/드라이버 재확대나 별도 하프톤 처리는 실제 종이 결과를 바꿀 수 있으므로 실물 프린터 튜닝은 별도입니다.
-
-컬러 원본과 DB 저장 이미지는 바꾸지 않습니다. 가공은 브라우저에서 수행하며 임시 흑백 PNG는 현재 페이지에서만 유지됩니다. 새로고침 뒤에도 선택 옵션으로 다시 만들 수 있습니다. 원본은 세션 토큰을 검증하는 `/api/challenges/{cid}/receipt/image`에서 읽고 저장된 성공 이미지 해시와 대조합니다. 사진 변환·PNG 저장·인쇄에는 모델 호출이나 토큰 사용이 없습니다. Mock 모드는 샘플 이미지 호스트의 CORS 허용이 필요합니다.
-
-알고리즘 참고: [Atkinson/Floyd–Steinberg 오류 확산 행렬](https://github.com/makeworld-the-better-one/dither/blob/v2.0.0/error_diffusers.go). 실제 모델마다 출력 결과가 달라서 한 알고리즘이 모든 사진에서 최선이라고 가정하지 않습니다.
-
-검증: `cd web && npm run test:thermal && npm run build`.
-
-### 영수증 용지와 인쇄
-
-영수증의 `인쇄 / PDF 저장` 버튼은 해당 영수증만 별도 인쇄 문서로 준비합니다.
-컬러/열전사 모드 모두 58mm 또는 80mm 용지 폭, 인쇄 도트 폭, DPI를 설정할 수 있습니다.
-용지 높이는 이미지와 텍스트를 모두 배치한 뒤 실제 내용 높이에서 계산합니다.
-인쇄 문서의 CSS `@page size`에 폭과 높이를 함께 지정하므로 A4 안에 좁은 영수증을 배치하는 방식이 아닙니다.
-화면의 영수증 설정과 버튼은 출력에서 제외합니다.
-
-인쇄창에서 PDF 저장 또는 설치된 프린터를 직접 선택합니다. 같은 용지 폭과 배율 100%를 사용하고
-머리글/바닥글을 끄세요. 프린터 드라이버가 사용자 지정 용지 높이를 지원하지 않으면
-드라이버의 롤 용지 설정을 별도로 맞춰야 합니다. 브라우저·실물 프린터 출력은 이번 변경에서 검증하지 않았습니다.
-자동 출력이나 ESC/POS 전송은 제공하지 않습니다.
-
-Blue Noise 타일은 [Ulichney의 void-and-cluster 방법](https://cv.ulichney.com/papers/1993-void-cluster.pdf)을 참고해 고정 시드와 주기적 Gaussian 필터(σ=1.5)로 직접 생성했습니다. 브라우저는 사전 생성된 타일만 읽어 사용하므로 추가 서버 호출이 없습니다. 개발 환경에서 NumPy가 있으면 `python3 web/scripts/generate-blue-noise.py`로 타일을 재생성하고 여러 명암에서 저주파 억제를 검사할 수 있습니다.
-
-## RunPod + Zeus 전환 작업본
-
-이미지 생성을 직접 운영하는 GPU API로 전환하고 생성 구간 GPU 소비량을 측정하는 구현·운영 절차는 [RunPod·Zeus 전환 계획](docs/runpod-zeus-migration.md)을 참고하세요. 기본 공급자는 Gemini이며 실제 GPU 시험과 SQL 적용 후 `IMAGE_PROVIDER=zeus`로 전환합니다. 생성 FLUX.2 Klein 4B distilled와 판정 Qwen3.5-4B의 GPU 실행 코드를 준비했으며 실제 GPU 검증·운영 전환은 별도입니다. 기존 Gemini/CLIP 경로는 보존합니다.
+실제 장비·현장 검증과 자동 테스트를 구분합니다. 원시 결과·캐시·가상환경·`.env`·API 키·개인 백업·출력 journal은 Git에 넣지 않습니다. 모델 비교의 전력량은 실제로 측정한 범위만 설명하며, 토큰이나 미계측 값을 0Wh로 바꾸지 않습니다.

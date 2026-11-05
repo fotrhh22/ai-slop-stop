@@ -1,0 +1,34 @@
+{
+  "date": "2026-11-05",
+  "images": [
+    {
+      "model": "klein-4b-bf16",
+      "case_id": "crocodile-bomber",
+      "file": "klein-4b-bf16.png",
+      "sha256": "1a8e79b0cb69a1975cc7b4f5719fdd58f23b87b740fe5f96374d96650ae986bf",
+      "source_image": "ee250da3-38e0-4ed0-b278-adf67e7483cb.png"
+    },
+    {
+      "model": "klein-9b-nf4",
+      "case_id": "crocodile-bomber",
+      "file": "klein-9b-nf4.png",
+      "sha256": "b8fafed8daec4476f650f091b7ead6e5da4c18a05ab349785ec8c4dfa99a0c07",
+      "source_image": "6af53af3-735c-4caa-b91e-1d3ee8a474ec.png"
+    },
+    {
+      "model": "qwen-image-lightning-nf4",
+      "case_id": "crocodile-bomber",
+      "file": "qwen-image-lightning-nf4.png",
+      "sha256": "b649cb58908e51c8c26219c3f0a86a28f9d6ef72bccf743c990507c6d19dde31",
+      "source_image": "bc27e934-00e5-430a-82c2-bf121fb9ae1b.png"
+    },
+    {
+      "model": "z-image-turbo",
+      "case_id": "crocodile-bomber",
+      "file": "z-image-turbo.png",
+      "sha256": "2a3c23430ef2a33e8c5452688c2be0ca273c4bc21c71914dc95678726a456101",
+      "source_image": "e9cf891b-7dc7-4b7c-bcc8-1528bb9b2589.png"
+    }
+  ],
+  "note": "Original benchmark outputs copied without edits; no new image generation."
+}
