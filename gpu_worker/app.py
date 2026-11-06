@@ -28,6 +28,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from server.energy import EnergyMeasurement
+from server.gpu_defaults import IMAGE_MODEL, IMAGE_REVISION
 
 log = logging.getLogger("uvicorn.error")
 
@@ -104,18 +105,17 @@ class FluxRunner:
         # Imports stay out of the HTTP module so CPU-only contract tests can run.
         import torch
         import pynvml
-        from diffusers import Flux2KleinPipeline
         from zeus.monitor import ZeusMonitor
+        from gpu_worker.image_candidates import CANDIDATES, load_pipeline
         self.torch = torch
-        self.model_id = os.environ.get("GPU_IMAGE_MODEL", "black-forest-labs/FLUX.2-klein-4B")
-        self.revision = os.environ.get("GPU_MODEL_REVISION", "")
-        if not re.fullmatch(r"[a-f0-9]{40}", self.revision):
-            raise RuntimeError("GPU_MODEL_REVISION must be an immutable Hugging Face commit SHA")
+        self.model_id = IMAGE_MODEL
+        self.revision = IMAGE_REVISION
+        self.quantization = 'nf4'
         self.gpu_index, self.device = model_device(torch, "IMAGE")
         self.width = self.height = 1024
         self.steps = 4
-        self.pipe = Flux2KleinPipeline.from_pretrained(self.model_id,
-            revision=self.revision, torch_dtype=torch.bfloat16, use_safetensors=True).to(self.device)
+        self.pipe, self.image_metadata = load_pipeline(CANDIDATES['klein-9b-nf4'], self.gpu_index,
+                                                       quantization='nf4')
         self.pipe.set_progress_bar_config(disable=True)
         # Warm-up is outside every participant's measurement window.
         with torch.inference_mode():
@@ -338,6 +338,7 @@ def create_app(runner=None, ledger_path=None, api_key=None, judge=None):
                 "image_model": getattr(app.state.runner, "model_id", "test"),
                 "router_model": getattr(app.state.judge, "model_id", None),
                 "image_revision": getattr(app.state.runner, 'revision', None),
+                "image_quantization": getattr(app.state.runner, 'quantization', None),
                 "router_revision": getattr(app.state.judge, 'revision', None),
                 "gpu_name": getattr(app.state.runner, 'gpu_name', None),
                 "gpu_uuid": getattr(app.state.runner, 'gpu_uuid', None),

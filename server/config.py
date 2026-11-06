@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
+from .gpu_defaults import IMAGE_MODEL, IMAGE_REVISION, shared_gpu_key
 
 
 def _load_env_file() -> None:
@@ -70,7 +71,7 @@ class Settings:
 def load_settings() -> Settings:
     return Settings(
         gemini_api_key=os.getenv("GEMINI_API_KEY", ""),
-        image_model=(os.getenv("GPU_IMAGE_MODEL", "black-forest-labs/FLUX.2-klein-4B")
+        image_model=(IMAGE_MODEL
                      if os.getenv("IMAGE_PROVIDER", "gemini").lower() == "zeus"
                      else os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image")),
         router_model=(os.getenv("GPU_ROUTER_MODEL", "Qwen/Qwen3.5-4B")
@@ -92,7 +93,7 @@ def load_settings() -> Settings:
         supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
         image_provider=os.getenv("IMAGE_PROVIDER", "gemini").lower(),
         gpu_api_url=os.getenv("GPU_API_URL", "").rstrip("/"),
-        gpu_api_key=os.getenv("GPU_API_KEY", ""),
+        gpu_api_key=shared_gpu_key(),
         gpu_timeout_seconds=int(os.getenv("GPU_TIMEOUT_SECONDS", "150")),
         bike_worker_token=os.getenv("BIKE_WORKER_TOKEN", ""),
         gpu_control_token=os.getenv("GPU_CONTROL_TOKEN", ""),
@@ -102,8 +103,10 @@ def load_settings() -> Settings:
         gemini_image_model=os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image"),
         gemini_router_model=os.getenv("GEMINI_ROUTER_MODEL", "gemini-3.5-flash-lite"),
         gpu_profiles={"open-" + gpu: {
-            "key": os.getenv("GPU_" + gpu + "_API_KEY", ""),
-            "image_model": os.getenv("GPU_" + gpu + "_IMAGE_MODEL", "black-forest-labs/FLUX.2-klein-4B"),
+            "key": shared_gpu_key(),
+            "image_model": IMAGE_MODEL,
+            "image_revision": IMAGE_REVISION,
+            "image_quantization": "nf4",
             "router_model": os.getenv("GPU_" + gpu + "_ROUTER_MODEL", "Qwen/Qwen3.5-4B"),
         } for gpu in ("4090", "5090")},
     )

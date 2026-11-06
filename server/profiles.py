@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from .config import load_settings
 from .persistence import Store
+from .gpu_defaults import IMAGE_MODEL
 
 router = APIRouter(prefix='/api')
 OPEN_IDS = ('open-4090', 'open-5090')
@@ -44,6 +45,10 @@ def probe(settings, profile_id, pod_id):
         health = response.json()
         if not isinstance(health, dict):
             raise ValueError('health response')
+        if config.get('image_quantization') and health.get('image_quantization') != config['image_quantization']:
+            raise ValueError('image quantization')
+        if config.get('image_revision') and health.get('image_revision') != config['image_revision']:
+            raise ValueError('image revision')
         if not (health.get('ok') is True and health.get('router_ready') is True and
                 health.get('provider') == 'zeus' and
                 health.get('image_model') == config['image_model'] and
@@ -56,6 +61,8 @@ def probe(settings, profile_id, pod_id):
             raise ValueError('identity')
         identity = {k: health[k] for k in ('image_model', 'router_model', 'image_revision',
             'router_revision', 'gpu_name', 'gpu_uuid', 'router_quantization')}
+        if health.get('image_quantization') is not None:
+            identity['image_quantization'] = health['image_quantization']
         if health.get('router_gpu_uuid') is not None:
             if (not re.fullmatch(r'GPU-[a-zA-Z0-9-]+', health['router_gpu_uuid']) or
                     'RTX ' + profile_id[-4:] not in health.get('router_gpu_name', '')):
@@ -120,7 +127,8 @@ def catalog():
     for profile_id in OPEN_IDS:
         config = settings.gpu_profiles.get(profile_id, {})
         row = {'id': profile_id, 'label': '오픈모델 · ' + profile_id[-4:], 'ready': False,
-            'image_model': config.get('image_model', 'black-forest-labs/FLUX.2-klein-4B'),
+            'image_model': config.get('image_model', IMAGE_MODEL),
+            'image_quantization': config.get('image_quantization', 'nf4'),
             'router_model': config.get('router_model', 'Qwen/Qwen3.5-4B'), 'energy_basis': 'measured_gpu'}
         try:
             definition(settings, profile_id)

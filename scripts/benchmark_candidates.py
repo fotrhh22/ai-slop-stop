@@ -98,7 +98,8 @@ def run(args):
         print('Run ID:',run_id,flush=True)
         print('Resume collection: ./runpod benchmark --profile '+args.profile+' --collect '+run_id,flush=True)
         # Does not include worker.env, operator env, SSH keys, image caches or service databases.
-        source=subprocess.check_output(['git','archive','--format=tar','HEAD','gpu_worker','benchmarks'],cwd=controller.REPO)
+        source=subprocess.check_output(['git','archive','--format=tar','HEAD','gpu_worker','benchmarks',
+            'server/__init__.py','server/gpu_defaults.py'],cwd=controller.REPO)
         extractor="import sys,tarfile;from pathlib import Path;p=Path("+repr(remote)+");p.mkdir(parents=True,exist_ok=False);tarfile.open(fileobj=sys.stdin.buffer,mode='r|').extractall(p,filter='data')"
         pod.run(shlex.join(['python','-c',extractor]),data=source)
         config={'candidates':candidates,'device':args.device,'repeat':args.repeat,

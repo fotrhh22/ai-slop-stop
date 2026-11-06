@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from gpu_worker import pod_setup
+from server.gpu_defaults import IMAGE_MODEL, IMAGE_REVISION
 
 spec = importlib.util.spec_from_file_location('runpod_controller', Path(__file__).with_name('runpod.py'))
 controller = importlib.util.module_from_spec(spec)
@@ -25,12 +26,20 @@ class ControllerTests(unittest.TestCase):
 
     def test_healthy_worker_is_never_restarted_or_overwritten(self):
         pod = Mock()
-        pod.helper.return_value = {'healthy': True, 'pod_id': 'test-pod'}
+        pod.helper.return_value = {'healthy': True, 'pod_id': 'test-pod', 'health': {
+            'image_model': IMAGE_MODEL, 'image_revision': IMAGE_REVISION, 'image_quantization': 'nf4'}}
         with patch.object(controller, 'backup'), patch.object(controller, 'public_health'):
             controller.up(pod, {}, SimpleNamespace(backup=None, timeout=5))
         self.assertEqual(pod.helper.call_args_list[0].args, ('inspect',))
         self.assertEqual(pod.helper.call_count, 1)
         pod.scp.assert_not_called()
+        pod.run.assert_not_called()
+
+    def test_old_4b_worker_is_not_silently_accepted_or_restarted(self):
+        pod = Mock()
+        pod.helper.return_value = {'healthy': True, 'health': {'image_model': 'old-4b'}}
+        with self.assertRaisesRegex(RuntimeError, 'Klein 9B NF4'):
+            controller.up(pod, {}, SimpleNamespace(backup=None, timeout=5))
         pod.run.assert_not_called()
 
     def test_busy_or_wrong_auth_port_is_not_replaced(self):

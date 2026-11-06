@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import re
+import secrets
 import shlex
 import subprocess
 import sys
@@ -111,7 +112,7 @@ def ensure_api_key(pod, key):
     if len(key) < 32:
         raise RuntimeError('Profile API key must have at least 32 characters.')
     # Secret travels over SSH stdin, never command arguments or stdout.
-    source = '''import json,sys,hmac,os
+    source = '''import json,sys,hmac,os,socket
 from pathlib import Path
 from gpu_worker.volume import configuration
 p=Path('/workspace/ai-slop-stop/worker.env')
@@ -119,7 +120,13 @@ existed=p.exists()
 key=json.load(sys.stdin)['key']
 values=configuration()
 if existed and not hmac.compare_digest(values['GPU_API_KEY'],key):
-    raise RuntimeError('Existing worker key differs from this profile; no credential was replaced')
+    try:
+        sock=socket.create_connection(('127.0.0.1',8000),timeout=1)
+    except OSError:
+        pass
+    else:
+        sock.close()
+        raise RuntimeError('Cannot synchronize key while port 8000 is active')
 values['GPU_API_KEY']=key
 fd=os.open(p,os.O_WRONLY|os.O_TRUNC)
 with os.fdopen(fd,'w') as stream: stream.write(''.join(k+'='+v+'\\n' for k,v in values.items()))
@@ -139,7 +146,10 @@ def public_health(pod, profile, status):
         'Authorization': 'Bearer ' + api_key(pod), 'User-Agent': 'Mozilla/5.0'})
     with urllib.request.urlopen(request, timeout=30) as response:
         health = json.load(response)
-    if not health.get('ok') or not health.get('router_ready'):
+    from server.gpu_defaults import IMAGE_MODEL, IMAGE_REVISION
+    if (not health.get('ok') or not health.get('router_ready') or
+            health.get('image_model') != IMAGE_MODEL or health.get('image_revision') != IMAGE_REVISION or
+            health.get('image_quantization') != 'nf4'):
         raise RuntimeError('Public GPU API is not ready.')
     print('HTTPS authentication: OK\nGPU_API_URL=' + url, flush=True)
     print('Existing API key preserved if restored. Use ./runpod copy-key to copy it privately.')
@@ -148,6 +158,13 @@ def public_health(pod, profile, status):
 def up(pod, profile, args):
     status = pod.helper('inspect')
     if status['healthy']:
+        from server.gpu_defaults import IMAGE_MODEL, IMAGE_REVISION
+        health = status.get('health', {})
+        if (health.get('image_model') != IMAGE_MODEL or health.get('image_revision') != IMAGE_REVISION
+                or health.get('image_quantization') != 'nf4'):
+            raise RuntimeError('Existing worker is not Klein 9B NF4. Stop it safely before migration; no restart performed.')
+        if getattr(args, 'api_key', None) and not secrets.compare_digest(api_key(pod), args.api_key):
+            raise RuntimeError('Running worker uses a different API key. Stop it safely before synchronizing credentials.')
         print('Worker already healthy; installation and running requests left untouched.', flush=True)
     else:
         if status['port_open']:
@@ -156,7 +173,7 @@ def up(pod, profile, args):
             # Only committed runtime source; no local env, images, ledger, or SSH keys.
             source = subprocess.check_output(['git', 'archive', '--format=tar', 'HEAD',
                 'gpu_worker', 'server/__init__.py', 'server/energy.py', 'server/verdict.py',
-                'server/images.py', 'server/prompts/evaluate.md'], cwd=REPO)
+                'server/images.py', 'server/gpu_defaults.py', 'server/prompts/evaluate.md'], cwd=REPO)
             extract = "import sys,tarfile; from pathlib import Path; " \
                       "p=Path('/workspace/ai-slop-stop'); p.mkdir(parents=True,exist_ok=True); " \
                       "tarfile.open(fileobj=sys.stdin.buffer,mode='r|').extractall(p,filter='data')"

@@ -19,6 +19,7 @@ from uuid import uuid4
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from scripts import runpod as controller
+from server.gpu_defaults import shared_gpu_key
 
 ROOT = controller.REPO
 
@@ -108,6 +109,10 @@ def wait_for_pod(api, pod_id, gpu, deadline, stage):
 def prepare(args):
     gpu = args.profile[-4:]
     read_env(Path(args.env).expanduser())
+    # Both GPU profiles intentionally reuse the event's 5090 API credential.
+    key = shared_gpu_key()
+    if key:
+        os.environ['GPU_4090_API_KEY'] = os.environ['GPU_5090_API_KEY'] = key
     pod_id = args.pod_id or os.environ.get('GPU_' + gpu + '_POD_ID', '')
     if not re.fullmatch(r'[a-zA-Z0-9]{5,40}', pod_id):
         raise RuntimeError('Set a valid Pod ID for this profile.')

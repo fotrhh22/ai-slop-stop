@@ -16,6 +16,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from server.gpu_defaults import IMAGE_MODEL, IMAGE_REVISION
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = ROOT.parent
@@ -40,8 +41,9 @@ def configuration():
         fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
         with os.fdopen(fd, 'w') as stream:
             stream.write(f'GPU_API_KEY={secrets.token_hex(32)}\n'
-                         'GPU_IMAGE_MODEL=black-forest-labs/FLUX.2-klein-4B\n'
-                         'GPU_MODEL_REVISION=e7b7dc27f91deacad38e78976d1f2b499d76a294\n'
+                         f'GPU_IMAGE_MODEL={IMAGE_MODEL}\n'
+                         f'GPU_MODEL_REVISION={IMAGE_REVISION}\n'
+                         'GPU_IMAGE_QUANTIZATION=nf4\n'
                          'GPU_ROUTER_MODEL=Qwen/Qwen3.5-4B\n'
                          'GPU_ROUTER_REVISION=851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a\n')
     os.chmod(path, 0o600)
@@ -49,8 +51,9 @@ def configuration():
                   if line and not line.startswith('#') and '=' in line)
     if len(values.get('GPU_API_KEY', '')) < 32:
         raise RuntimeError('Missing/invalid API key. Existing configuration was preserved.')
-    # Preserve credentials and model revisions; derive paths for the new container.
-    values.update(HF_HOME=str(WORKSPACE / 'huggingface'),
+    # Upgrade restored 4B settings, preserving request history and router settings.
+    values.update(GPU_IMAGE_MODEL=IMAGE_MODEL, GPU_MODEL_REVISION=IMAGE_REVISION,
+                  GPU_IMAGE_QUANTIZATION='nf4', HF_HOME=str(WORKSPACE / 'huggingface'),
                   GPU_LEDGER_PATH=str(WORKSPACE / 'ai-slop/requests.sqlite3'),
                   TOKENIZERS_PARALLELISM='false')
     return values
