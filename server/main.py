@@ -56,6 +56,10 @@ app.include_router(clip_router)
 app.include_router(campaign_router)
 app.include_router(profiles_router)
 
+# Pedal to Picture event integration
+from pedal_event.api import router as pedal_event_router
+app.include_router(pedal_event_router)
+
 
 @app.exception_handler(PersistenceError)
 async def persistence_error(request: Request, exc: PersistenceError):
@@ -73,7 +77,10 @@ async def rate_limit(request: Request, call_next):
         polling = (request.method == "GET" and ("/evaluations/" in request.url.path or "/generations/" in request.url.path or request.url.path.endswith(("/print-job", "/model-profiles")))) or request.url.path.startswith(("/api/printing/", "/api/clip-worker/", "/api/campaign/"))
         # Outbound CLIP polling must not consume the booth browser/print quota.
         # Keep result submissions separate so busy claim polling cannot block completion.
-        if request.url.path.startswith("/api/clip-worker/"):
+        if request.url.path.startswith("/api/pedal/"):
+            polling = request.method == "GET" or "/station/" in request.url.path
+            bucket = "pedal-station:" if "/station/" in request.url.path else "pedal-read:" if polling else "pedal-write:"
+        elif request.url.path.startswith("/api/clip-worker/"):
             bucket = "clip-claim:" if request.url.path.endswith("/claim") else "clip-result:"
         else:
             bucket = "poll:" if polling else "write:"
@@ -82,7 +89,7 @@ async def rate_limit(request: Request, call_next):
         w = _windows[key]
         while w and w[0] <= now - 60:
             w.popleft()
-        limit = max(120, settings.max_requests_per_minute * 6) if polling else settings.max_requests_per_minute
+        limit = 600 if bucket == "pedal-station:" else (max(120, settings.max_requests_per_minute * 6) if polling else settings.max_requests_per_minute)
         if len(w) >= limit:
             return JSONResponse(status_code=429, content={"detail": "RATE_LIMITED"})
         w.append(now)
@@ -177,3 +184,7 @@ app = CORSMiddleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "X-Challenge-Token", "X-Print-Station-Token", "X-Print-Worker-Token"],
 )
+
+
+from pedal_event.cors import EventCORS
+app = EventCORS(app)
