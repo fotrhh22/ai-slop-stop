@@ -92,7 +92,6 @@ def render_receipt(receipt,image_bytes,font_path=None):
     created=datetime.fromisoformat(receipt['created_at'].replace('Z','+00:00'))
     if created.tzinfo is None: raise ValueError('RECEIPT_TIMEZONE_REQUIRED')
     page.text(created.astimezone(ZoneInfo('Asia/Seoul')).strftime('%Y.%m.%d  %H:%M:%S'),19)
-    page.text('승인: '+('STAFF' if receipt['pass_source']=='staff' else 'AI 판정'),19)
     page.rule();page.photo(photo)
     page.text('성공까지 누적 사용량',24)
     page.text('이미지 생성 '+number(receipt.get('generation_calls'))+'회 / 판정 '+number(receipt.get('router_calls'))+'회',20)
@@ -112,18 +111,15 @@ def render_receipt(receipt,image_bytes,font_path=None):
         page.text('이미지 생성 GPU',18)
         wh=energy.get('energy_wh')
         page.text(f'{wh:.4f} Wh' if isinstance(wh,(int,float)) else '미계측',30)
-        page.text(f"계측 {energy.get('measured_generation_calls',0)}회 / 미계측 {energy.get('unmeasured_generation_calls',0)}회",18)
         router_wh=energy.get('router_energy_wh')
         total_wh=energy.get('total_gpu_energy_wh')
         page.text(f'판정 GPU: {router_wh:.4f} Wh' if isinstance(router_wh,(int,float)) else '판정 GPU: 미계측',18)
         page.text(f'GPU 합계: {total_wh:.4f} Wh' if isinstance(total_wh,(int,float)) else 'GPU 합계: 미계측',22)
-        page.text('상주 모델 유휴 소비 포함\nCLIP·CPU·냉각·네트워크 제외\n미계측은 0이 아님',18)
     bike=receipt.get('bike')
     if bike:
         page.rule();page.text('자전거 체험 결과',24)
         page.text('환산 발전량',20)
         page.text(f"{bike['campaign_energy_wh']:.4f} Wh",32)
-        page.text('실측×100 환산 / 실제 발전량 아님',18)
         target=bike.get('target_wh');pct=bike.get('progress_pct')
         if target is not None and pct is not None:
             if token_only:page.text('RTX 4090 GPU 실측 평균 비교 기준\nGemini 소비량 측정/추정값 아님',18)
@@ -131,21 +127,11 @@ def render_receipt(receipt,image_bytes,font_path=None):
             page.text(f'환산 달성률 {pct:.1f}%',24)
             page.text('목표 달성' if bike.get('target_reached') else '목표 미달 · 계측 종료',20)
         else:page.text('Gemini · 목표 Wh/달성률 없음',18)
-        elapsed=bike['elapsed_s'];coverage=bike['measured_s']/elapsed*100 if elapsed else 0
-        page.text(f'측정 {elapsed:.1f}초 / 유효 계측 {coverage:.1f}%',18)
-        reason={'target_reached':'목표 도달 자동 종료','manual_stop':'수동 계측 종료','interrupted':'프로그램 중단 기록'}
-        page.text(reason.get(bike['end_reason'],'계측 종료')+' / '+bike['mode'].upper(),18)
-    page.rule();page.text('사용 모델',24)
-    models=receipt.get('tokens_by_model',{})
-    for name,usage in sorted(models.items(),key=lambda x:(-bool(x[1].get('generation_calls')),x[0])):
-        generation=usage.get('generation_calls',0)>0;router=usage.get('router_calls',0)>0
-        label='생성 / 판정' if generation and router else '이미지 생성' if generation else 'AI 판정'
-        page.text(label,21,2);page.text(name.split('/',1)[-1],18,3)
+        page.text(f"측정 {bike['elapsed_s']:.1f}초",18)
     page.rule();page.text('성공 프롬프트',24)
     page.text(receipt['prompt'],21)
     if receipt['pass_source']=='router' and receipt.get('router_reason'):
         page.text('통과 이유',24);page.text(receipt['router_reason'],20)
-    page.rule();page.text('AI SLOP STOP',20)
     return page.finish()
 
 def escpos_bytes(image):
