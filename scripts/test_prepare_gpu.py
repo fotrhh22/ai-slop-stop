@@ -2,6 +2,9 @@ import tempfile
 import time
 import os
 import json
+import io
+import socket
+import urllib.error
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import TestCase
@@ -19,6 +22,24 @@ def pod(status='RUNNING',gpu='4090'):
 
 
 class PrepareTests(TestCase):
+    def test_status_get_retries_transport_failure_only(self):
+        failure=urllib.error.URLError(socket.timeout('timed out'))
+        with patch.object(prepare.urllib.request,'urlopen',side_effect=[failure,io.BytesIO(b'{"ok":true}')]) as request, \
+             patch.object(prepare.time,'sleep'):
+            self.assertEqual(prepare.call('https://api.runpod.io/v2/pods/pod1234','secret'),{'ok':True})
+            self.assertEqual(request.call_count,2)
+
+    def test_registration_post_never_retries_and_reports_stage_without_secret(self):
+        failure=urllib.error.URLError(socket.timeout('timed out'))
+        with patch.object(prepare.urllib.request,'urlopen',side_effect=failure) as request:
+            with self.assertRaises(RuntimeError) as caught:
+                prepare.call('https://render.test/api/gpu-control/register','private-secret',
+                             {'runtime_id':'id'},header='X-Gpu-Control-Token')
+            self.assertIn('Render GPU registration',str(caught.exception))
+            self.assertIn('TimeoutError',str(caught.exception))
+            self.assertNotIn('private-secret',str(caught.exception))
+            request.assert_called_once()
+
     def test_two_matching_gpus_allowed_but_other_counts_rejected(self):
         for gpu in ('4090', '5090'):
             value = pod(gpu=gpu)

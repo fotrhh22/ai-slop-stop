@@ -40,13 +40,28 @@ def call(url, token, body=None, header='Authorization'):
         data=None if body is None else json.dumps(body).encode(),
         headers={header: ('Bearer ' if header == 'Authorization' else '') + token,
                  'Content-Type': 'application/json'})
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            return json.load(response)
-    except urllib.error.HTTPError as exc:
-        raise RuntimeError('API request failed (HTTP ' + str(exc.code) + '); no automatic action retry.') from None
-    except (OSError, ValueError):
-        raise RuntimeError('API response unconfirmed. Check current state before retrying; Pod may still be billing.') from None
+    operation = ('Render GPU registration' if header == 'X-Gpu-Control-Token' else
+                 'RunPod status GET' if body is None else 'RunPod action POST')
+    # Status reads are safe to retry. Never repeat Pod start or registration POSTs.
+    attempts = 3 if body is None else 1
+    for attempt in range(attempts):
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                return json.load(response)
+        except urllib.error.HTTPError as exc:
+            if body is None and exc.code in (429, 502, 503, 504) and attempt+1 < attempts:
+                time.sleep(attempt+1)
+                continue
+            raise RuntimeError(operation+' failed (HTTP '+str(exc.code)+'); no action was automatically retried.') from None
+        except (OSError, ValueError) as exc:
+            reason = getattr(exc, 'reason', exc)
+            cause = type(reason).__name__
+            if body is None and attempt+1 < attempts:
+                time.sleep(attempt+1)
+                continue
+            suffix = ('Status read failed after '+str(attempts)+' attempts; check current Pod state.' if body is None else
+                      'POST sent once; outcome may be unconfirmed. Check current state before retrying.')
+            raise RuntimeError(operation+' response unconfirmed ('+cause+'). '+suffix) from None
 
 
 class RunPodAPI:
@@ -126,10 +141,15 @@ def prepare(args):
     controller.PROFILE = controller.LOCAL / 'connection.json'
     controller.LOCAL.mkdir(parents=True, exist_ok=True, mode=0o700)
     state_path = controller.LOCAL / 'preparation.json'
+    last_stage = None
 
     def stage(name):
-        state_path.write_text(json.dumps({'profile_id': args.profile, 'pod_id': pod_id,
-            'stage': name, 'time': time.time()}))
+        nonlocal last_stage
+        value = {'profile_id': args.profile, 'pod_id': pod_id, 'stage': name, 'time': time.time()}
+        if name == 'failed_requires_operator_check':
+            value['failed_at'] = last_stage
+        state_path.write_text(json.dumps(value))
+        last_stage = name
         print('Preparation:', name, flush=True)
 
     with (controller.LOCAL / 'controller.lock').open('a') as lock:
@@ -181,7 +201,14 @@ def main():
     except Exception as exc:
         # Never echo URLs, HTTP response bodies, SSH stdin or key-bearing args.
         print('GPU preparation stopped: ' + (str(exc) if isinstance(exc, RuntimeError) else type(exc).__name__))
-        print('Check Pod state/billing. SSH public key and host fingerprint require initial setup.')
+        state_path = ROOT / '.runpod' / args.profile / 'preparation.json'
+        if state_path.exists():
+            failed_at = json.loads(state_path.read_text()).get('failed_at')
+            if failed_at:
+                print('Failed stage: '+failed_at)
+        print('Check Pod state. No automatic action retry or shutdown was performed.')
+        if isinstance(exc, RuntimeError) and str(exc).startswith('SSH'):
+            print('Verify the SSH public key and host fingerprint for this Pod.')
         raise SystemExit(1)
 
 
