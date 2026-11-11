@@ -4,14 +4,17 @@ import { CHALLENGE_TARGETS, loadTargetDataUrl, type ChallengeTarget } from "../d
 import type { ModelProfile } from "../types";
 
 interface Props {
+  mode: "settings" | "target";
+  selectedProfileId: string | null;
+  onSaveModel: (profileId: string) => void;
+  onSettings: () => void;
   onCancel: () => void;
   onConfirm: (dataUrl: string, profileId: string, target: ChallengeTarget) => Promise<void>;
 }
 
-export function TargetImagePicker({ onCancel, onConfirm }: Props) {
-  const [step, setStep] = useState<"model" | "target">("model");
+export function TargetImagePicker({ mode, selectedProfileId, onSaveModel, onSettings, onCancel, onConfirm }: Props) {
   const [profiles, setProfiles] = useState<ModelProfile[]>([]);
-  const [profileId, setProfileId] = useState("gemini");
+  const [profileId, setProfileId] = useState(selectedProfileId ?? "gemini");
   const [profileError, setProfileError] = useState("");
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -42,7 +45,7 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
   const choose = async (target: ChallengeTarget) => {
     if (selecting.current) return;
     if (!selected?.ready || profileError) {
-      setStep("model"); setError("사용 가능한 모델을 다시 선택해 주세요."); return;
+      setError("환경설정에서 사용 가능한 모델을 선택해 주세요."); return;
     }
     selecting.current = true; setPendingId(target.id); setError("");
     try {
@@ -54,7 +57,7 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
 
   return (
     <div className="modal-scrim" onClick={() => { if (!selecting.current) onCancel(); }}>
-      <div ref={dialog} className={`modal session-picker${step === "target" ? " session-picker--targets" : ""}`}
+      <div ref={dialog} className={`modal session-picker${mode === "target" ? " session-picker--targets" : ""}`}
         role="dialog" aria-modal="true" aria-labelledby="session-picker-title" tabIndex={-1}
         onClick={e => e.stopPropagation()} onKeyDown={e => {
           if (e.key === "Escape" && !selecting.current) { e.stopPropagation(); onCancel(); }
@@ -66,14 +69,10 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
             else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { e.preventDefault(); first.focus(); }
           }
         }}>
-        <div className="session-picker__steps" aria-label="새 세션 단계">
-          <span aria-current={step === "model" ? "step" : undefined}>1 모델 선택</span><span>→</span>
-          <span aria-current={step === "target" ? "step" : undefined}>2 이미지 선택</span>
-        </div>
-        <h2 id="session-picker-title" className="modal__title">{step === "model" ? "어떤 모델로 도전할까요?" : "목표 이미지를 골라주세요"}</h2>
-        <p className="modal__desc">{step === "model" ? "사용할 모델을 고른 뒤 목표 이미지를 선택하세요." : "이미지를 누르면 선택한 모델로 새 세션이 시작됩니다. 각 테마는 왼쪽부터 하·중·상입니다."}</p>
+        <h2 id="session-picker-title" className="modal__title">{mode === "settings" ? "환경설정" : "목표 이미지를 골라주세요"}</h2>
+        <p className="modal__desc">{mode === "settings" ? "모델을 한 번 선택하면 이 브라우저의 모든 새 세션에 적용됩니다. 새로고침 후에도 유지됩니다." : "이미지를 누르면 저장된 모델로 새 세션이 시작됩니다. 각 테마는 왼쪽부터 하·중·상입니다."}</p>
 
-        {step === "model" ? <>
+        {mode === "settings" ? <>
           <div className="session-models" role="radiogroup" aria-label="생성·판정 모델">
             {profiles.map(p => <button key={p.id} type="button" role="radio" aria-checked={p.id === profileId}
               className={`session-model${p.id === profileId ? " is-selected" : ""}`} disabled={!p.ready}
@@ -91,7 +90,7 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
               return <section key={theme} className="target-catalog__theme" aria-labelledby={`theme-${theme}`}>
                 <h3 id={`theme-${theme}`}>{theme} · {targets[0].themeLabel}</h3>
                 <div className="target-catalog__grid">{targets.map(target => <button key={target.id} type="button"
-                  className={`target-choice${pendingId === target.id ? " is-selected" : ""}`} disabled={!!pendingId}
+                  className={`target-choice${pendingId === target.id ? " is-selected" : ""}`} disabled={!!pendingId || !selected?.ready || !!profileError}
                   aria-label={`${target.theme} ${target.difficulty} · ${target.title} 선택`} onClick={() => void choose(target)}>
                   <img src={target.imageUrl} alt={target.title} width={1024} height={1024} />
                   <span className="target-choice__caption"><b>{target.difficulty}</b><span>{target.title}</span></span>
@@ -100,13 +99,15 @@ export function TargetImagePicker({ onCancel, onConfirm }: Props) {
             })}
           </div>
         </>}
+        {mode === "target" && !selected?.ready && !profileError && <p role="status">{profiles.length ? "저장된 모델을 사용할 수 없습니다. 환경설정에서 모델을 확인해 주세요." : "모델 연결 상태 확인 중…"}</p>}
         {pendingId && <p role="status">{pendingId} · 목표 이미지와 세션을 저장하는 중…</p>}
         {(profileError || error) && <p className="modal__error" role="alert">{error || profileError}</p>}
         <div className="modal__actions">
           <button className="btn-secondary" disabled={!!pendingId} onClick={onCancel}>취소</button>
-          {step === "target" ? <button className="btn-secondary" disabled={!!pendingId} onClick={() => { setStep("model"); setError(""); }}>모델 다시 선택</button>
-            : <>{profileError && <button className="btn-secondary" onClick={() => setRetry(v => v + 1)}>연결 다시 확인</button>}
-              <button className="btn-primary" disabled={!selected?.ready || !!profileError} onClick={() => { setStep("target"); setError(""); }}>목표 이미지 선택 →</button></>}
+          {profileError && <button className="btn-secondary" onClick={() => setRetry(v => v + 1)}>연결 다시 확인</button>}
+          {mode === "target" ? <button className="btn-secondary" disabled={!!pendingId} onClick={onSettings}>환경설정</button>
+            : <>
+              <button className="btn-primary" disabled={!selected?.ready || !!profileError} onClick={() => onSaveModel(profileId)}>저장</button></>}
         </div>
       </div>
     </div>

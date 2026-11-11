@@ -8,6 +8,7 @@ import type { Attempt, Challenge, ProfileSnapshot } from "./types";
 import { createChallenge, generateImage, evaluate, finalize, fetchReceipt } from "./api/client";
 import type { ChallengeTarget } from "./data/challengeTargets";
 
+const MODEL_SETTING_KEY = "ai-slop-stop:model-profile";
 const uid = () => crypto.randomUUID();
 
 // 선택한 카탈로그 이미지 원본을 data URL로 저장한 뒤 챌린지를 만든다.
@@ -29,7 +30,11 @@ export default function App() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // 새 세션의 모델 선택 → 이미지 선택 모달.
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(() => {
+    try { return localStorage.getItem(MODEL_SETTING_KEY) || null; } catch { return null; }
+  });
+  const [showSettings, setShowSettings] = useState(false);
+  const [startAfterSettings, setStartAfterSettings] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [staffMode, setStaffMode] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -72,10 +77,32 @@ export default function App() {
       updatedAt: Date.now(),
     }));
 
-  // 새 세션은 모델 선택 → 고정 목표 이미지 선택 순서로 진행한다.
+  useEffect(() => {
+    const syncModel = (event: StorageEvent) => {
+      if (event.key === MODEL_SETTING_KEY || event.key === null) {
+        setSelectedProfileId(event.newValue || null);
+        setShowPicker(false);
+      }
+    };
+    window.addEventListener("storage", syncModel);
+    return () => window.removeEventListener("storage", syncModel);
+  }, []);
+
+  const saveModel = (profileId: string) => {
+    try { localStorage.setItem(MODEL_SETTING_KEY, profileId); }
+    catch { setError("모델 설정을 저장하지 못했습니다. 브라우저의 사이트 저장 권한을 확인해 주세요."); return; }
+    setSelectedProfileId(profileId);
+    setError("");
+    setShowSettings(false);
+    if (startAfterSettings) setShowPicker(true);
+    setStartAfterSettings(false);
+  };
+
+  // 저장된 모델을 사용하므로 새 세션에서는 이미지 선택만 진행한다.
   const startNewChallenge = () => {
     if (creating) return;
-    setShowPicker(true);
+    if (selectedProfileId) setShowPicker(true);
+    else { setStartAfterSettings(true); setShowSettings(true); }
     setSidebarOpen(false);
   };
 
@@ -232,6 +259,10 @@ export default function App() {
           <span className="chat__title">
             {active?.title ?? "AI SLOP STOP CHALLENGE"}
           </span>
+          <button className="settings-toggle" aria-label="환경설정" aria-haspopup="dialog"
+            disabled={creating} onClick={() => { setStartAfterSettings(false); setShowSettings(true); }}>
+            <span aria-hidden="true">⚙</span> 환경설정
+          </button>
           <button className={"staff-toggle" + (staffMode ? " is-on" : "")}
             onClick={() => setStaffMode(v => !v)} title="STAFF 모드: 수동 PASS 전환 허용">
             STAFF {staffMode ? "ON" : "OFF"}
@@ -275,7 +306,7 @@ export default function App() {
               <div className="chat__empty-badge">AI SLOP STOP CHALLENGE</div>
               <h1>목표 이미지를 재현하는 챌린지</h1>
               <p>
-                모델과 목표 이미지 9개 중 하나를 선택하고,
+                목표 이미지 9개 중 하나를 선택하고,
                 프롬프트로 최대한 비슷하게 재현해보세요.
               </p>
               <button className="btn-primary" onClick={startNewChallenge}>
@@ -286,9 +317,14 @@ export default function App() {
         )}
       </div>
 
-      {showPicker && (
+      {(showPicker || showSettings) && (
         <TargetImagePicker
-          onCancel={() => setShowPicker(false)}
+          key={showSettings ? "settings" : "target"}
+          mode={showSettings ? "settings" : "target"}
+          selectedProfileId={selectedProfileId}
+          onSaveModel={saveModel}
+          onSettings={() => { setShowPicker(false); setStartAfterSettings(true); setShowSettings(true); }}
+          onCancel={() => { setShowPicker(false); setShowSettings(false); setStartAfterSettings(false); }}
           onConfirm={confirmTarget}
         />
       )}

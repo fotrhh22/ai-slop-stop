@@ -1286,7 +1286,12 @@ button {
 .model-picker { display: grid; gap: 8px; margin: 12px 0; }
 .model-picker select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #555; background: #171717; color: #fff; }
 
-/* New session: model → curated target catalog. */
+/* Persistent model settings and curated target catalog. */
+.settings-toggle { margin-left: auto; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.settings-toggle + .staff-toggle { margin-left: 0; flex-shrink: 0; white-space: nowrap; }
+.settings-toggle:hover { background: var(--elevated); }
+.settings-toggle:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+.settings-toggle:disabled { opacity: .5; cursor: wait; }
 .session-picker { max-height: calc(100dvh - 32px); overflow-y: auto; }
 .session-picker--targets { max-width: 790px; }
 .session-picker__steps { display: flex; gap: 12px; color: var(--muted); font-size: 12px; }
