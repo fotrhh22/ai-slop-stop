@@ -99,12 +99,13 @@ export interface ProfileSnapshot {
 }
 
 export interface Challenge {
+  targetId?: string;
   profile?: ProfileSnapshot;
   id: string;
   accessToken: string;
   title: string;
-  targetImageUrl: string; // 기본(정적) 또는 업로드본
-  isCustomTarget: boolean; // 사용자가 올린 목표 이미지인지
+  targetImageUrl: string; // 선택한 목표 원본 data URL
+  isCustomTarget: boolean; // 카탈로그 목표는 false
   attempts: Attempt[];
   updatedAt: number;
   receipt?: Receipt;

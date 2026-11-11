@@ -1,0 +1,41 @@
+{
+  "version": "current-targets-v16",
+  "targets": [
+    {
+      "id": "A-LOW",
+      "image": "results/20261111T012421Z-2a260b3c/evidence/A-LOW-target-1.png"
+    },
+    {
+      "id": "A-MID",
+      "image": "results/20261111T011201Z-72be7f3b/evidence/A-MID-target-1.png"
+    },
+    {
+      "id": "A-HIGH",
+      "image": "results/20261111T011201Z-72be7f3b/evidence/A-HIGH-target-1.png"
+    },
+    {
+      "id": "B-LOW",
+      "image": "results/20261111T012111Z-a3d35e1d/evidence/B-LOW-target-1.png"
+    },
+    {
+      "id": "B-MID",
+      "image": "results/20261111T014815Z-baf75ce8/evidence/B-MID-target-1.png"
+    },
+    {
+      "id": "B-HIGH",
+      "image": "results/20261111T014815Z-baf75ce8/evidence/B-HIGH-target-1.png"
+    },
+    {
+      "id": "C-LOW",
+      "image": "results/20261111T012725Z-b38c7c54/evidence/C-LOW-target-1.png"
+    },
+    {
+      "id": "C-MID",
+      "image": "results/20261111T012725Z-b38c7c54/evidence/C-MID-target-1.png"
+    },
+    {
+      "id": "C-HIGH",
+      "image": "results/20261111T012924Z-e507c565/evidence/C-HIGH-target-1.png"
+    }
+  ]
+}

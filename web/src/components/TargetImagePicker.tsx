@@ -1,118 +1,112 @@
 import { useEffect, useRef, useState } from "react";
 import { fetchModelProfiles } from "../api/client";
+import { CHALLENGE_TARGETS, loadTargetDataUrl, type ChallengeTarget } from "../data/challengeTargets";
 import type { ModelProfile } from "../types";
 
 interface Props {
   onCancel: () => void;
-  onConfirm: (dataUrl: string, profileId: string) => void;
+  onConfirm: (dataUrl: string, profileId: string, target: ChallengeTarget) => Promise<void>;
 }
 
-// 새 챌린지 시작 전, 목표 이미지를 반드시 먼저 올리게 하는 모달.
-// 이미지를 고르기 전에는 "시작" 버튼이 비활성화된다.
 export function TargetImagePicker({ onCancel, onConfirm }: Props) {
-  const [preview, setPreview] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState<"model" | "target">("model");
   const [profiles, setProfiles] = useState<ModelProfile[]>([]);
   const [profileId, setProfileId] = useState("gemini");
   const [profileError, setProfileError] = useState("");
+  const [error, setError] = useState("");
+  const [pendingId, setPendingId] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const selecting = useRef(false);
+  const dialog = useRef<HTMLDivElement>(null);
+  const selected = profiles.find(p => p.id === profileId);
+
   useEffect(() => {
     let alive = true;
     const refresh = async () => {
       try {
         const rows = await fetchModelProfiles();
         if (alive) { setProfiles(rows); setProfileError(""); }
-      } catch { if (alive) { setProfiles([]); setProfileError("모델 연결 상태를 확인하지 못했습니다."); } }
+      } catch { if (alive) setProfileError("모델 연결 상태를 확인하지 못했습니다. 다시 확인해 주세요."); }
     };
     void refresh();
     const timer = setInterval(refresh, 30_000);
     return () => { alive = false; clearInterval(timer); };
+  }, [retry]);
+
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    dialog.current?.focus();
+    return () => previous?.focus();
   }, []);
-  const selected = profiles.find(p => p.id === profileId);
 
-  const pick = () => fileRef.current?.click();
-
-  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("이미지 파일만 올릴 수 있습니다.");
-      return;
+  const choose = async (target: ChallengeTarget) => {
+    if (selecting.current) return;
+    if (!selected?.ready || profileError) {
+      setStep("model"); setError("사용 가능한 모델을 다시 선택해 주세요."); return;
     }
-    setError(null);
-    const reader = new FileReader();
-    reader.onload = () => setPreview(String(reader.result));
-    reader.onerror = () => setError("이미지를 읽지 못했습니다.");
-    reader.readAsDataURL(file);
-    e.target.value = "";
+    selecting.current = true; setPendingId(target.id); setError("");
+    try {
+      const dataUrl = await loadTargetDataUrl(target);
+      await onConfirm(dataUrl, profileId, target);
+    } catch (e) { setError(e instanceof Error ? e.message : "세션을 만들지 못했습니다. 다시 선택해 주세요."); }
+    finally { selecting.current = false; setPendingId(null); }
   };
 
   return (
-    <div className="modal-scrim" onClick={onCancel}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h2 className="modal__title">목표 이미지 설정</h2>
-        <p className="modal__desc">
-          이 챌린지에서 재현할 목표 이미지를 먼저 올려주세요. 목표 이미지를
-          설정해야 챌린지가 시작됩니다.
-        </p>
-
-        <label className="model-picker">사용할 모델
-          <select value={profileId} onChange={e => setProfileId(e.target.value)}>
-            {!profiles.length && <option value="gemini">연결 상태 확인 중…</option>}
-            {profiles.map(p => <option key={p.id} value={p.id} disabled={!p.ready}>
-              {p.label} · {p.ready ? "사용 가능" : "준비 안 됨"}
-            </option>)}
-          </select>
-        </label>
-        {selected && <p className="modal__desc">
-          생성: {selected.image_model}<br />판정: {selected.router_model}<br />
-          {selected.energy_basis === "tokens_only" ? "토큰 기록 · 자전거는 GPU 평균 비교 기준" : "GPU 실측 Wh · 자전거 목표 자동 연결"}
-        </p>}
-        {profileError && <p role="alert">{profileError}</p>}
-
-        <div
-          className={"dropzone" + (preview ? " has-image" : "")}
-          onClick={pick}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && pick()}
-        >
-          {preview ? (
-            <img src={preview} alt="목표 이미지 미리보기" />
-          ) : (
-            <div className="dropzone__hint">
-              클릭해서 목표 이미지 선택
-              <span>PNG · JPG · WEBP</span>
-            </div>
-          )}
+    <div className="modal-scrim" onClick={() => { if (!selecting.current) onCancel(); }}>
+      <div ref={dialog} className={`modal session-picker${step === "target" ? " session-picker--targets" : ""}`}
+        role="dialog" aria-modal="true" aria-labelledby="session-picker-title" tabIndex={-1}
+        onClick={e => e.stopPropagation()} onKeyDown={e => {
+          if (e.key === "Escape" && !selecting.current) { e.stopPropagation(); onCancel(); }
+          if (e.key === "Tab") {
+            const controls = dialog.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), [tabindex="0"]');
+            if (!controls?.length) { e.preventDefault(); return; }
+            const first = controls[0], last = controls[controls.length - 1];
+            if (e.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { e.preventDefault(); first.focus(); }
+          }
+        }}>
+        <div className="session-picker__steps" aria-label="새 세션 단계">
+          <span aria-current={step === "model" ? "step" : undefined}>1 모델 선택</span><span>→</span>
+          <span aria-current={step === "target" ? "step" : undefined}>2 이미지 선택</span>
         </div>
+        <h2 id="session-picker-title" className="modal__title">{step === "model" ? "어떤 모델로 도전할까요?" : "목표 이미지를 골라주세요"}</h2>
+        <p className="modal__desc">{step === "model" ? "사용할 모델을 고른 뒤 목표 이미지를 선택하세요." : "이미지를 누르면 선택한 모델로 새 세션이 시작됩니다. 각 테마는 왼쪽부터 하·중·상입니다."}</p>
 
-        {error && <div className="modal__error">{error}</div>}
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept="image/*"
-          style={{ display: "none" }}
-          onChange={onFile}
-        />
-
+        {step === "model" ? <>
+          <div className="session-models" role="radiogroup" aria-label="생성·판정 모델">
+            {profiles.map(p => <button key={p.id} type="button" role="radio" aria-checked={p.id === profileId}
+              className={`session-model${p.id === profileId ? " is-selected" : ""}`} disabled={!p.ready}
+              onClick={() => { setProfileId(p.id); setError(""); }}>
+              <strong>{p.label}</strong><span>{p.ready ? "사용 가능" : "준비 안 됨"}</span>
+            </button>)}
+          </div>
+          {!profiles.length && !profileError && <p role="status">모델 연결 상태 확인 중…</p>}
+          {selected && <p className="modal__desc">생성: {selected.image_model}<br />판정: {selected.router_model}</p>}
+        </> : <>
+          <p className="session-picker__model">선택 모델 · {selected?.label ?? profileId}</p>
+          <div className="target-catalog" aria-busy={!!pendingId}>
+            {(["A", "B", "C"] as const).map(theme => {
+              const targets = CHALLENGE_TARGETS.filter(t => t.theme === theme);
+              return <section key={theme} className="target-catalog__theme" aria-labelledby={`theme-${theme}`}>
+                <h3 id={`theme-${theme}`}>{theme} · {targets[0].themeLabel}</h3>
+                <div className="target-catalog__grid">{targets.map(target => <button key={target.id} type="button"
+                  className={`target-choice${pendingId === target.id ? " is-selected" : ""}`} disabled={!!pendingId}
+                  aria-label={`${target.theme} ${target.difficulty} · ${target.title} 선택`} onClick={() => void choose(target)}>
+                  <img src={target.imageUrl} alt={target.title} width={1024} height={1024} />
+                  <span className="target-choice__caption"><b>{target.difficulty}</b><span>{target.title}</span></span>
+                </button>)}</div>
+              </section>;
+            })}
+          </div>
+        </>}
+        {pendingId && <p role="status">{pendingId} · 목표 이미지와 세션을 저장하는 중…</p>}
+        {(profileError || error) && <p className="modal__error" role="alert">{error || profileError}</p>}
         <div className="modal__actions">
-          <button className="btn-secondary" onClick={onCancel}>
-            취소
-          </button>
-          {preview && (
-            <button className="btn-secondary" onClick={pick}>
-              다시 선택
-            </button>
-          )}
-          <button
-            className="btn-primary"
-            disabled={!preview || !selected?.ready}
-            onClick={() => preview && selected?.ready && onConfirm(preview, profileId)}
-          >
-            이 이미지로 챌린지 시작
-          </button>
+          <button className="btn-secondary" disabled={!!pendingId} onClick={onCancel}>취소</button>
+          {step === "target" ? <button className="btn-secondary" disabled={!!pendingId} onClick={() => { setStep("model"); setError(""); }}>모델 다시 선택</button>
+            : <>{profileError && <button className="btn-secondary" onClick={() => setRetry(v => v + 1)}>연결 다시 확인</button>}
+              <button className="btn-primary" disabled={!selected?.ready || !!profileError} onClick={() => { setStep("target"); setError(""); }}>목표 이미지 선택 →</button></>}
         </div>
       </div>
     </div>

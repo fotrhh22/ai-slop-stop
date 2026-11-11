@@ -6,18 +6,20 @@ import { TargetImagePicker } from "./components/TargetImagePicker";
 import { MenuIcon } from "./components/icons";
 import type { Attempt, Challenge, ProfileSnapshot } from "./types";
 import { createChallenge, generateImage, evaluate, finalize, fetchReceipt } from "./api/client";
+import type { ChallengeTarget } from "./data/challengeTargets";
 
 const uid = () => crypto.randomUUID();
 
-// 목표 이미지(data URL)를 받아야만 챌린지를 만든다. 기본 이미지는 없음.
-function newChallenge(targetImageUrl: string, id: string, accessToken: string, profile?: ProfileSnapshot): Challenge {
+// 선택한 카탈로그 이미지 원본을 data URL로 저장한 뒤 챌린지를 만든다.
+function newChallenge(targetImageUrl: string, id: string, accessToken: string, target: ChallengeTarget, profile?: ProfileSnapshot): Challenge {
   return {
     id,
     accessToken,
     profile,
-    title: "새 챌린지",
+    title: `${target.id} · ${target.title}`,
+    targetId: target.id,
     targetImageUrl,
-    isCustomTarget: true,
+    isCustomTarget: false,
     attempts: [],
     updatedAt: Date.now(),
   };
@@ -27,7 +29,7 @@ export default function App() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // 목표 이미지 선택 모달 표시 여부 (새 챌린지 시작 시 필수 선행 단계)
+  // 새 세션의 모델 선택 → 이미지 선택 모달.
   const [showPicker, setShowPicker] = useState(false);
   const [staffMode, setStaffMode] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -70,7 +72,7 @@ export default function App() {
       updatedAt: Date.now(),
     }));
 
-  // "새 챌린지" = 목표 이미지 선택 모달을 연다 (이미지 설정이 필수 선행)
+  // 새 세션은 모델 선택 → 고정 목표 이미지 선택 순서로 진행한다.
   const startNewChallenge = () => {
     if (creating) return;
     setShowPicker(true);
@@ -78,17 +80,20 @@ export default function App() {
   };
 
   // 모달에서 목표 이미지 확정 -> 그제서야 챌린지 생성 + 활성화
-  const confirmTarget = async (dataUrl: string, profileId: string) => {
+  const confirmTarget = async (dataUrl: string, profileId: string, target: ChallengeTarget) => {
     if (creating) return;
     setCreating(true);
     setError("");
-    setShowPicker(false);
     try {
       const remote = await createChallenge(dataUrl, profileId);
-      const c = newChallenge(dataUrl, remote.id, remote.accessToken, remote.profile);
+      const c = newChallenge(dataUrl, remote.id, remote.accessToken, target, remote.profile);
       setChallenges((prev) => [c, ...prev]);
       setActiveId(c.id);
-    } catch (e) { setError(e instanceof Error ? e.message : "세션 생성 실패"); }
+      setShowPicker(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "세션 생성 실패");
+      throw e;
+    }
     finally { setCreating(false); }
   };
 
@@ -270,11 +275,11 @@ export default function App() {
               <div className="chat__empty-badge">AI SLOP STOP CHALLENGE</div>
               <h1>목표 이미지를 재현하는 챌린지</h1>
               <p>
-                목표 이미지를 설정하고, 프롬프트로 최대한 비슷하게 재현해보세요.
-                먼저 목표 이미지를 설정해야 챌린지가 시작됩니다.
+                모델과 목표 이미지 9개 중 하나를 선택하고,
+                프롬프트로 최대한 비슷하게 재현해보세요.
               </p>
               <button className="btn-primary" onClick={startNewChallenge}>
-                + 챌린지 시작 (목표 이미지 설정)
+                + 새 세션 시작
               </button>
             </div>
           </div>

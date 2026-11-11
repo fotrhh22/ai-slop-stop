@@ -39,6 +39,7 @@ export function Chat({
     <div className="chat__scroll">
       <TargetImagePanel
         targetImageUrl={challenge.targetImageUrl}
+        targetId={challenge.targetId}
         isCustom={challenge.isCustomTarget}
         onUpload={onUploadTarget}
       />

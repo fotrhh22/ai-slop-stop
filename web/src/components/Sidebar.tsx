@@ -59,7 +59,7 @@ export function Sidebar({
       </div>
 
       <button className="sidebar__new" onClick={onNew}>
-        + 새 챌린지
+        + 새 세션
       </button>
 
       <div className="sidebar__section">챌린지</div>
