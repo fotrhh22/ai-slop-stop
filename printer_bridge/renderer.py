@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 import os
+import re
 from PIL import Image, ImageDraw, ImageFont
 
 WIDTH = 384
@@ -77,6 +78,15 @@ def tokens(receipt,operation=None):
     if not known:return '미제공'
     return number(sum(known))+(' (일부 미확인)' if len(known)<len(calls) else '')
 
+def receipt_time(value):
+    # Python 3.9 accepts only 3 or 6 fractional digits; Postgres omits trailing
+    # zeroes, so valid timestamps can contain 1, 2, 4 or 5 instead.
+    normalized=re.sub(r"\.(\d{1,6})(?=(?:[+-]\d{2}:\d{2})?$)",
+        lambda match: '.'+match.group(1).ljust(6,'0'),value.replace('Z','+00:00'))
+    created=datetime.fromisoformat(normalized)
+    if created.tzinfo is None:raise ValueError('RECEIPT_TIMEZONE_REQUIRED')
+    return created
+
 def render_receipt(receipt,image_bytes,font_path=None):
     if len(image_bytes)>8_000_000: raise ValueError('IMAGE_TOO_LARGE')
     with Image.open(BytesIO(image_bytes)) as src:
@@ -89,8 +99,7 @@ def render_receipt(receipt,image_bytes,font_path=None):
     page.text('AI·발전 체험 영수증',28)
     campaign=receipt.get('campaign') or {}
     if campaign.get('participant_code'):page.text('참가자 '+campaign['participant_code'],26)
-    created=datetime.fromisoformat(receipt['created_at'].replace('Z','+00:00'))
-    if created.tzinfo is None: raise ValueError('RECEIPT_TIMEZONE_REQUIRED')
+    created=receipt_time(receipt['created_at'])
     page.text(created.astimezone(ZoneInfo('Asia/Seoul')).strftime('%Y.%m.%d  %H:%M:%S'),19)
     page.rule();page.photo(photo)
     page.text('성공까지 누적 사용량',24)

@@ -5,10 +5,21 @@ from pathlib import Path
 from unittest.mock import patch,MagicMock
 from io import BytesIO
 from PIL import Image
-from .renderer import atkinson,escpos_bytes,render_receipt
+from .renderer import atkinson,escpos_bytes,render_receipt,receipt_time
 from .worker import Journal,process,reconcile,submit
 
 class WorkerTests(unittest.TestCase):
+    def test_postgres_fractional_timestamps_work_on_python39(self):
+        for fraction in ('1','12','123','1234','12345','123456'):
+            with self.subTest(fraction=fraction):
+                for suffix in ('Z','+00:00','+09:00'):
+                    parsed=receipt_time('2026-11-12T04:36:47.'+fraction+suffix)
+                    self.assertEqual(parsed.microsecond,int(fraction.ljust(6,'0')))
+                    self.assertIsNotNone(parsed.tzinfo)
+        self.assertEqual(receipt_time('2026-11-12T04:36:47+00:00').microsecond,0)
+        with self.assertRaisesRegex(ValueError,'RECEIPT_TIMEZONE_REQUIRED'):
+            receipt_time('2026-11-12T04:36:47.12345')
+
     def test_cups_job_id_supports_mac_korean_and_english_output(self):
         for text in ['요청 id는 PT210_USB_BRIDGE-12(1개의 파일)', 'request id is PT210_USB_BRIDGE-12 (1 file(s))']:
             with patch('printer_bridge.worker.subprocess.run',return_value=MagicMock(returncode=0,stdout=text)):
