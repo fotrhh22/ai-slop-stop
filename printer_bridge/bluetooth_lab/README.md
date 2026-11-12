@@ -2,14 +2,29 @@
 
 DB·Render·Supabase·CUPS 없이 **준비된 예시 영수증 파일 → Bluetooth → 프린터**를 시험하는 Mac 전용 환경이다. 기존 USB 자동 출력 워커의 환경·설정·프로세스는 변경하지 않는다.
 
-BLE와 Classic SPP를 각각 구현했다. **보유 프린터가 두 방식을 모두 지원한다고 확인된 것은 아니다.** 현재 프린터 없이 진행한 범위는 의존성 설치, native helper 빌드, 모의·오프라인 검증이다.
+BLE와 Classic SPP를 각각 구현했다. **보유 프린터가 두 방식을 모두 지원한다고 확인된 것은 아니다.** 초기 구축은 프린터 없이 진행했고, 이후 BLE 실물 출력과 신호 수집까지 확인했다. SPP 실물 출력 성공은 미확인이다.
+
+## 실물 시험 후 현재 권장 실행법
+
+보유 PT210L의 **BLE 실제 출력이 확인됐다.** SPP는 사용자 요청으로 시험을 중단했다. 결과와 채택/제외 설정은 [HARDWARE_RESULTS.md](HARDWARE_RESULTS.md)에 기록했다.
+
+이 Mac의 `ble.local`에는 확인된 BLE UUID·18F0/2AF1 인쇄 특성과 237B / 15ms / without-response / 종료 전 2초 대기가 저장돼 있다. 기본 파일은 같은 이미지의 `GS v 0` 버전이며, 전체가 정상이고 더 부드럽다는 사용자 확인을 받았다.
+
+```sh
+./ble-test --send
+./ble-signal --duration 30
+./ble-signal --duration 30 --distance-m 3
+./ble-test --send --distance-m 3
+```
+
+`--distance-m`는 직접 잰 거리의 기록용이다. RSSI를 m로 환산하지 않는다. 신호 CSV와 인쇄 실행 JSON은 `runs/`에 저장한다. 연결 중 광고가 안 나오는 경우가 있으므로 신호 측정은 인쇄 전후에 별도로 실행한다.
 
 ## 준비된 예시 영수증
 
 - 미리보기: `samples/example-receipt.png`
 - 공통 인쇄 파일: `samples/example-receipt.escpos` (71,809 bytes)
 - 구성: 기존 사진·한글·사용량·발전 체험 결과·QR이 포함된 예시. 실제 참가자 기록이 아님.
-- BLE와 SPP가 같은 파일과 SHA-256을 사용하므로 연결 방식만 비교 가능.
+- 초기 BLE/SPP 비교 파일은 같은 SHA-256이다. BLE 실물 튜닝 후 추가한 GS v 0 파일은 인코딩만 다르고 같은 PNG 픽셀을 사용한다.
 - 이미지 조정·한글 렌더링·디더링은 이미 완료되어 출력 명령에서는 수행하지 않음.
 
 ## 현재 설치 상태와 재구축
@@ -108,8 +123,8 @@ pairing 뒤 `ls /dev/cu.*`에 프린터 전용 포트가 생기면 pyserial 경�
 
 - `--send` 없으면 기본은 오프라인 dry-run. scan/inspect는 별도 명시 시에만 무선 접근.
 - 다른 미리 준비한 파일은 `--file /절대경로/receipt.escpos`로 지정.
-- `--chunk-bytes 182`, `--interval-ms 40`: 처음 검증할 보수적 시작값. 확정 최적값이 아님.
-- `--connect-timeout 15`, `--write-timeout 10`, `--total-timeout 180`: timeout 제어. total-timeout은 native SPP helper 상한.
+- `--chunk-bytes`, `--interval-ms`, `--settle-seconds`: `ble.local`에서 검증값을 저장할 수 있다. 이 Mac은 237B/15ms/2초를 채택했고, 프로파일 없는 기본은 182B/40ms/1초다.
+- `--connect-timeout 15`, `--write-timeout 10`, `--total-timeout 180`: timeout 제어. total-timeout은 native 및 serial SPP helper 상한.
 - `ble.local`, `spp.local`: 기기 정보만 저장하며 Git ignore 대상. 명령행 인자가 우선.
 - 실제 전송은 `runs/`에 실행별 기록. BLE/SPP 간 로컬 잠금으로 동시 쓰기 방지.
 - `TRANSPORT_WRITES_COMPLETED`는 쓰기 호출 완료이며 종이 출력 확인이 아님.
@@ -125,9 +140,9 @@ pairing 뒤 `ls /dev/cu.*`에 프린터 전용 포트가 생기면 pyserial 경�
 ./verify.command
 ```
 
-확인 항목: 동일 영수증 SHA, BLE 협상 한도 준수, write 속성 불일치 차단, timeout/끊김 시 무재시도, SPP 부분 쓰기 바이트 보존, Mac native helper 빌드 및 무선 접근 없는 dry-run. 모의/오프라인 테스트 15개 통과.
+확인 항목: 동일 영수증 SHA, BLE 협상 한도 준수, write 속성 불일치 차단, timeout/끊김 시 무재시도, SPP 부분 쓰기 바이트 보존, Mac native helper 빌드 및 무선 접근 없는 dry-run. 최초 15개 테스트에 이어 실물 보완과 신호·픽셀 보존 검증을 추가했다. 최신 결과는 OFFLINE_VALIDATION.json 참조.
 
-아직 미검증: 보유 프린터의 BLE·Classic 프로파일, 실제 pairing, 실제 characteristic/채널, 한글·사진·QR 실물 인쇄, 실제 속도, 절전 복구. 두 환경 모두 실제 프린터에 연결·출력하지 않았다.
+현재 BLE 연결·한글/사진/QR 전체 출력·신호 수집은 실물 확인됐다. 미검증: 거리별 안정 범위, 장기 연속/절전 복구, SPP 실물 출력. SPP 시험은 중단했다.
 
 ## 레퍼런스
 

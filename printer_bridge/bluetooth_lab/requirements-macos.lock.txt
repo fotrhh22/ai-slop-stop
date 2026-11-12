@@ -1,4 +1,5 @@
 bleak==3.1.0
+pillow==11.3.0
 pyobjc-core==13.0
 pyobjc-framework-Cocoa==13.0
 pyobjc-framework-CoreBluetooth==13.0

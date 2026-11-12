@@ -9,6 +9,11 @@
     "example-receipt.escpos": {
       "bytes": 71809,
       "sha256": "ab3eb82cc7e74cfbac8956492b5d449f2a8cb0ab6c97113925435e7981d47034"
+    },
+    "example-receipt-gsv0.escpos": {
+      "bytes": 71384,
+      "sha256": "7d851e42b14193ca7bc3bfc31d8796c1a9d1e2f053bdc38f1a76a4e7ae3be599",
+      "encoding": "GS v 0, 128-row strips, same preview pixels"
     }
   }
 }

@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+LAB=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+ROOT=$(CDPATH= cd -- "$LAB/../.." && pwd)
+export PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}"
+exec "$LAB/.venv/bin/python" -m printer_bridge.bluetooth_lab.signal_monitor "$@"

@@ -1,5 +1,9 @@
 {
   "device": "REPLACE_WITH_THIS_MAC_BLE_DEVICE_UUID",
-  "characteristic": "REPLACE_WITH_VERIFIED_WRITE_CHARACTERISTIC_UUID",
-  "response": "no"
+  "characteristic": "00002af1-0000-1000-8000-00805f9b34fb",
+  "response": "no",
+  "chunk_bytes": 237,
+  "interval_ms": 15,
+  "settle_seconds": 2,
+  "file": "samples/example-receipt-gsv0.escpos"
 }
