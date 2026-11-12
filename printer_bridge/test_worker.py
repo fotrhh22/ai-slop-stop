@@ -1,3 +1,4 @@
+import urllib.error
 import tempfile
 import unittest
 from pathlib import Path
@@ -50,6 +51,31 @@ class WorkerTests(unittest.TestCase):
             with patch('printer_bridge.worker.render_receipt',return_value=Image.new('1',(384,24),1)),patch('printer_bridge.worker.submit',side_effect=TimeoutError):
                 process(client,journal,job,path,'queue')
             self.assertEqual(journal.data['job']['state'],'UNKNOWN')
+    def test_payload_network_failure_is_retried_before_single_submission(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory);journal=Journal(path/'journal.json')
+            job={'id':'job','lease_token':'lease','receipt_id':'receipt'}
+            client=MagicMock();client.call.side_effect=[urllib.error.URLError('temporary'),
+                {'receipt':{'id':'receipt','verified':True},'image_base64':'AA=='},{},{}]
+            with patch('printer_bridge.worker.render_receipt',return_value=Image.new('1',(384,24),1)), \
+                    patch('printer_bridge.worker.time.sleep'), \
+                    patch('printer_bridge.worker.submit',return_value='queue-1') as submit:
+                process(client,journal,job,path,'queue')
+                submit.assert_called_once()
+            self.assertEqual(journal.data['job']['state'],'SENT')
+            self.assertTrue(journal.data['job']['acked'])
+
+    def test_exhausted_payload_retries_never_submit_and_report_payload_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory);journal=Journal(path/'journal.json')
+            job={'id':'job','lease_token':'lease','receipt_id':'receipt'}
+            client=MagicMock();client.call.side_effect=[urllib.error.URLError('temporary')]*3+[{}]
+            with patch('printer_bridge.worker.time.sleep'),patch('printer_bridge.worker.submit') as submit:
+                process(client,journal,job,path,'queue');submit.assert_not_called()
+            self.assertEqual(journal.data['job']['state'],'FAILED')
+            self.assertEqual(journal.data['job']['error_code'],'PAYLOAD_FAILED')
+            self.assertEqual(journal.data['job']['error_stage'],'payload')
+
     def test_render_error_never_submits_to_cups(self):
         with tempfile.TemporaryDirectory() as directory:
             path=Path(directory);journal=Journal(path/'journal.json')

@@ -80,33 +80,56 @@ def submit(path,queue):
     if not match:raise RuntimeError('CUPS_RESPONSE_UNCERTAIN')
     return match.group(0)
 
+def fetch_payload(client,job):
+    # This endpoint only reads the leased job. Retrying it cannot print a copy.
+    for attempt in range(3):
+        try:
+            return client.call('/jobs/'+job['id']+'/payload',{'lease_token':job['lease_token']})
+        except (APIError,urllib.error.URLError,TimeoutError,ConnectionError) as exc:
+            if isinstance(exc,APIError) and exc.status<500:raise
+            if attempt==2:raise
+            print(f"{job['id']}: payload retry {attempt+1}/2 ({type(exc).__name__})",flush=True)
+            time.sleep(attempt+1)
+
+
 def process(client,journal,job,directory,queue):
+    started=time.monotonic()
+    stage='payload'
+    def timing(name,start):
+        print(f"{job['id']}: stage={name} seconds={time.monotonic()-start:.2f}",flush=True)
     try:
-        payload=client.call('/jobs/'+job['id']+'/payload',{'lease_token':job['lease_token']})
+        tick=time.monotonic();payload=fetch_payload(client,job);timing(stage,tick)
+        stage='validate'
         receipt=payload['receipt']
         if receipt['id']!=job['receipt_id'] or not receipt.get('verified'):raise ValueError('RECEIPT_MISMATCH')
-        image=render_receipt(receipt,base64.b64decode(payload['image_base64'],validate=True))
+        stage='render';tick=time.monotonic()
+        image=render_receipt(receipt,base64.b64decode(payload['image_base64'],validate=True));timing(stage,tick)
+        stage='encode';tick=time.monotonic()
         png=directory/(job['id']+'.png');raw=directory/(job['id']+'.escpos')
         image.save(png)
         with raw.open('wb') as stream:stream.write(escpos_bytes(image));stream.flush();os.fsync(stream.fileno())
         journal.save(job,state='PREPARED',acked=False)
-    except Exception:
-        journal.save(job,state='FAILED',error_code='RENDER_FAILED',acked=False)
+        timing(stage,tick)
+    except Exception as exc:
+        code='PAYLOAD_FAILED' if stage=='payload' else 'RENDER_FAILED'
+        journal.save(job,state='FAILED',error_code=code,error_stage=stage,error_type=type(exc).__name__,acked=False)
         reconcile(client,journal)
-        print(f"{job['id']}: render failed (not sent)",flush=True);return
+        status=f' HTTP_{exc.status}' if isinstance(exc,APIError) else ''
+        print(f"{job['id']}: {stage} failed ({type(exc).__name__}{status}; not sent)",flush=True);return
     # Persist intent BEFORE advancing the server or submitting to CUPS.
     journal.save(job,state='SENDING',acked=False)
     try:
-        advance(client,job,'SENDING')
+        tick=time.monotonic();advance(client,job,'SENDING');timing('authorize_send',tick)
     except Exception:
         # This request might have reached the server. Do not send or reclaim locally.
         reconcile(client,journal);return
     try:
-        cups_id=submit(raw,queue)
+        tick=time.monotonic();cups_id=submit(raw,queue);timing('cups_submit',tick)
         journal.save(job,state='SENT',cups_job_id=cups_id,acked=False)
     except Exception:
         journal.save(job,state='UNKNOWN',error_code='CUPS_SUBMISSION_UNCERTAIN',acked=False)
     reconcile(client,journal)
+    timing('total',started)
     print(f"{job['id']}: {journal.data[job['id']]['state']} (paper completion not verified)",flush=True)
 
 def main():
@@ -121,6 +144,9 @@ def main():
     base=os.environ.get('PRINT_API_BASE','https://ai-slop-stop-api.onrender.com')
     token=os.environ.get('PRINT_WORKER_TOKEN','')
     if len(token)<24:parser.error('Set PRINT_WORKER_TOKEN in private env file')
+    try:poll_seconds=float(os.environ.get('PRINT_POLL_SECONDS','1'))
+    except ValueError:parser.error('PRINT_POLL_SECONDS must be a number between 0.5 and 60')
+    if not .5<=poll_seconds<=60:parser.error('PRINT_POLL_SECONDS must be between 0.5 and 60')
     client=Client(base,token)
     if args.status:
         print(json.dumps(client.call('/jobs'),ensure_ascii=False,indent=2));return
@@ -138,15 +164,17 @@ def main():
     journal=Journal(directory/'journal.json')
     print('PT-210 worker ready. Atkinson / 384 dots. Ctrl+C to stop.',flush=True)
     while True:
+        job=None
         try:
             reconcile(client,journal)
             job=client.call('/claim',{})['job']
             if job:process(client,journal,job,directory,queue)
         except KeyboardInterrupt:break
         except Exception as exc:
+            job=None
             print(type(exc).__name__+': '+str(exc)[:100],flush=True)
             if args.once:raise SystemExit(1)
         if args.once:break
-        time.sleep(5)
+        time.sleep(poll_seconds if job is None else 0)
 
 if __name__=='__main__':main()
