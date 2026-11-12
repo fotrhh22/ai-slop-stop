@@ -66,7 +66,7 @@ class ReviewTests(unittest.TestCase):
                 worker.main()
         self.assertEqual(encoder.compare.call_args.args, (expected, expected))
 
-    def test_real_async_gate_saves_fail_and_allows_staff_without_paid_call(self):
+    def test_real_async_evaluation_ignores_legacy_clip_gate_and_calls_router(self):
         settings = replace(main.settings, clip_mode="gate", clip_worker_token="x"*40,
                            clip_reject_below=0.5, max_requests_per_minute=1000)
         store, jobs = MemoryStore(), EvaluationJobs(workers=1)
@@ -81,22 +81,25 @@ class ReviewTests(unittest.TestCase):
         try:
             with patch.object(main, "settings", settings), patch.object(challenges, "load_settings", return_value=settings), \
                     patch.object(challenges, "Store", return_value=store), patch.object(challenges, "jobs", jobs), \
-                    patch.object(bridge.broker, "compute", return_value={"cosine":0.1, "model":bridge.MODEL, "pipeline":bridge.PIPELINE, "elapsed_ms":1}), \
-                    patch.object(challenges, "route_verdict") as route:
+                    patch.object(bridge.broker, "compute", side_effect=AssertionError("CLIP must never run")) as clip, \
+                    patch.object(challenges, "route_verdict", return_value={"verdict": "FAIL", "reason": "피사체가 다릅니다."}) as route:
                 client = TestClient(main.app)
                 body = {"job_id":jid, "attempt_id":aid, "generated_image":data}
                 self.assertEqual(client.post(f"/api/challenges/{cid}/evaluations", json=body, headers=headers).status_code, 202)
                 jobs.executor.shutdown(wait=True)
                 result = client.get(f"/api/challenges/{cid}/evaluations/{jid}", headers=headers).json()["result"]
                 self.assertEqual(result["verdict"], "FAIL")
-                self.assertIsNone(result["router_model"])
-                self.assertFalse(result["router_called"])
+                self.assertEqual(result["router_model"], settings.router_model)
+                self.assertTrue(result["router_called"])
+                self.assertNotIn("similarity", result)
+                self.assertEqual(result["evaluation_source"], "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision")
+                clip.assert_not_called()
                 self.assertEqual(store.attempt(cid, aid)["evaluation_result"], result)
                 saved = client.post(f"/api/challenges/{cid}/finalize", json={"attempt_id":aid,"generated_image":data,"source":"staff"}, headers=headers)
                 self.assertEqual(saved.status_code, 200,saved.text)
                 self.assertEqual(saved.json()['pass_source'],'staff')
                 self.assertEqual(store.tables["api_calls"], [])
-                route.assert_not_called()
+                route.assert_called_once()
         finally:
             jobs.executor.shutdown(wait=True)
             main._windows.clear()

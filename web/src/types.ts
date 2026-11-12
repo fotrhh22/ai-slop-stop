@@ -19,16 +19,6 @@ export interface EnergySummary {
 
 export interface GenerationResult { imageUrl: string; energy?: EnergySummary }
 
-export interface ClipSimilarity {
-  cosine?: number;
-  model?: string;
-  pipeline?: string;
-  status?: string;
-  error?: string;
-  elapsed_ms?: number;
-  roundtrip_ms: number;
-}
-
 export interface Receipt {
   campaign?: { id: string; participant_code: string; energy_basis: "tokens_only" | "measured_gpu" | "unavailable"; target_wh: number | null; reference_target_wh?: number | null; reference_target_source?: string | null; multiplier: number; state: string; profile_snapshot: Record<string,unknown> } | null;
   bike?: { id: string; campaign_energy_wh: number; multiplier: number; target_wh: number | null; progress_pct: number | null; target_reached: boolean; elapsed_s: number; measured_s: number; gap_count: number; mode: string; end_reason: string } | null;
@@ -72,7 +62,6 @@ export interface Attempt {
   evalStatus: "none" | "evaluating" | "done" | "error";
   criteria?: EvaluationCriteria; // Gemini의 항목별 정성 평가
   routerModel?: string;
-  similarity?: ClipSimilarity;
   verdict?: Verdict; // Router 최종 판정 (또는 STAFF 수동 전환)
   reason?: string; // Router 판정 이유
   evalError?: string;

@@ -29,7 +29,7 @@ from .images import ImageError, validate_image
 from .challenges import router as challenge_router
 from .persistence import PersistenceError
 from .printing import router as printing_router
-from .clip_bridge import router as clip_router, evaluate_with_clip
+from .clip_bridge import router as clip_router
 
 settings = load_settings()
 
@@ -112,7 +112,7 @@ def health() -> dict:
         "router_provider": settings.router_provider,
         "router_model": settings.router_model,
         "evaluation_method": "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision",
-        "clip_mode": settings.clip_mode,
+        "clip_mode": "off",
         "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
         "bike_configured": len(settings.bike_worker_token) >= 32,
         "receipt_print_trigger": "bike_session_end",
@@ -165,8 +165,8 @@ def api_evaluate(req: EvaluateRequest):
         return JSONResponse(status_code=400, content={"detail": str(e)})
 
     try:
-        verdict = evaluate_with_clip(
-            settings, target_bytes, target_mime, gen_bytes, gen_mime, route_verdict
+        verdict = route_verdict(
+            settings, target_bytes, target_mime, gen_bytes, gen_mime
         )
     except GeminiError as e:
         return JSONResponse(
@@ -174,7 +174,8 @@ def api_evaluate(req: EvaluateRequest):
             content={"detail": str(e).split(":")[0], "message": str(e)},
         )
 
-    return {**verdict, "router_model": settings.router_model if verdict.get("router_called", True) else None}
+    return {**verdict, "router_model": settings.router_model, "router_called": True,
+            "evaluation_source": "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision"}
 
 
 # Include ServerErrorMiddleware responses in CORS handling too.

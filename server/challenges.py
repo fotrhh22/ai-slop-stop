@@ -19,7 +19,6 @@ from .remote_router import route_verdict
 from .generation import generate_image
 from .persistence import CallRecorder, PersistenceError, Store, digest
 from .images import ImageError, validate_image
-from .clip_bridge import evaluate_with_clip
 
 router = APIRouter(prefix="/api/challenges")
 _locks = [threading.Lock() for _ in range(64)]
@@ -155,11 +154,12 @@ def evaluate(cid: UUID, req: Evaluate, x_challenge_token: str = Header(default="
             target_mime = "image/png" if target.startswith(b"\x89PNG") else "image/webp" if target[8:12] == b"WEBP" else "image/jpeg"
             try:
                 with evaluation_stage("router"):
-                    verdict = evaluate_with_clip(settings, target, target_mime, raw, mime, route_verdict,
+                    verdict = route_verdict(settings, target, target_mime, raw, mime,
                         recorder=CallRecorder(store, cid, aid, "router", settings.router_model, provider=settings.router_provider))
             except GeminiError as exc:
                 raise HTTPException(502, str(exc).split(":")[0]) from exc
-            result = {"router_model": settings.router_model if verdict.get("router_called", True) else None, **verdict}
+            result = {**verdict, "router_model": settings.router_model, "router_called": True,
+                      "evaluation_source": "qwen_vision" if settings.router_provider == "zeus" else "gemini_vision"}
             with evaluation_stage("save_verdict"):
                 store.update("attempts", aid, {"router_verdict": verdict["verdict"],
                     "router_reason": verdict["reason"], "evaluation_result": result})

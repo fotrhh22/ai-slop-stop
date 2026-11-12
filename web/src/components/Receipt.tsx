@@ -155,7 +155,7 @@ export function Receipt({ receipt: r, accessToken, onRefresh }: {
         <dt>AI 판정 GPU 실측 확인분</dt><dd>{r.energy.router_energy_wh == null ? "미계측" : `${r.energy.router_energy_wh.toFixed(4)} Wh`}</dd>
         <dt>생성·판정 GPU 실측 합계</dt><dd>{r.energy.total_gpu_energy_wh == null ? "미계측" : `${r.energy.total_gpu_energy_wh.toFixed(4)} Wh`}</dd>
       </dl>
-      <p className="receipt-note">GPU 구간 소비량(상주 모델의 유휴 소비 포함). 미계측 AI 판정 {r.energy.unmeasured_router_calls}회. CLIP,
+      <p className="receipt-note">GPU 구간 소비량(상주 모델의 유휴 소비 포함). 미계측 AI 판정 {r.energy.unmeasured_router_calls}회.
         CPU·냉각·네트워크 전력은 포함하지 않습니다. 미계측 요청은 0으로 계산하지 않습니다.</p>
     </>}
     {Object.keys(r.tokens_by_model).length > 0 && <>

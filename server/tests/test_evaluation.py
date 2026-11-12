@@ -1,5 +1,8 @@
 """Direct image evaluation must work without torch or CLIP installed."""
 import io
+import base64
+import os
+from dataclasses import replace
 import json
 import unittest
 from types import SimpleNamespace as NS
@@ -126,6 +129,28 @@ class EvaluationTests(unittest.TestCase):
 
     def test_small_router_image_is_not_reencoded(self):
         self.assertEqual(evaluation_image(self.raw, "image/png"), (self.raw, "image/png"))
+
+    def test_legacy_clip_env_is_ignored_even_when_invalid(self):
+        from server.config import load_settings
+        with patch.dict(os.environ, {"CLIP_MODE": "gate", "CLIP_TIMEOUT_SECONDS": "invalid",
+                "CLIP_REJECT_BELOW": "invalid", "CLIP_FAILURE_POLICY": "required"}):
+            settings = load_settings()
+        self.assertEqual(settings.clip_mode, "off")
+
+    def test_standalone_evaluation_calls_router_directly_with_legacy_gate(self):
+        from server import clip_bridge
+        data = "data:image/png;base64," + base64.b64encode(self.raw).decode()
+        settings = replace(self.settings, clip_mode="gate", clip_failure_policy="required")
+        with patch.object(main, "settings", settings), \
+                patch.object(clip_bridge.broker, "compute", side_effect=AssertionError("CLIP must never run")) as clip, \
+                patch.object(main, "route_verdict", return_value=self.result) as route:
+            response = TestClient(main.app).post("/api/evaluate", json={"target_image": data, "generated_image": data})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["verdict"], "PASS")
+        self.assertTrue(response.json()["router_called"])
+        self.assertNotIn("similarity", response.json())
+        route.assert_called_once()
+        clip.assert_not_called()
 
     def test_health_reports_direct_evaluation(self):
         with patch.object(main, "settings", self.settings):

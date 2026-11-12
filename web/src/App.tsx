@@ -177,7 +177,7 @@ export default function App() {
     const cid = active.id;
     const a = active.attempts.find((x) => x.id === aid);
     if (!a || a.genStatus !== "ready" || !a.imageUrl) return;
-    patchAttempt(cid, aid, (x) => ({ ...x, evalStatus: "evaluating", evalError: undefined, similarity: undefined }));
+    patchAttempt(cid, aid, (x) => ({ ...x, evalStatus: "evaluating", evalError: undefined }));
     try {
       const r = await evaluate(active, a);
       patchAttempt(cid, aid, (x) => ({
@@ -185,7 +185,6 @@ export default function App() {
         evalStatus: "done",
         criteria: r.criteria,
         routerModel: r.router_model ?? undefined,
-        similarity: r.similarity,
         verdict: r.verdict,
         reason: r.reason,
         staffOverride: false,

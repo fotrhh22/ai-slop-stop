@@ -84,11 +84,8 @@ def load_settings() -> Settings:
         print_station_id=os.getenv("PRINT_STATION_ID", "booth-1"),
         print_pairing_token=os.getenv("PRINT_PAIRING_TOKEN", ""),
         print_worker_token=os.getenv("PRINT_WORKER_TOKEN", ""),
-        clip_mode=os.getenv("CLIP_MODE", "off"),
-        clip_worker_token=os.getenv("CLIP_WORKER_TOKEN", ""),
-        clip_timeout=float(os.getenv("CLIP_TIMEOUT_SECONDS", "20")),
-        clip_failure_policy=os.getenv("CLIP_FAILURE_POLICY", "fallback"),
-        clip_reject_below=(float(os.environ["CLIP_REJECT_BELOW"]) if os.getenv("CLIP_REJECT_BELOW") else None),
+        # CLIP has been retired from evaluation. Ignore legacy CLIP_* env vars,
+        # including invalid timeouts/thresholds, so old Render settings are inert.
         supabase_url=os.getenv("SUPABASE_URL", ""),
         supabase_secret_key=os.getenv("SUPABASE_SECRET_KEY", ""),
         image_provider=os.getenv("IMAGE_PROVIDER", "gemini").lower(),
