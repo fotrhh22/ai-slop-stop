@@ -40,15 +40,29 @@ class PrintingTests(unittest.TestCase):
     def test_expired_or_wrong_lease_cannot_fetch_image(self):
         r=self.client.post('/api/printing/jobs/'+str(uuid4())+'/payload',
             headers={'X-Print-Worker-Token':'w'*32},json={'lease_token':str(uuid4())})
-        self.assertEqual(r.status_code,409);self.store.receipt.assert_not_called()
+        self.assertEqual(r.status_code,409);self.store.print_receipt.assert_not_called()
     def test_unverified_receipt_cannot_print(self):
         rid=str(uuid4())
         self.store.rows.return_value=[{'status':'RENDERING','challenge_id':str(uuid4()),'receipt_id':rid,
             'source':'bike_session','bike_session_id':str(uuid4())}]
-        self.store.receipt.return_value={'id':rid,'verified':False}
+        self.store.print_receipt.return_value=({'id':rid,'verified':False},b'')
         r=self.client.post('/api/printing/jobs/'+str(uuid4())+'/payload',
             headers={'X-Print-Worker-Token':'w'*32},json={'lease_token':str(uuid4())})
         self.assertEqual(r.status_code,409);self.store.download.assert_not_called()
+    def test_payload_uses_already_verified_image_without_duplicate_reads(self):
+        rid,bid=str(uuid4()),str(uuid4())
+        self.store.rows.return_value=[{'status':'RENDERING','challenge_id':str(uuid4()),'receipt_id':rid,
+            'source':'bike_session','bike_session_id':bid}]
+        self.store.print_receipt.return_value=({'id':rid,'verified':True,'bike':{'id':bid}},b'verified-image')
+        r=self.client.post('/api/printing/jobs/'+str(uuid4())+'/payload',
+            headers={'X-Print-Worker-Token':'w'*32},json={'lease_token':str(uuid4())})
+        self.assertEqual(r.status_code,200)
+        import base64
+        self.assertEqual(base64.b64decode(r.json()['image_base64']),b'verified-image')
+        self.store.download.assert_not_called()
+        self.store.attempt.assert_not_called()
+        self.assertEqual(self.store.rows.call_count,1)
+
     def test_ongoing_job_cannot_be_reprinted(self):
         self.store.rows.return_value=[{'status':'SENDING'}]
         r=self.client.post('/api/printing/jobs/'+str(uuid4())+'/reprint',

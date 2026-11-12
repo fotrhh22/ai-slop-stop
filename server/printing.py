@@ -7,7 +7,7 @@ from uuid import UUID
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
 from .config import load_settings
-from .persistence import Store, PersistenceError, digest
+from .persistence import Store, PersistenceError
 
 router = APIRouter(prefix='/api/printing')
 
@@ -58,16 +58,11 @@ def payload(job_id: UUID, req: Lease, x_print_worker_token: str = Header(default
     if job.get('source') != 'bike_session' or not job.get('bike_session_id'):
         raise HTTPException(409,'BIKE_RESULT_REQUIRED')
     if job['status'] != 'RENDERING': raise HTTPException(409,'PRINT_JOB_NOT_RENDERING')
-    receipt = store.receipt(job['challenge_id'])
+    receipt, raw = store.print_receipt(job['challenge_id'])
     if not receipt or receipt['id'] != job['receipt_id'] or not receipt['verified']:
         raise HTTPException(409,'PRINT_RECEIPT_NOT_VERIFIED')
     if not receipt.get('bike') or receipt['bike']['id'] != job['bike_session_id']:
         raise HTTPException(409,'BIKE_RESULT_REQUIRED')
-    saved = store.rows('successes',id='eq.'+job['receipt_id'])[0]
-    raw = store.download('challenge-successes',saved['image_path'])
-    attempt = store.attempt(job['challenge_id'],receipt['attempt_id'])
-    if digest(raw) != attempt.get('generated_image_sha256'):
-        raise HTTPException(409,'SUCCESS_IMAGE_MISMATCH')
     return {'receipt':receipt,'image_base64':base64.b64encode(raw).decode()}
 
 class Advance(Lease):

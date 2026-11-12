@@ -90,6 +90,8 @@ Supabase migration/실서비스 자동 출력은 사용자의 SQL 적용 및 배
 
 ## 출력 대기 및 진단
 
-작업 확인 주기는 기본 1초이며 로컬 `PRINT_POLL_SECONDS`로 0.5~60초 사이에서 조정할 수 있습니다. Render 환경변수는 변경하지 않습니다. 영수증 다운로드 중 일시적인 네트워크/서버 오류는 전송 전에만 최대 두 번 재시도합니다. 프린터 전송이 시작된 작업은 자동 재출력하지 않습니다. 워커 로그에 payload, render, encode, authorize_send, cups_submit 단계별 소요 시간이 기록됩니다. `PAYLOAD_FAILED`는 서버 데이터 수신 실패이며 `RENDER_FAILED`와 구분됩니다.
+작업 확인 주기는 기본 0.5초이며 로컬 `PRINT_POLL_SECONDS`로 0.5~60초 사이에서 조정할 수 있습니다. Render 환경변수는 변경하지 않습니다. 영수증 다운로드 중 일시적인 네트워크/서버 오류는 전송 전에만 최대 두 번 재시도합니다. 프린터 전송이 시작된 작업은 자동 재출력하지 않습니다. 워커 로그에 payload, render, encode, authorize_send, cups_submit 단계별 소요 시간이 기록됩니다. `PAYLOAD_FAILED`는 서버 데이터 수신 실패이며 `RENDER_FAILED`와 구분됩니다.
 
 PostgreSQL 시각의 소수초는 1~6자리 모두 처리합니다. Python 3.9 워커에서도 소수초가 5자리인 영수증이 렌더링 중 실패하지 않도록 정규화합니다.
+
+출력 전용 영수증 조회는 독립된 DB/Storage 읽기를 병렬로 수행합니다. 검증에 사용한 이미지 바이트를 출력에 그대로 사용하여 중복 다운로드와 임시 이미지 URL 생성을 생략합니다. 검증 항목과 전송 전 상태 저장은 유지합니다.

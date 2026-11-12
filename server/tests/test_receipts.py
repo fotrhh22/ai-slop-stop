@@ -271,14 +271,22 @@ class ReceiptTests(unittest.TestCase):
             return [saved] if table == "successes" else [{"prompt": "original", "generated_image_sha256": digest(self.raw),
                                                         "router_reason": "피사체와 구도가 일치합니다."}]
         with patch.object(store, "rows", side_effect=rows), patch.object(store, "calls", return_value=calls), \
-             patch.object(store, "download", return_value=self.raw), patch.object(store, "request", return_value=NS(json=lambda: {"signedURL": "/object/sign/test"})):
+             patch.object(store, "download", return_value=self.raw) as download, patch.object(store, "request", return_value=NS(json=lambda: {"signedURL": "/object/sign/test"})) as request:
             receipt = store.receipt(cid)
             self.assertTrue(receipt["verified"])
             self.assertEqual(receipt["average_prompt_length"], 3.5)
             self.assertEqual(receipt["router_reason"], "피사체와 구도가 일치합니다.")
+            download.reset_mock(); request.reset_mock()
+            printed, image = store.print_receipt(cid)
+            self.assertEqual(image, self.raw)
+            self.assertTrue(printed["verified"])
+            self.assertEqual(printed["verification"], receipt["verification"])
+            download.assert_called_once()
+            request.assert_not_called()
             saved["pass_source"] = "staff"
             self.assertIsNone(store.receipt(cid)["router_reason"])
             usage["known_output_tokens"] = 999
             result = store.receipt(cid)
             self.assertFalse(result["verified"])
             self.assertFalse(result["verification"]["models_match"])
+            self.assertFalse(store.print_receipt(cid)[0]["verified"])

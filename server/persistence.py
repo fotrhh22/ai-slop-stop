@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import secrets
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from datetime import datetime, timezone
 from uuid import uuid4
@@ -132,24 +133,45 @@ class Store:
             offset += len(page)
 
     def receipt(self, cid):
+        return self._receipt(cid)
+
+    def print_receipt(self, cid):
+        """Return verified receipt and the same verified bytes without a signed URL."""
+        return self._receipt(cid, for_print=True)
+
+    def _receipt(self, cid, for_print=False):
         rows = self.rows("successes", challenge_id="eq." + cid)
         if not rows:
-            return None
+            return (None, None) if for_print else None
         saved = rows[0]
-        attempt = self.attempt(cid, saved["attempt_id"])
-        # One prompt per submitted generation attempt; FAIL/error attempts count too.
-        # Retries of evaluation do not add another prompt. Keep PostgREST pagination.
-        prompt_lengths, offset = [], 0
-        while True:
-            page = self.rows("attempts", challenge_id="eq." + cid, select="prompt",
-                             order="id.asc", limit="500", offset=str(offset))
-            prompt_lengths.extend(len(row["prompt"]) for row in page)
-            if len(page) < 500:
-                break
-            offset += len(page)
-        average_prompt_length = sum(prompt_lengths) / len(prompt_lengths) if prompt_lengths else None
-        calls = self.calls(cid)
-        image = self.download("challenge-successes", saved["image_path"])
+        def prompt_average():
+            prompt_lengths, offset = [], 0
+            while True:
+                page = self.rows("attempts", challenge_id="eq." + cid, select="prompt",
+                                 order="id.asc", limit="500", offset=str(offset))
+                prompt_lengths.extend(len(row["prompt"]) for row in page)
+                if len(page) < 500:
+                    break
+                offset += len(page)
+            return sum(prompt_lengths) / len(prompt_lengths) if prompt_lengths else None
+
+        if for_print:
+            # Independent reads share the thread-safe HTTP pool. Keep validation
+            # identical while avoiding sequential DB/Storage round trips.
+            with ThreadPoolExecutor(max_workers=4) as pool:
+                attempt_read = pool.submit(self.attempt, cid, saved["attempt_id"])
+                prompts_read = pool.submit(prompt_average)
+                calls_read = pool.submit(self.calls, cid)
+                image_read = pool.submit(self.download, "challenge-successes", saved["image_path"])
+                campaign_read = pool.submit(self.rows, "campaign_entries", receipt_id="eq." + saved["id"])
+                attempt, average_prompt_length = attempt_read.result(), prompts_read.result()
+                calls, image = calls_read.result(), image_read.result()
+                entries = campaign_read.result()
+        else:
+            attempt = self.attempt(cid, saved["attempt_id"])
+            average_prompt_length = prompt_average()
+            calls = self.calls(cid)
+            image = self.download("challenge-successes", saved["image_path"])
         verification = {
             "prompt_matches": saved["prompt"] == attempt["prompt"],
             "image_matches": digest(image) == attempt.get("generated_image_sha256"),
@@ -178,14 +200,16 @@ class Store:
                 values["known_" + field] += call.get(field) or 0
                 values["calls_without_" + field] += call.get(field) is None
         verification["models_match"] = by_model == saved["tokens_by_model"]
-        signed = self.request("POST", "/storage/v1/object/sign/challenge-successes/" + saved["image_path"],
-                              json={"expiresIn": 3600}).json()
-        image_url = signed.get("signedURL") or signed.get("signedUrl")
-        if not image_url:
-            raise PersistenceError("RECEIPT_IMAGE_URL_FAILED")
-        if not image_url.startswith("https://"):
-            image_url = self.base + ("" if image_url.startswith("/storage/v1/") else "/storage/v1") + image_url
-        entries = self.rows("campaign_entries", receipt_id="eq." + saved["id"])
+        image_url = None
+        if not for_print:
+            signed = self.request("POST", "/storage/v1/object/sign/challenge-successes/" + saved["image_path"],
+                                  json={"expiresIn": 3600}).json()
+            image_url = signed.get("signedURL") or signed.get("signedUrl")
+            if not image_url:
+                raise PersistenceError("RECEIPT_IMAGE_URL_FAILED")
+            if not image_url.startswith("https://"):
+                image_url = self.base + ("" if image_url.startswith("/storage/v1/") else "/storage/v1") + image_url
+            entries = self.rows("campaign_entries", receipt_id="eq." + saved["id"])
         campaign = entries[0] if entries else None
         bike = None
         if campaign and campaign.get("state") == "ended":
@@ -195,7 +219,7 @@ class Store:
         # The public receipt contains no raw generator amount or worker credentials.
         public_campaign = ({k: campaign.get(k) for k in ("id", "participant_code", "energy_basis", "target_wh", "reference_target_wh", "reference_target_source", "multiplier", "state", "profile_snapshot")}
                            if campaign else None)
-        return {**saved, "energy": energy_summary(calls), "campaign": public_campaign, "bike": bike,
+        result = {**saved, "energy": energy_summary(calls), "campaign": public_campaign, "bike": bike,
                 "router_reason": attempt.get("router_reason") if saved.get("pass_source") == "router" else None,
                 "average_prompt_length": average_prompt_length,
                 "image_url": image_url, "verification": verification,
@@ -205,6 +229,8 @@ class Store:
                     "id", "operation", "provider", "model", "status", "input_tokens", "output_tokens",
                     "thought_tokens", "total_tokens", "started_at", "energy_measurement"
                 )} for c in calls]}
+
+        return (result, image) if for_print else result
 
     def finalize(self, cid, aid, raw, mime, source, actor=None, reason=None):
         if source not in ("router", "staff"):

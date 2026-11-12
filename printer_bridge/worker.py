@@ -144,7 +144,7 @@ def main():
     base=os.environ.get('PRINT_API_BASE','https://ai-slop-stop-api.onrender.com')
     token=os.environ.get('PRINT_WORKER_TOKEN','')
     if len(token)<24:parser.error('Set PRINT_WORKER_TOKEN in private env file')
-    try:poll_seconds=float(os.environ.get('PRINT_POLL_SECONDS','1'))
+    try:poll_seconds=float(os.environ.get('PRINT_POLL_SECONDS','0.5'))
     except ValueError:parser.error('PRINT_POLL_SECONDS must be a number between 0.5 and 60')
     if not .5<=poll_seconds<=60:parser.error('PRINT_POLL_SECONDS must be between 0.5 and 60')
     client=Client(base,token)
