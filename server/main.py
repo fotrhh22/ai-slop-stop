@@ -116,6 +116,7 @@ def health() -> dict:
         "persistence_configured": bool(settings.supabase_url and settings.supabase_secret_key),
         "bike_configured": len(settings.bike_worker_token) >= 32,
         "receipt_print_trigger": "bike_session_end",
+        "print_payload_mode": "parallel_verified_image",
         "manual_pass_enabled": True,
         "session_cleanup_enabled": settings.session_cleanup_enabled,
         "unpassed_retention_hours": settings.unpassed_retention_hours,
