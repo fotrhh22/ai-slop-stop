@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>local.pt210.bluetooth.spp-lab</string>
+<key>CFBundleName</key><string>PT210 SPP Test</string>
+<key>CFBundleExecutable</key><string>pt210-spp</string>
+<key>CFBundlePackageType</key><string>APPL</string>
+<key>CFBundleVersion</key><string>1</string>
+<key>NSBluetoothAlwaysUsageDescription</key><string>Discover and print a prepared test receipt to the selected PT-210 Bluetooth printer.</string>
+<key>NSBluetoothPeripheralUsageDescription</key><string>Connect to the selected PT-210 printer for a local test.</string>
+<key>LSUIElement</key><true/>
+</dict></plist>

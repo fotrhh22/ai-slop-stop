@@ -1,0 +1,5 @@
+{
+  "device": "REPLACE_WITH_THIS_MAC_BLE_DEVICE_UUID",
+  "characteristic": "REPLACE_WITH_VERIFIED_WRITE_CHARACTERISTIC_UUID",
+  "response": "no"
+}

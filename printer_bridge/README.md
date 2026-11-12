@@ -99,3 +99,7 @@ PostgreSQL 시각의 소수초는 1~6자리 모두 처리합니다. Python 3.9 �
 ## Bluetooth 확장 설계
 
 현재 운영 전송은 USB CUPS입니다. [PT-210 Bluetooth 조사·구현안](../docs/pt210-bluetooth-plan-20261112.md)에 BLE/Classic SPP 판별, macOS 전송 구조, 상태 스키마, 속도 검증 및 전환 기준을 정리했습니다. `python -m printer_bridge.bluetooth.probe --help`로 선택적 BLE 진단 도구를 볼 수 있습니다. 이 도구는 인쇄 명령을 쓰지 않으며 운영 워커가 자동 실행하지 않습니다.
+
+## DB 없는 Bluetooth 단독 출력 시험
+
+BLE와 Mac Classic SPP의 독립 환경은 [bluetooth_lab/README.md](bluetooth_lab/README.md)를 참고합니다. 공통 예시 영수증을 미리 ESC/POS로 준비했으며 `ble-test`와 `spp-test`로 각각 출력합니다. 실제 전송은 `--send`가 필요합니다. 현재 운영 USB 워커와는 분리됩니다.

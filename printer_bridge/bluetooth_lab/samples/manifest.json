@@ -1,0 +1,14 @@
+{
+  "description": "Existing synthetic example receipt; not a participant record. Same payload for BLE and SPP.",
+  "source": "Existing pt210-qr-caption-sample generated locally on 2026-11-12",
+  "files": {
+    "example-receipt.png": {
+      "bytes": 13340,
+      "sha256": "fbc5d7235c3bd444a216409c04601fa9d7cac6868071d0afb2187e8d7214ed12"
+    },
+    "example-receipt.escpos": {
+      "bytes": 71809,
+      "sha256": "ab3eb82cc7e74cfbac8956492b5d449f2a8cb0ab6c97113925435e7981d47034"
+    }
+  }
+}
