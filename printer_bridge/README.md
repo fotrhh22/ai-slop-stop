@@ -95,3 +95,7 @@ Supabase migration/실서비스 자동 출력은 사용자의 SQL 적용 및 배
 PostgreSQL 시각의 소수초는 1~6자리 모두 처리합니다. Python 3.9 워커에서도 소수초가 5자리인 영수증이 렌더링 중 실패하지 않도록 정규화합니다.
 
 출력 전용 영수증 조회는 독립된 DB/Storage 읽기를 병렬로 수행합니다. 검증에 사용한 이미지 바이트를 출력에 그대로 사용하여 중복 다운로드와 임시 이미지 URL 생성을 생략합니다. 검증 항목과 전송 전 상태 저장은 유지합니다.
+
+## Bluetooth 확장 설계
+
+현재 운영 전송은 USB CUPS입니다. [PT-210 Bluetooth 조사·구현안](../docs/pt210-bluetooth-plan-20261112.md)에 BLE/Classic SPP 판별, macOS 전송 구조, 상태 스키마, 속도 검증 및 전환 기준을 정리했습니다. `python -m printer_bridge.bluetooth.probe --help`로 선택적 BLE 진단 도구를 볼 수 있습니다. 이 도구는 인쇄 명령을 쓰지 않으며 운영 워커가 자동 실행하지 않습니다.

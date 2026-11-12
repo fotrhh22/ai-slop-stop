@@ -1,0 +1,2 @@
+# Optional diagnostics only. Use an isolated Python 3.11 environment.
+bleak>=3.1,<4
