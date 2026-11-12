@@ -4,11 +4,36 @@
 
 ## 결론
 
+목적은 **출력 속도 개선이 아니라 USB 외 Bluetooth 연결 옵션의 확보**다. 실물 프린터를 지금 사용할 수 없어도 GitHub 소스를 기준으로 설계와 adapter 구현·mock 검증을 먼저 진행할 수 있다. 실물 확인은 개발 착수 조건이 아니라 최종 호환성 검증 단계로 둔다.
+
 현재 운영 코드는 USB CUPS 큐 `PT210_USB_BRIDGE`로만 전송한다. Bluetooth 출력 경로는 아직 없다. 기존 384-dot 흑백 렌더러와 ESC/POS 바이트 생성은 재사용하고, 전송 계층만 선택 가능하게 확장하는 방안을 권장한다.
 
 보유 PT-210의 Bluetooth 프로파일은 아직 실물 확인 전이다. 같은 모델명의 다른 제품/펌웨어에서 BLE 또는 Classic SPP 구현 사례가 있다는 사실과, 지금 프린터가 이를 지원한다는 것은 구분해야 한다. `Bluetooth 4.x`, 모바일 앱 호환, USB 장치명만으로 BLE 지원 여부를 판정하지 않는다. 이번 조사에서는 제조사의 보유 기기와 정확히 일치하는 프로파일 명세를 확보하지 못했다.
 
-실행 순서: **실물 프로파일 확인 → 가능한 전송으로 짧은 출력 → 실제 70~90KB 영수증 → 연속·절전·끊김 검증 → 운영 전환**. BLE만 된다고 확인되더라도 속도 검증 없이 기본 연결로 승격하지 않는다.
+실행 순서: **레퍼런스 고정 → USB/BLE/SPP 전송 인터페이스 구축 → mock·오류 처리 검증 → 실물 프로파일 확인 → 짧은 출력/실제 영수증 검증 → Bluetooth 옵션 활성화**. 기본 운영 연결과 별개로 선택 가능한 옵션으로 추가한다.
+
+## GitHub 실제 소스 검토 결과 및 선정안
+
+2026-11-12에 아래 두 저장소를 임시 경로로 clone해 소스만 읽었다. 외부 저장소의 프로그램은 실행하지 않았다.
+
+| 저장소 / 확인 커밋 | 실제 확인 파일 | 채택 요소 | 그대로 가져오지 않는 부분 |
+|---|---|---|---|
+| [filipsedivy/goojprt-pt210-sdk](https://github.com/filipsedivy/goojprt-pt210-sdk/tree/f901d209a3bfcd3bff812648c836ce2ebba8d55f) / `f901d20` | `goojprt/transport/ble.py`, `spp.py`, `constants.py`, `pyproject.toml`, `LICENSE` | BLE 서비스·쓰기/notify 탐색 구조, 단일 writer, 분할 전송, SPP 분리 | 현 main은 Python >=3.14 요구. 기존 Python 3.9 워커에 패키지 전체를 설치하지 않음. 20B 한도를 unknown으로 보고 큰 chunk를 허용하는 부분은 보수적으로 수정해 설계 |
+| [dvbit/esc-pos-Bluetooth-printer](https://github.com/dvbit/esc-pos-Bluetooth-printer/tree/9f8a8a2b4499de470155086cf2720749994893df) / `9f8a8a2` | `custom_components/escpos_printer/escpos_raw.py`, `config_flow.py`, `const.py`, README | Classic SPP 모델 사례, RFCOMM 연결/timeout, sendall 의미 | Linux AF_BLUETOOTH와 Home Assistant 종속부는 Mac에 그대로 사용하지 않음. 코드 복제 시 실제 라이선스 파일/고지를 별도 확인 |
+
+첫 SDK의 MIT 라이선스 파일을 확인했다. 코드 자체를 재사용하게 되면 해당 저작권·라이선스 고지도 함께 보존한다. Classic 저장소는 README에 MIT 표기가 있으나 이번 checkout에서 루트 LICENSE 파일을 찾지 못했으므로, 지금은 동작 설계 참고로만 사용한다.
+
+BLE 후보 프로파일은 SDK의 두 서비스 계열 `49535343-…`와 `0000ff00-…`, Classic SPP 후보는 표준 서비스 `0x1101`이다. 이는 **레퍼런스의 후보 목록**이며 우리 프린터에서 관찰한 결과가 아니다. 같은 서비스 안의 notify를 우선 매칭하고, 발견된 writable characteristic을 명시적으로 선택한다.
+
+추천 구현 범위는 아래와 같다.
+
+1. USB 기존 adapter + BLE adapter + Classic SPP adapter를 동일한 인터페이스로 설계한다. 장치 없이도 바이트 분할·잠금·상태 전이·실패 주입 테스트를 먼저 완료한다.
+2. BLE는 SDK 전체 도입 대신 독립 Python 3.11/Bleak 전송 구성요소로 구현한다. 기존 Python 3.9 워커는 유지하거나, 운영 전환 시 Python 3.11로 검증 후 일괄 전환한다. helper를 사용한다면 프린터 자격증명은 넘기지 않고 ESC/POS 파일과 진행 상태만 전달한다.
+3. Classic SPP는 Mac 시리얼 포트가 노출될 경우 pyserial로 지원하고, 없는 경우 Apple IOBluetooth helper를 사용한다. Linux socket 예제는 알고리즘 참고만 한다.
+4. 설정에서 USB/Bluetooth를 명시적으로 선택한다. 전송 중 실패한 영수증을 다른 연결로 자동 복제하지 않는다.
+5. 프린터 사용 가능 시 BLE 서비스나 Classic SDP 중 실제 확인된 경로만 옵션으로 활성화한다. 양쪽 모두 미확인 상태에서 지원 완료로 표시하지 않는다.
+
+금일 12초 BLE 검색에서는 확정 가능한 프린터 후보를 확보하지 못했다. 이후 사용자가 실물 프린터를 현재 사용할 수 없다고 알려왔으므로 **BLE 미지원의 근거로 해석하지 않는다**. Classic inquiry·SDP/연결·실제 인쇄는 수행하지 않았다. 근처 다른 기기의 식별자는 저장소나 보고서에 기록하지 않는다.
 
 ## 1. 현재 확인된 구성
 
@@ -46,7 +71,7 @@ Bluetooth 전환은 USB 케이블·CUPS USB 백엔드 문제를 우회할 수 �
 
 | 방식 | 선택 조건 | 권장 구현 | 우선순위 |
 |---|---|---|---|
-| BLE GATT | 실제 프린터에서 writable characteristic 발견 | Python 3.11 + Bleak, Mac 로컬 워커의 별도 async 전송 모듈 | 구현 PoC가 간단하므로 먼저 진단. 속도 기준 통과 시 채택 |
+| BLE GATT | 실제 프린터에서 writable characteristic 발견 | Python 3.11 + Bleak, Mac 로컬 워커의 별도 async 전송 모듈 | 구현 PoC가 간단하므로 먼저 진단. 호환·안정성 기준 통과 시 옵션 활성화 |
 | Classic SPP, 시리얼 포트 노출 | macOS pairing 후 프린터 전용 `/dev/cu.*` 생성 확인 | pyserial adapter 또는 검증된 Bluetooth CUPS 큐 | 기존 워커 연동이 쉬운 조건부 경로 |
 | Classic SPP, 시리얼 포트 없음 | SDP에서 SPP 서비스/RFCOMM 채널 확인 | macOS IOBluetooth native helper, MTU·flow-control 기반 전송 | BLE 미지원/느린 경우 유력 대안 |
 | Classic SPP + 외부 로컬 호스트 | Mac native 경로가 검증되지 않거나 운영상 분리가 필요한 경우 | Linux 호스트의 RFCOMM worker | 추가 장비·운영 부담 때문에 후순위 |
@@ -61,7 +86,7 @@ Mac에서 Python `socket.AF_BLUETOOTH`에 의존하는 Linux 예제를 바로 �
 3. 아래 BLE probe로 후보를 찾는다. 서비스 필터를 미리 고정하지 않아 광고에서 빠진 서비스를 누락시키지 않는다.
 4. 선택한 후보만 서비스 열거한다. writable characteristic이 여러 개이면 모두 기록하고, 자동으로 첫 번째를 인쇄 포트로 선택하지 않는다.
 5. BLE에서 확인되지 않으면 macOS Bluetooth에서 기기와 SPP 서비스 제공 여부를 확인한다. pairing 후 `/dev/cu.*`도 비교한다. 시리얼 포트가 없다고 실패로 단정하지 않고 native SDP 탐색으로 넘어간다.
-6. 후보를 연결할 때 Mac의 Bluetooth 사용 권한이 필요하다. 묶음 앱은 `NSBluetoothAlwaysUsageDescription`을 설정하고, 실행 주체의 권한 상태를 확인한다. 이번 작업은 실제 Bluetooth 검색/접속·pairing·출력을 실행하지 않았다.
+6. 후보를 연결할 때 Mac의 Bluetooth 사용 권한이 필요하다. 묶음 앱은 `NSBluetoothAlwaysUsageDescription`을 설정하고, 실행 주체의 권한 상태를 확인한다. 초기 문서 작성 때는 실물 검색을 실행하지 않았으며, 이후 추가 조사에서 BLE 검색만 한 차례 수행했다. 현재 프린터를 사용할 수 없어 결과는 불확정이다.
 
 준비한 도구는 BLE 광고/서비스 열거만 수행하고, 인쇄·상태조회·설정 명령을 쓰지 않는다.
 
@@ -174,7 +199,7 @@ PRINT_TRANSPORT=cups_usb
 6. 1/3/5m 거리에서 연결 성공률과 첫 출력·마지막 출력 시간을 기록. 운영 배치 거리는 결과로 확정.
 7. 중간 Bluetooth 차단: UNKNOWN으로 끝나고 자동 재출력이 없는지 확인.
 8. USB fallback을 명시적으로 선택해도 기존 큐 작업과 중복되지 않는지 확인.
-9. 지속 연결 시 데이터 준비 완료→첫 종이 이동 p95 3초 이내를 잠정 목표로 설정. 전체 영수증 완료 시간은 USB 기준과 같은 양식으로 비교하고, 더 느리면 개선 폭과 무선 필요성을 운영자가 판단.
+9. 첫 종이 이동과 영수증 완료 시간은 기록하되, USB보다 빠른 것을 채택 조건으로 삼지 않는다. 핵심 합격 기준은 연결 가능성, 내용 정확성, 연속 출력, 재연결, 중복 방지다. 운영 대기 제한은 실측 후 별도로 정한다.
 
 **일정 추정**: 프로파일 확인/짧은 PoC 반나절, 전송 adapter·상태 스키마 1~2일, 현장 장애/절전/연속 시험 1일. Classic native helper가 필요하면 별도 개발·검증이 추가된다. 실물 프로파일 미확정 상태의 가정에 따른 추정이며 확정 일정이 아니다.
 
@@ -182,5 +207,5 @@ PRINT_TRANSPORT=cups_usb
 
 - 현재 USB 구현 경로 확인, Bluetooth 레퍼런스 비교, macOS 구현 경로 및 중복 방지 설계 완료.
 - 선택 기기의 BLE 광고/서비스를 확인할 수 있는 **비출력 진단 도구**와 mock 테스트 4개 작성·통과.
-- 실제 기기 Bluetooth 지원/UUID/채널·속도는 미확정. 실제 scan, pairing, Bluetooth 테스트 출력, 운영 전송 변경, 서버/DB migration은 실행하지 않았다.
-- 다음 작업은 프린터 실물을 켜둔 상태에서 BLE 진단과 Classic SDP 확인을 수행해 전송 방식을 결정하는 것이다.
+- 실제 기기 Bluetooth 지원/UUID/채널·속도는 미확정. BLE scan은 한 차례 수행했으나 실물 사용 불가 상태라 불확정이다. pairing, Bluetooth 테스트 출력, 운영 전송 변경, 서버/DB migration은 실행하지 않았다.
+- 다음 작업은 레퍼런스 기반의 BLE/SPP adapter 및 mock 검증을 먼저 구축하는 것이다. 프린터 사용 가능 시 프로파일 확인과 실제 출력 검증을 추가한다.
