@@ -1,0 +1,969 @@
+{
+  "window": {
+    "start": "2026-11-12T13:00:00+09:00",
+    "end_exclusive": "2026-11-12T16:00:00+09:00"
+  },
+  "counts": {
+    "successes": 15,
+    "campaign_entries": 15,
+    "bike_results": 15,
+    "print_jobs": 17,
+    "api_calls": 38,
+    "challenges": 15,
+    "attempts": 21
+  },
+  "bike_rows": [
+    {
+      "session": "S01",
+      "start_kst": "13:20:34",
+      "end_kst": "13:21:12",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.29430500000715254,
+      "router_wh": 0.1905102777812216,
+      "target_wh": 0.484815277788374,
+      "raw_mwh": 4.85441656757512,
+      "scaled_wh": 0.485441656757512,
+      "progress_pct": 100.129199511203,
+      "elapsed_s": 38.1951370829997,
+      "coverage_pct": 99.9369825982101,
+      "average_w": 0.45754252970200204,
+      "peak_w": 1.29183024,
+      "samples": 955,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "staff",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1456
+        }
+      ]
+    },
+    {
+      "session": "S02",
+      "start_kst": "13:31:55",
+      "end_kst": "13:32:16",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.2919738888906108,
+      "router_wh": 0.15332722221811612,
+      "target_wh": 0.445301111108727,
+      "raw_mwh": 4.45597629871564,
+      "scaled_wh": 0.445597629871564,
+      "progress_pct": 100.066588372551,
+      "elapsed_s": 20.1831465,
+      "coverage_pct": 99.8602167110049,
+      "average_w": 0.7947975146182636,
+      "peak_w": 1.4110133926,
+      "samples": 505,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "staff",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1514
+        }
+      ]
+    },
+    {
+      "session": "S03",
+      "start_kst": "13:37:45",
+      "end_kst": "13:38:06",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.294037500007285,
+      "router_wh": 0.15253361110885938,
+      "target_wh": 0.446571111116144,
+      "raw_mwh": 4.47300897959119,
+      "scaled_wh": 0.447300897959119,
+      "progress_pct": 100.16342007461,
+      "elapsed_s": 21.2840388340001,
+      "coverage_pct": 99.9791028853368,
+      "average_w": 0.756568452638081,
+      "peak_w": 1.6206004671999998,
+      "samples": 533,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 3,
+      "print_failed": 2,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1678
+        }
+      ]
+    },
+    {
+      "session": "S04",
+      "start_kst": "13:58:00",
+      "end_kst": "13:58:22",
+      "generation_calls": 1,
+      "router_calls": 2,
+      "generation_wh": 0.2856627777881092,
+      "router_wh": 0.35192222222685815,
+      "target_wh": 0.637585000014967,
+      "raw_mwh": 1.16055516061508,
+      "scaled_wh": 0.116055516061508,
+      "progress_pct": 18.2023598514368,
+      "elapsed_s": 21.396358125,
+      "coverage_pct": 99.64406559492704,
+      "average_w": 0.1952668091366735,
+      "peak_w": 1.6747514539,
+      "samples": 534,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "manual_stop",
+      "pass_source": "staff",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1514
+        }
+      ]
+    },
+    {
+      "session": "S05",
+      "start_kst": "14:04:57",
+      "end_kst": "14:05:29",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.28637166667315694,
+      "router_wh": 0.16209638888637226,
+      "target_wh": 0.448468055559529,
+      "raw_mwh": 3.55248226537021,
+      "scaled_wh": 0.355248226537021,
+      "progress_pct": 79.2137192678745,
+      "elapsed_s": 31.993037917,
+      "coverage_pct": 51.12733224783369,
+      "average_w": 0.3997412245911526,
+      "peak_w": 1.7155659244,
+      "samples": 409,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "manual_stop",
+      "pass_source": "staff",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1485
+        }
+      ]
+    },
+    {
+      "session": "S06",
+      "start_kst": "14:07:33",
+      "end_kst": "14:07:57",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.2975744444462988,
+      "router_wh": 0.16323472223348087,
+      "target_wh": 0.46080916667978,
+      "raw_mwh": 4.61207084111993,
+      "scaled_wh": 0.461207084111993,
+      "progress_pct": 100.086351891626,
+      "elapsed_s": 23.2542901249999,
+      "coverage_pct": 99.93134635839587,
+      "average_w": 0.7139953504829604,
+      "peak_w": 1.5872465179,
+      "samples": 582,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1678
+        }
+      ]
+    },
+    {
+      "session": "S07",
+      "start_kst": "14:18:42",
+      "end_kst": "14:19:19",
+      "generation_calls": 2,
+      "router_calls": 1,
+      "generation_wh": 0.5832613888879618,
+      "router_wh": 0.16479555555515818,
+      "target_wh": 0.74805694444312,
+      "raw_mwh": 7.49330935044527,
+      "scaled_wh": 0.749330935044527,
+      "progress_pct": 100.170306633856,
+      "elapsed_s": 36.8452404580003,
+      "coverage_pct": 99.89026929802158,
+      "average_w": 0.7321410669677317,
+      "peak_w": 1.5045737138,
+      "samples": 921,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1650
+        }
+      ]
+    },
+    {
+      "session": "S08",
+      "start_kst": "14:27:34",
+      "end_kst": "14:27:36",
+      "generation_calls": 1,
+      "router_calls": 0,
+      "generation_wh": 0.2882194444371594,
+      "router_wh": 0.0,
+      "target_wh": 0.288219444437159,
+      "raw_mwh": 3.12133514688812e-08,
+      "scaled_wh": 3.12133514688812e-09,
+      "progress_pct": 1.08297174501308e-06,
+      "elapsed_s": 2.17426858300041,
+      "coverage_pct": 97.51799292772931,
+      "average_w": 5.168085772223621e-08,
+      "peak_w": 1.526e-07,
+      "samples": 54,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "manual_stop",
+      "pass_source": "staff",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1514
+        }
+      ]
+    },
+    {
+      "session": "S09",
+      "start_kst": "14:32:49",
+      "end_kst": "14:33:14",
+      "generation_calls": 2,
+      "router_calls": 1,
+      "generation_wh": 0.5754855555461512,
+      "router_wh": 0.1291086111134953,
+      "target_wh": 0.704594166659647,
+      "raw_mwh": 7.04719629638369,
+      "scaled_wh": 0.70471962963837,
+      "progress_pct": 100.017806417461,
+      "elapsed_s": 24.0826459580003,
+      "coverage_pct": 99.98794792729228,
+      "average_w": 1.0534517972496023,
+      "peak_w": 1.7566823281,
+      "samples": 603,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1622
+        }
+      ]
+    },
+    {
+      "session": "S10",
+      "start_kst": "14:55:44",
+      "end_kst": "14:56:21",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.29205472222632833,
+      "router_wh": 0.16573833333121404,
+      "target_wh": 0.457793055557542,
+      "raw_mwh": 4.5883826515909805,
+      "scaled_wh": 0.458838265159098,
+      "progress_pct": 100.228314866044,
+      "elapsed_s": 37.0824914999994,
+      "coverage_pct": 99.9924640985938,
+      "average_w": 0.44544411331498035,
+      "peak_w": 1.7698406576999999,
+      "samples": 928,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1678
+        }
+      ]
+    },
+    {
+      "session": "S11",
+      "start_kst": "14:58:03",
+      "end_kst": "14:58:42",
+      "generation_calls": 3,
+      "router_calls": 1,
+      "generation_wh": 0.8785194444325235,
+      "router_wh": 0.15412027777896986,
+      "target_wh": 1.03263972221149,
+      "raw_mwh": 10.333115121311401,
+      "scaled_wh": 1.03331151213114,
+      "progress_pct": 100.065055595403,
+      "elapsed_s": 38.6423369170006,
+      "coverage_pct": 99.95870742228925,
+      "average_w": 0.9626543683582279,
+      "peak_w": 1.7942196271999997,
+      "samples": 967,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1766
+        }
+      ]
+    },
+    {
+      "session": "S12",
+      "start_kst": "15:00:08",
+      "end_kst": "15:00:27",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.2882908333341281,
+      "router_wh": 0.19063555555211173,
+      "target_wh": 0.47892638888624,
+      "raw_mwh": 4.7976827017685695,
+      "scaled_wh": 0.479768270176857,
+      "progress_pct": 100.175785112316,
+      "elapsed_s": 19.5501670419999,
+      "coverage_pct": 99.82260957195254,
+      "average_w": 0.8834532047353818,
+      "peak_w": 1.761218345,
+      "samples": 489,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1735
+        }
+      ]
+    },
+    {
+      "session": "S13",
+      "start_kst": "15:29:23",
+      "end_kst": "15:29:38",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.288408888892995,
+      "router_wh": 0.17584305556284058,
+      "target_wh": 0.464251944455836,
+      "raw_mwh": 4.65278255942098,
+      "scaled_wh": 0.465278255942098,
+      "progress_pct": 100.221067784103,
+      "elapsed_s": 15.0823932080002,
+      "coverage_pct": 99.98343792019641,
+      "average_w": 1.1105675991148916,
+      "peak_w": 1.7975559779999997,
+      "samples": 378,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1736
+        }
+      ]
+    },
+    {
+      "session": "S14",
+      "start_kst": "15:39:13",
+      "end_kst": "15:39:28",
+      "generation_calls": 1,
+      "router_calls": 1,
+      "generation_wh": 0.2924616666634878,
+      "router_wh": 0.17455527777473132,
+      "target_wh": 0.467016944438219,
+      "raw_mwh": 4.672736595558909,
+      "scaled_wh": 0.467273659555891,
+      "progress_pct": 100.054969122797,
+      "elapsed_s": 14.8511273330005,
+      "coverage_pct": 99.90457037582051,
+      "average_w": 1.132698640771361,
+      "peak_w": 1.6453531680000002,
+      "samples": 372,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1793
+        }
+      ]
+    },
+    {
+      "session": "S15",
+      "start_kst": "15:48:45",
+      "end_kst": "15:49:30",
+      "generation_calls": 3,
+      "router_calls": 3,
+      "generation_wh": 0.8757805555396609,
+      "router_wh": 0.47671333332856497,
+      "target_wh": 1.35249388886823,
+      "raw_mwh": 13.5320621991802,
+      "scaled_wh": 1.35320621991802,
+      "progress_pct": 100.052667968089,
+      "elapsed_s": 44.5034922499999,
+      "coverage_pct": 99.94589853563683,
+      "average_w": 1.0946427224944089,
+      "peak_w": 1.782041335,
+      "samples": 1113,
+      "gaps": 0,
+      "mode": "usb",
+      "end_reason": "target_reached",
+      "pass_source": "router",
+      "print_jobs": 1,
+      "print_failed": 0,
+      "print_sent": 1,
+      "print_files": [
+        {
+          "png": true,
+          "raw": true,
+          "journal_sent": true,
+          "journal_acked": true,
+          "cups_match": true,
+          "png_height": 1679
+        }
+      ]
+    }
+  ],
+  "checks": {
+    "local_session_match": 15,
+    "local_energy_match": 15,
+    "integral_match": 15,
+    "multiplier_match": 15,
+    "target_match": 15,
+    "call_count_match": 15,
+    "outbox_acked": 15,
+    "print_evidence_match": 15
+  },
+  "max_reintegration_error_wh": 3.2959746043559335e-17,
+  "receipt_cohort": {
+    "n": 15,
+    "generation_calls": 21,
+    "router_calls": 17,
+    "pass_source": {
+      "staff": 5,
+      "router": 10
+    }
+  },
+  "api_window": {
+    "operations": {
+      "generate": 21,
+      "router": 17
+    },
+    "statuses": {
+      "succeeded": 38
+    },
+    "energy_by_operation": {
+      "generate": {
+        "n": 21,
+        "sum": 6.112407777773009,
+        "mean": 0.29106703703681,
+        "median": 0.2919738888906108,
+        "min": 0.2856627777881092,
+        "max": 0.2975744444462988
+      },
+      "router": {
+        "n": 17,
+        "sum": 2.8051344444519946,
+        "mean": 0.16500790849717614,
+        "median": 0.16323472223348087,
+        "min": 0.1291086111134953,
+        "max": 0.19063555555211173
+      }
+    },
+    "duration_by_operation": {
+      "generate": {
+        "n": 21,
+        "sum": 42.42330598831177,
+        "mean": 2.020157428014846,
+        "median": 2.0149331092834473,
+        "min": 2.002260208129883,
+        "max": 2.0687143802642822
+      },
+      "router": {
+        "n": 17,
+        "sum": 64.93544435501099,
+        "mean": 3.819732020882999,
+        "median": 3.8211989402770996,
+        "min": 2.8138041496276855,
+        "max": 4.532666444778442
+      }
+    },
+    "models": {
+      "black-forest-labs/FLUX.2-klein-9B": 21,
+      "Qwen/Qwen3.5-4B": 17
+    },
+    "providers": {
+      "zeus": 38
+    }
+  },
+  "bike_summary": {
+    "raw_mwh": {
+      "n": 15,
+      "sum": 80.22577761986052,
+      "mean": 5.348385174657368,
+      "median": 4.65278255942098,
+      "min": 3.12133514688812e-08,
+      "max": 13.5320621991802
+    },
+    "scaled_wh": {
+      "n": 15,
+      "sum": 8.022577761986053,
+      "mean": 0.5348385174657369,
+      "median": 0.465278255942098,
+      "min": 3.12133514688812e-09,
+      "max": 1.35320621991802
+    },
+    "target_wh": {
+      "n": 15,
+      "sum": 8.917542222225006,
+      "mean": 0.5945028148150002,
+      "median": 0.467016944438219,
+      "min": 0.288219444437159,
+      "max": 1.35249388886823
+    },
+    "generation_wh": {
+      "n": 15,
+      "sum": 6.11240777777301,
+      "mean": 0.407493851851534,
+      "median": 0.2924616666634878,
+      "min": 0.2856627777881092,
+      "max": 0.8785194444325235
+    },
+    "router_wh": {
+      "n": 15,
+      "sum": 2.8051344444519946,
+      "mean": 0.18700896296346628,
+      "median": 0.16479555555515818,
+      "min": 0.0,
+      "max": 0.47671333332856497
+    },
+    "elapsed_s": {
+      "n": 15,
+      "sum": 389.12017183300117,
+      "mean": 25.941344788866747,
+      "median": 23.2542901249999,
+      "min": 2.17426858300041,
+      "max": 44.5034922499999
+    },
+    "coverage_pct": {
+      "n": 15,
+      "sum": 1447.4829444732409,
+      "mean": 96.49886296488273,
+      "median": 99.93134635839587,
+      "min": 51.12733224783369,
+      "max": 99.9924640985938
+    },
+    "average_w": {
+      "n": 15,
+      "sum": 10.732965445856577,
+      "mean": 0.7155310297237718,
+      "median": 0.756568452638081,
+      "min": 5.168085772223621e-08,
+      "max": 1.132698640771361
+    },
+    "peak_w": {
+      "n": 15,
+      "sum": 23.112493301399994,
+      "mean": 1.5408328867599999,
+      "median": 1.6747514539,
+      "min": 1.526e-07,
+      "max": 1.7975559779999997
+    }
+  },
+  "bike_outcomes": {
+    "target_reached": 12,
+    "manual_stop": 3
+  },
+  "boundary": [],
+  "raw_snapshot_sha256": {
+    "cloud": "5cc26b1fed03af2f002720dfa692e8e612f414dfc42b3a16724056419a6e97aa",
+    "local": "187f10ce586026b977414232c2419de6dd4bfa966eb751bb2de87dfe372dce39"
+  },
+  "receipt_verification": [
+    {
+      "session": "S01",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.48481527778837413,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S02",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.44530111110872694,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S03",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.4465711111161444,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S04",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.6375850000149674,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S05",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.4484680555595292,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S06",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.46080916667977967,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S07",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.7480569444431199,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S08",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.2882194444371594,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S09",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.7045941666596466,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S10",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.45779305555754235,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S11",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 1.0326397222114934,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S12",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.4789263888862398,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S13",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.46425194445583556,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S14",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 0.46701694443821906,
+      "print_payload_target_matches": true
+    },
+    {
+      "session": "S15",
+      "verified": true,
+      "checks": {
+        "prompt_matches": true,
+        "image_matches": true,
+        "calls_match": true,
+        "generation_calls_match": true,
+        "router_calls_match": true,
+        "known_tokens_match": true,
+        "missing_usage_matches": true,
+        "failed_calls_match": true,
+        "no_pending_calls": true,
+        "models_match": true
+      },
+      "energy_wh": 1.3524938888682259,
+      "print_payload_target_matches": true
+    }
+  ]
+}
