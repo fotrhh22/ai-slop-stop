@@ -19,11 +19,11 @@
 
 | Klein 4B BF16 | Klein 9B NF4 |
 |---|---|
-| ![Klein 4B 생성 결과](assets/model-comparison/klein-4b-bf16.png) | ![Klein 9B 생성 결과](assets/model-comparison/klein-9b-nf4.png) |
+| ![Klein 4B 생성 결과](../../assets/model-comparison/klein-4b-bf16.png) | ![Klein 9B 생성 결과](../../assets/model-comparison/klein-9b-nf4.png) |
 
 | Qwen-Image NF4＋Lightning | Z-Image-Turbo BF16 |
 |---|---|
-| ![Qwen-Image 생성 결과](assets/model-comparison/qwen-image-lightning-nf4.png) | ![Z-Image 생성 결과](assets/model-comparison/z-image-turbo.png) |
+| ![Qwen-Image 생성 결과](../../assets/model-comparison/qwen-image-lightning-nf4.png) | ![Z-Image 생성 결과](../../assets/model-comparison/z-image-turbo.png) |
 
 - Klein 4B: 빠르지만 악어 대신 다른 동물로 표현하고 사실적인 스타일이 강했다.
 - Klein 9B: 악어 머리·은색 동체·애니메이션 스타일·기체 아래 폭탄을 상대적으로 잘 재현했다.
@@ -32,7 +32,7 @@
 
 다른 사례에서도 Klein 9B의 배치·개수·스타일 재현을 함께 확인해 **Klein 9B NF4를 잠정 선정**했다. 한글 문구 정확도는 캠페인 필수 조건에서 제외한다. 2026-11-06 운영 생성 코드를 Klein 9B NF4로 전환했다. 기존 Pod는 새 코드로 준비·등록해야 하며 코드 변경 자체가 실행 중인 모델을 교체하지는 않는다.
 
-전체 입력은 [프롬프트 파일](../benchmarks/korean-image-prompts.json), 실행은 [후보 비교 안내](image-model-benchmark.md)를 참고한다. 원본 복사 이미지의 해시는 [manifest](assets/model-comparison/manifest.json)에 있다.
+전체 입력은 [프롬프트 파일](../../../benchmarks/korean-image-prompts.json), 실행은 [후보 비교 안내](image-model-benchmark.md)를 참고한다. 원본 복사 이미지의 해시는 [manifest](../../assets/model-comparison/manifest.json)에 있다.
 
 ### 계측 범위
 
@@ -53,13 +53,13 @@
 
 Qwen은 이미지당 256 vision tokens, max_new_tokens=256, thinking off로 실행했다. 체크리스트 모드는 필수 조건·허용 차이를 추가로 제공받았으므로 모델 자체 우열 비교가 아니다. 필수 조건 후처리로 판정이 바뀐 사례는 0건이었다. GPU 수치는 판정 단독이며 생성 모델과 동시 상주한 수치가 아니다. 체크리스트 개선안은 벤치마크 경로이며 아직 운영 판정에 적용하지 않았다.
 
-운영 우선순위는 **적절한 결과를 FAIL시키는 오류를 줄이는 것**이다. 주요 조건과 허용할 차이를 구분한다. 기존 프롬프트·체크리스트는 [비교 코드](../benchmarks/router_pairs.py), 방식은 [판정 검증 안내](router-benchmark.md)에 있다.
+운영 우선순위는 **적절한 결과를 FAIL시키는 오류를 줄이는 것**이다. 주요 조건과 허용할 차이를 구분한다. 기존 프롬프트·체크리스트는 [비교 코드](../../../benchmarks/router_pairs.py), 방식은 [판정 검증 안내](router-benchmark.md)에 있다.
 
 ### 정답→FAIL 사례
 
 | 목표 | 생성 결과 |
 |---|---|
-| ![목표 공간 배치](assets/model-comparison/klein-9b-nf4--spatial.jpg) | ![정답으로 라벨링한 공간 배치](assets/model-comparison/z-image-turbo--spatial.jpg) |
+| ![목표 공간 배치](../../assets/model-comparison/klein-9b-nf4--spatial.jpg) | ![정답으로 라벨링한 공간 배치](../../assets/model-comparison/z-image-turbo--spatial.jpg) |
 
 사전 기준은 왼쪽 파란 정육면체·오른쪽 빨간 구·뒤쪽 노란 원뿔을 요구하고, 작은 크기·시점·중립 배경 차이를 허용했다.
 
@@ -98,6 +98,6 @@ Mac이 Render에 HTTPS로 작업을 요청하는 방식이므로 Mac에 공인 �
 | 정육면체 대신 다면체인 Qwen-Image 결과 | FAIL | 0.796303 |
 | 배경색이 다른 오리 | FAIL | 0.919390 |
 
-정답보다 오답의 점수가 높은 사례가 있어 단일 임계값으로 완전히 분리되지 않았다. 낮은 점수만으로 자동 FAIL하지 않고 검토 자료로 활용한다. 코사인은 정답 확률이나 객관적 일치율이 아니다. [오프라인 실행 도구](../scripts/benchmark_clip_local.py)와 [실행 방법](clip-offline-audit.md)을 참고한다.
+정답보다 오답의 점수가 높은 사례가 있어 단일 임계값으로 완전히 분리되지 않았다. 낮은 점수만으로 자동 FAIL하지 않고 검토 자료로 활용한다. 코사인은 정답 확률이나 객관적 일치율이 아니다. [오프라인 실행 도구](../../../scripts/benchmark_clip_local.py)와 [실행 방법](clip-offline-audit.md)을 참고한다.
 
 원시 JSON/CSV와 전체 HTML은 실행자의 `benchmark-results/`에 보관하며 Git에는 모델 캐시·인증 정보·운영 참가자 데이터를 올리지 않는다.

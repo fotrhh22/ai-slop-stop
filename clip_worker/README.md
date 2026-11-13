@@ -1,7 +1,7 @@
 # 로컬 CLIP → Render → Gemini
 
 리뷰 패치 적용과 실제 Mac의 지연·RSS·메모리 압력·장애 검증 결과는
-[2026-11-02 로컬 검증 보고서](../docs/local-clip-validation-2026-11-02.md)를 참고한다.
+[2026-11-02 로컬 검증 보고서](../docs/archive/2026-11-campaign/local-clip-validation-2026-11-02.md)를 참고한다.
 
 브라우저 → Render 평가 작업 → 로컬 CLIP → Gemini 순서로 실행한다.
 Mac이 Render에 HTTPS로 1초마다 작업을 요청하므로 공인 IP, 포트 개방, 터널이 필요 없다.

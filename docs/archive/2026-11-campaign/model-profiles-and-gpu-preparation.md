@@ -1,6 +1,6 @@
 # 모델 선택·GPU 준비 (2026-11-04)
 
-**최신 Gemini 자전거 규칙:** [346.3 mWh 고정 비교 목표](gemini-reference-bike-target.md)를 사용한다.
+**최신 Gemini 자전거 규칙:** [346.3 mWh 고정 비교 목표](../../current/gemini-reference-bike-target.md)를 사용한다.
 Gemini AI 사용량은 토큰만 기록하며 자전거 목표를 수동 입력하지 않는다.
 
 ## 단계 재정리
@@ -33,7 +33,7 @@ Gemini AI 사용량은 **토큰만 표시**하고 Wh를 추정하지 않는다. 
 
 ## 최초 적용: SQL → Render → 프런트
 
-Phase 0–5 SQL이 아직 적용되지 않았다면 [기존 적용 안내](campaign-bike-rollout.md)를 먼저 따른다.
+Phase 0–5 SQL이 아직 적용되지 않았다면 [기존 적용 안내](../../current/campaign-bike-rollout.md)를 먼저 따른다.
 그 다음 아래 SQL **전체**를 Supabase SQL Editor에서 한 번 실행한다.
 
 `supabase/migrations/202611040001_model_profiles.sql`

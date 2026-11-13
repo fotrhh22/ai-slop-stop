@@ -3,7 +3,7 @@
 **최신 변경:** Gemini 자전거는 이제 [고정 GPU 실측 평균 346.3 mWh 비교 목표](gemini-reference-bike-target.md)를 사용한다.
 추가 SQL과 최신 코드 적용 후에는 수동 입력 없이 100% 자동 종료한다.
 
-모델 선택/자동 준비를 추가하려면 이 문서 적용 후 [Phase 6–7 안내](model-profiles-and-gpu-preparation.md)를 따른다.
+모델 선택/자동 준비를 추가하려면 이 문서 적용 후 [Phase 6–7 안내](../archive/2026-11-campaign/model-profiles-and-gpu-preparation.md)를 따른다.
 Gemini 토큰 전용·자전거 종료 출력 규칙은 유지한다. Phase 8은 현장 검증, Phase 9는 대체 모델 검증이다.
 
 작성/검증: 2026-11-04. 구현 브랜치: 두 저장소 모두 `codex/campaign-bike-flow`.

@@ -34,8 +34,8 @@ zaz대상은 `codex/local-clip-worker`, 기준 커밋 `47f4f18fc66959fbe9e0208d9
 - 사용자 별도 이미지 지정 없음. 공개 실사 사진 두 장을 사용했다. 서비스의 목표/생성 이미지 쌍은 아니다.
 - [PyTorch dog.jpg](https://github.com/pytorch/hub/blob/master/images/dog.jpg): 1546×1213 → 1024×803.
 - [Ultralytics bus.jpg](https://github.com/ultralytics/assets/blob/main/im/bus.jpg): 810×1080 → 768×1024.
-- 이미지 원본과 전송 바이트 크기, SHA256은 [images.json](validation/2026-11-02/images.json),
-  [benchmark.json](validation/2026-11-02/benchmark.json)에 있다. 사진 자체는 `.cache`에만 두었다.
+- 이미지 원본과 전송 바이트 크기, SHA256은 [images.json](../../validation/2026-11-02/images.json),
+  [benchmark.json](../../validation/2026-11-02/benchmark.json)에 있다. 사진 자체는 `.cache`에만 두었다.
 
 ## 실제 모델 측정
 
@@ -113,7 +113,7 @@ loopback 동적 포트의 Uvicorn 서버를 사용했다. 실제 `/api/challenge
 1,159.53~1,183.20 MiB였다. `caffeinate`의 작은 보조 프로세스가 아니라 Python PID를 확인해 측정했다.
 API 왕복에는 1초 워커 폴링과 순차 처리 대기가 포함된다. 따라서 캐시 추론이 0.2ms여도
 사용자 관측 응답이 그만큼 빨라지지는 않는다. Gemini 실제 지연과 인터넷 지연은 포함되지 않는다.
-원시 결과는 [integration.json](validation/2026-11-02/integration.json)에 있다.
+원시 결과는 [integration.json](../../validation/2026-11-02/integration.json)에 있다.
 
 ## 실행 명령과 성공/실패
 
@@ -136,8 +136,8 @@ git apply --include=clip_worker/worker.py --include=server/main.py ../clip-revie
 git diff --check
 ```
 
-제공된 리뷰·패치의 SHA256은 [review-inputs.json](validation/2026-11-02/review-inputs.json),
-최종 테스트 출력은 [server-tests.txt](validation/2026-11-02/server-tests.txt)에 보존했다.
+제공된 리뷰·패치의 SHA256은 [review-inputs.json](../../validation/2026-11-02/review-inputs.json),
+최종 테스트 출력은 [server-tests.txt](../../validation/2026-11-02/server-tests.txt)에 보존했다.
 
 원본 전체 46개 성공 → 제공 회귀 3개 중 2개 실패 재현 → 패치 후 전체 49개 성공 →
 claim/result 격리 회귀 추가 후 최종 전체 **50개 성공**. 실제 smoke와 TCP 시나리오 8개도 성공했다.

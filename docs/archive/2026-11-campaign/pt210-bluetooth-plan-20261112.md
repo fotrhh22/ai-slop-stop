@@ -2,7 +2,7 @@
 
 작성일: 2026-11-12 / 대상: 현재 행사장 Mac + ai-slop-stop 출력 워커
 
-> 현재 요청 범위 보완: DB 연동 없이 미리 확보한 예시 영수증을 터미널에서 출력하는 **BLE·Classic SPP 독립 테스트 환경**을 구축했다. 실행 방법은 [Bluetooth lab](../printer_bridge/bluetooth_lab/README.md)을 따른다. 아래 서버/DB 상태 확장 설계는 향후 자동 출력에 통합할 경우의 별도 계획이며, 이 standalone 테스트에는 필요 없다. 보유 프린터의 양쪽 지원 여부와 실물 출력은 아직 미검증이다.
+> 현재 요청 범위 보완: DB 연동 없이 미리 확보한 예시 영수증을 터미널에서 출력하는 **BLE·Classic SPP 독립 테스트 환경**을 구축했다. 실행 방법은 [Bluetooth lab](../../../printer_bridge/bluetooth_lab/README.md)을 따른다. 아래 서버/DB 상태 확장 설계는 향후 자동 출력에 통합할 경우의 별도 계획이며, 이 standalone 테스트에는 필요 없다. 보유 프린터의 양쪽 지원 여부와 실물 출력은 아직 미검증이다.
 
 ## 결론
 
