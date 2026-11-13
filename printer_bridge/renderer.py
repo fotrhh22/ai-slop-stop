@@ -10,6 +10,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 WIDTH = 384
 CONTENT = 360
+PHOTO_WIDTH = 232
+QR_PATH = Path(__file__).with_name('assets') / 'receipt-qr.png'
 
 def resolve_font():
     choices = [os.getenv('PRINT_FONT_PATH',''),
@@ -65,7 +67,18 @@ class Layout:
         self.draw.line((12,self.y,371,self.y),fill=0,width=1);self.y+=16
     def photo(self,photo):
         if self.y+photo.height+60>=self.image.height: raise ValueError('RECEIPT_TOO_LONG')
-        self.image.paste(photo,(12,self.y));self.y+=photo.height+18
+        self.image.paste(photo,((WIDTH-photo.width)//2,self.y));self.y+=photo.height+18
+    def qr(self):
+        # Integer-sized modules and a four-module quiet zone; never dither QR.
+        with Image.open(QR_PATH) as qr:
+            self.y+=10
+            if self.y+qr.height+48>=self.image.height: raise ValueError('RECEIPT_TOO_LONG')
+            self.image.paste(qr,((WIDTH-qr.width)//2,self.y));self.y+=qr.height
+        font=self.font(16)
+        for line in ('AIMI 체험하기 · 테스트 운영 중', '접속 코드 발급 후 이용하세요'):
+            self.draw.text(((WIDTH-self.draw.textlength(line,font=font))/2,self.y),line,font=font,fill=0)
+            self.y+=24
+        self.y+=2
     def finish(self):
         return self.image.crop((0,0,WIDTH,self.y+48)).point(lambda v:255 if v>=128 else 0,'1')
 
@@ -93,12 +106,11 @@ def render_receipt(receipt,image_bytes,font_path=None):
         if src.width*src.height>20_000_000: raise ValueError('IMAGE_TOO_LARGE')
         height=round(src.height*CONTENT/src.width)
         if not 1<=height<=1800: raise ValueError('IMAGE_TOO_TALL')
-        photo=atkinson(src.convert('RGBA').resize((CONTENT,height),Image.Resampling.LANCZOS))
+        photo=atkinson(src.convert('RGBA').resize((PHOTO_WIDTH,round(src.height*PHOTO_WIDTH/src.width)),Image.Resampling.LANCZOS))
     page=Layout(font_path or resolve_font())
     page.text('AI SLOP STOP CHALLENGE',21)
     page.text('AI·발전 체험 영수증',28)
     campaign=receipt.get('campaign') or {}
-    if campaign.get('participant_code'):page.text('참가자 '+campaign['participant_code'],26)
     created=receipt_time(receipt['created_at'])
     page.text(created.astimezone(ZoneInfo('Asia/Seoul')).strftime('%Y.%m.%d  %H:%M:%S'),19)
     page.rule();page.photo(photo)
@@ -141,6 +153,7 @@ def render_receipt(receipt,image_bytes,font_path=None):
     page.text(receipt['prompt'],21)
     if receipt['pass_source']=='router' and receipt.get('router_reason'):
         page.text('통과 이유',24);page.text(receipt['router_reason'],20)
+    page.qr()
     return page.finish()
 
 def escpos_bytes(image):
