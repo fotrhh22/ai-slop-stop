@@ -31,7 +31,10 @@ from .persistence import PersistenceError
 from .printing import router as printing_router
 from .clip_bridge import router as clip_router
 
+from .poc_integration import create_poc_app
+
 settings = load_settings()
+poc_app = create_poc_app()
 
 @asynccontextmanager
 async def lifespan(app):
@@ -40,7 +43,11 @@ async def lifespan(app):
     if settings.session_cleanup_enabled and settings.supabase_url and settings.supabase_secret_key:
         task = asyncio.create_task(cleanup.run(settings))
     try:
-        yield
+        if poc_app is None:
+            yield
+        else:
+            async with poc_app.router.lifespan_context(poc_app):
+                yield
     finally:
         if task is not None:
             await cleanup.stop(task)
@@ -55,6 +62,9 @@ app.include_router(printing_router)
 app.include_router(clip_router)
 app.include_router(campaign_router)
 app.include_router(profiles_router)
+
+if poc_app is not None:
+    app.mount("/poc", poc_app)
 
 # Pedal to Picture event integration
 from pedal_event.api import router as pedal_event_router
@@ -105,6 +115,7 @@ async def rate_limit(request: Request, call_next):
 def health() -> dict:
     return {
         "ok": True,
+        "poc_enabled": poc_app is not None,
         "gemini_configured": settings.gemini_configured,
         "image_model": settings.image_model,
         "image_provider": settings.image_provider,

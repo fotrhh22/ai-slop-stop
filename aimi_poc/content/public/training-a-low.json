@@ -1,0 +1,108 @@
+{
+  "id": "campaign-a-low",
+  "title": "컵을 든 다람쥐 · A하",
+  "version": "poc-a-low-keywords-v2-aimi-labels",
+  "target_image": "training-a-low.png",
+  "keywords": [
+    {
+      "id": "a-low-edbb36af8f1a0d89",
+      "label": "다람쥐"
+    },
+    {
+      "id": "a-low-5bfdde14d46b8ebe",
+      "label": "여우"
+    },
+    {
+      "id": "a-low-ee41ad59b7d3ce3c",
+      "label": "고양이"
+    },
+    {
+      "id": "a-low-defee3cd9b6b5c76",
+      "label": "다람쥐 색: 주황색"
+    },
+    {
+      "id": "a-low-f706306113ebae46",
+      "label": "다람쥐 색: 회색"
+    },
+    {
+      "id": "a-low-dc414f6ee2951f9a",
+      "label": "다람쥐 색: 파란색"
+    },
+    {
+      "id": "a-low-d5db36ab1d2a4fc3",
+      "label": "컵"
+    },
+    {
+      "id": "a-low-7355fa275e2b3135",
+      "label": "물뿌리개"
+    },
+    {
+      "id": "a-low-9d4702b82249c361",
+      "label": "도넛"
+    },
+    {
+      "id": "a-low-7f45ebbd7e65d469",
+      "label": "컵 몸통 색: 크림색"
+    },
+    {
+      "id": "a-low-660a34e5059f44b5",
+      "label": "컵 몸통 색: 초록색"
+    },
+    {
+      "id": "a-low-b045553ab8714d5b",
+      "label": "컵 몸통 색: 검은색"
+    },
+    {
+      "id": "a-low-70c10390760c7f89",
+      "label": "컵 뚜껑 색: 초록색"
+    },
+    {
+      "id": "a-low-459808c2a1bf22bc",
+      "label": "컵 뚜껑 색: 빨간색"
+    },
+    {
+      "id": "a-low-7480dfd4bbe03082",
+      "label": "컵 뚜껑 색: 보라색"
+    },
+    {
+      "id": "a-low-5f456f910630017d",
+      "label": "양손으로 컵 들기"
+    },
+    {
+      "id": "a-low-0604251a2be89a52",
+      "label": "컵을 입에 대고 마시기"
+    },
+    {
+      "id": "a-low-758b166395944b61",
+      "label": "컵 건네기"
+    },
+    {
+      "id": "a-low-8cb8a95d319d608f",
+      "label": "정면 구도"
+    },
+    {
+      "id": "a-low-549dbd2d2fa83764",
+      "label": "측면 구도"
+    },
+    {
+      "id": "a-low-0613762fdde270f1",
+      "label": "단색 크림색 배경"
+    },
+    {
+      "id": "a-low-b59c51a32a47fb20",
+      "label": "가을 숲"
+    },
+    {
+      "id": "a-low-24e24bea0c9c346b",
+      "label": "파란 하늘"
+    },
+    {
+      "id": "a-low-09bf9cd81b47254c",
+      "label": "픽셀아트"
+    },
+    {
+      "id": "a-low-1af4df6b0a6dfdd2",
+      "label": "사진풍"
+    }
+  ]
+}

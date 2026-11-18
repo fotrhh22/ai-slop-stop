@@ -12,9 +12,12 @@ services:
     buildFilter:
       paths:
         - server/**
+        - aimi_poc/**
         - .python-version
         - render.yaml
     envVars:
+      - key: POC_ENABLED
+        value: "false"
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_IMAGE_MODEL
