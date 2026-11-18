@@ -1,0 +1,111 @@
+{
+  "id": "training-day-04",
+  "source_day": "day-04",
+  "source_version": "aimi-puzzle-pack-v3-reviewed-8314f3e6d3b7",
+  "title": "보라 화분의 선인장",
+  "target_image": "day-04.png",
+  "image_sha256": "d9d7bbdc02b9a7627d9fd69bffb0591b9c4ea89210297f3205fca1bb78f9ee5b",
+  "image_generation_model": "krea/krea-2-medium",
+  "keywords": [
+    {
+      "id": "k-07d8249f58d76434",
+      "label": "화분 색: 검은색"
+    },
+    {
+      "id": "k-0c5862d65739d319",
+      "label": "픽셀아트"
+    },
+    {
+      "id": "k-1011a75fa4780926",
+      "label": "흰색 배경"
+    },
+    {
+      "id": "k-16a047125967aca3",
+      "label": "먹그림"
+    },
+    {
+      "id": "k-5df3e41c919f75e5",
+      "label": "선인장 색: 빨간색"
+    },
+    {
+      "id": "k-637ec14e6f3e0b21",
+      "label": "노란색 배경"
+    },
+    {
+      "id": "k-69d5be07d7b19105",
+      "label": "해바라기"
+    },
+    {
+      "id": "k-6fca881040835633",
+      "label": "선인장 색: 파란색"
+    },
+    {
+      "id": "k-8307842150af0546",
+      "label": "사진풍"
+    },
+    {
+      "id": "k-83540729e6b6daa5",
+      "label": "검정 배경"
+    },
+    {
+      "id": "k-8a510ea2fb7ab3d8",
+      "label": "화면 중앙"
+    },
+    {
+      "id": "k-8a57af967cf0d5a3",
+      "label": "화분 색: 보라색"
+    },
+    {
+      "id": "k-9e4216418fb8f0b4",
+      "label": "선인장 한 개"
+    },
+    {
+      "id": "k-9f2260abca62047b",
+      "label": "선인장"
+    },
+    {
+      "id": "k-9fc863663b88a6ff",
+      "label": "선인장 위치: 안에"
+    },
+    {
+      "id": "k-bc6aa57172969723",
+      "label": "화면 오른쪽"
+    },
+    {
+      "id": "k-bdcb5649d2ac37ab",
+      "label": "화분 색: 흰색"
+    },
+    {
+      "id": "k-c387c13fe9f5bb74",
+      "label": "선인장 색: 초록색"
+    },
+    {
+      "id": "k-c5d165b90520da5a",
+      "label": "화분"
+    },
+    {
+      "id": "k-ec26edc399adee8f",
+      "label": "선인장 두 개"
+    },
+    {
+      "id": "k-f5bd966f453f1f28",
+      "label": "주전자"
+    },
+    {
+      "id": "k-f60a7e97f2bbf1fc",
+      "label": "선인장 위치: 밖에"
+    },
+    {
+      "id": "k-fcd716d737221bb7",
+      "label": "소나무"
+    },
+    {
+      "id": "k-fe5cc4d93802258a",
+      "label": "선인장 네 개"
+    },
+    {
+      "id": "k-ff6cae6f5a474a6a",
+      "label": "접시"
+    }
+  ]
+}

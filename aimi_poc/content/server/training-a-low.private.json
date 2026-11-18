@@ -1,0 +1,262 @@
+{
+  "id": "campaign-a-low",
+  "version": "poc-a-low-keywords-v2-aimi-labels",
+  "title": "컵을 든 다람쥐 · A하",
+  "candidate_keywords": [
+    {
+      "id": "a-low-edbb36af8f1a0d89",
+      "label": "다람쥐",
+      "context": "주요 동물",
+      "sentence_order": 0
+    },
+    {
+      "id": "a-low-5bfdde14d46b8ebe",
+      "label": "여우",
+      "context": "주요 동물",
+      "sentence_order": 0
+    },
+    {
+      "id": "a-low-ee41ad59b7d3ce3c",
+      "label": "고양이",
+      "context": "주요 동물",
+      "sentence_order": 0
+    },
+    {
+      "id": "a-low-defee3cd9b6b5c76",
+      "label": "다람쥐 색: 주황색",
+      "context": "동물 색",
+      "sentence_order": 1
+    },
+    {
+      "id": "a-low-f706306113ebae46",
+      "label": "다람쥐 색: 회색",
+      "context": "동물 색",
+      "sentence_order": 1
+    },
+    {
+      "id": "a-low-dc414f6ee2951f9a",
+      "label": "다람쥐 색: 파란색",
+      "context": "동물 색",
+      "sentence_order": 1
+    },
+    {
+      "id": "a-low-d5db36ab1d2a4fc3",
+      "label": "컵",
+      "context": "든 물건",
+      "sentence_order": 2
+    },
+    {
+      "id": "a-low-7355fa275e2b3135",
+      "label": "물뿌리개",
+      "context": "든 물건",
+      "sentence_order": 2
+    },
+    {
+      "id": "a-low-9d4702b82249c361",
+      "label": "도넛",
+      "context": "든 물건",
+      "sentence_order": 2
+    },
+    {
+      "id": "a-low-7f45ebbd7e65d469",
+      "label": "컵 몸통 색: 크림색",
+      "context": "컵 몸통 색",
+      "sentence_order": 3
+    },
+    {
+      "id": "a-low-660a34e5059f44b5",
+      "label": "컵 몸통 색: 초록색",
+      "context": "컵 몸통 색",
+      "sentence_order": 3
+    },
+    {
+      "id": "a-low-b045553ab8714d5b",
+      "label": "컵 몸통 색: 검은색",
+      "context": "컵 몸통 색",
+      "sentence_order": 3
+    },
+    {
+      "id": "a-low-70c10390760c7f89",
+      "label": "컵 뚜껑 색: 초록색",
+      "context": "컵 뚜껑 색",
+      "sentence_order": 4
+    },
+    {
+      "id": "a-low-459808c2a1bf22bc",
+      "label": "컵 뚜껑 색: 빨간색",
+      "context": "컵 뚜껑 색",
+      "sentence_order": 4
+    },
+    {
+      "id": "a-low-7480dfd4bbe03082",
+      "label": "컵 뚜껑 색: 보라색",
+      "context": "컵 뚜껑 색",
+      "sentence_order": 4
+    },
+    {
+      "id": "a-low-5f456f910630017d",
+      "label": "양손으로 컵 들기",
+      "context": "행동",
+      "sentence_order": 5
+    },
+    {
+      "id": "a-low-0604251a2be89a52",
+      "label": "컵을 입에 대고 마시기",
+      "context": "행동",
+      "sentence_order": 5
+    },
+    {
+      "id": "a-low-758b166395944b61",
+      "label": "컵 건네기",
+      "context": "행동",
+      "sentence_order": 5
+    },
+    {
+      "id": "a-low-8cb8a95d319d608f",
+      "label": "정면 구도",
+      "context": "시점",
+      "sentence_order": 6
+    },
+    {
+      "id": "a-low-549dbd2d2fa83764",
+      "label": "측면 구도",
+      "context": "시점",
+      "sentence_order": 6
+    },
+    {
+      "id": "a-low-0613762fdde270f1",
+      "label": "단색 크림색 배경",
+      "context": "배경",
+      "sentence_order": 7
+    },
+    {
+      "id": "a-low-b59c51a32a47fb20",
+      "label": "가을 숲",
+      "context": "배경",
+      "sentence_order": 7
+    },
+    {
+      "id": "a-low-24e24bea0c9c346b",
+      "label": "파란 하늘",
+      "context": "배경",
+      "sentence_order": 7
+    },
+    {
+      "id": "a-low-09bf9cd81b47254c",
+      "label": "픽셀아트",
+      "context": "화풍",
+      "sentence_order": 8
+    },
+    {
+      "id": "a-low-1af4df6b0a6dfdd2",
+      "label": "사진풍",
+      "context": "화풍",
+      "sentence_order": 8
+    }
+  ],
+  "correct_keywords": [
+    {
+      "id": "a-low-edbb36af8f1a0d89",
+      "label": "다람쥐",
+      "context": "주요 동물",
+      "sentence_order": 0
+    },
+    {
+      "id": "a-low-defee3cd9b6b5c76",
+      "label": "다람쥐 색: 주황색",
+      "context": "동물 색",
+      "sentence_order": 1
+    },
+    {
+      "id": "a-low-d5db36ab1d2a4fc3",
+      "label": "컵",
+      "context": "든 물건",
+      "sentence_order": 2
+    },
+    {
+      "id": "a-low-7f45ebbd7e65d469",
+      "label": "컵 몸통 색: 크림색",
+      "context": "컵 몸통 색",
+      "sentence_order": 3
+    },
+    {
+      "id": "a-low-70c10390760c7f89",
+      "label": "컵 뚜껑 색: 초록색",
+      "context": "컵 뚜껑 색",
+      "sentence_order": 4
+    },
+    {
+      "id": "a-low-5f456f910630017d",
+      "label": "양손으로 컵 들기",
+      "context": "행동",
+      "sentence_order": 5
+    },
+    {
+      "id": "a-low-8cb8a95d319d608f",
+      "label": "정면 구도",
+      "context": "시점",
+      "sentence_order": 6
+    },
+    {
+      "id": "a-low-0613762fdde270f1",
+      "label": "단색 크림색 배경",
+      "context": "배경",
+      "sentence_order": 7
+    },
+    {
+      "id": "a-low-09bf9cd81b47254c",
+      "label": "픽셀아트",
+      "context": "화풍",
+      "sentence_order": 8
+    }
+  ],
+  "display_labels": {
+    "a-low-edbb36af8f1a0d89": "다람쥐",
+    "a-low-5bfdde14d46b8ebe": "여우",
+    "a-low-ee41ad59b7d3ce3c": "고양이",
+    "a-low-defee3cd9b6b5c76": "다람쥐 색: 주황색",
+    "a-low-f706306113ebae46": "다람쥐 색: 회색",
+    "a-low-dc414f6ee2951f9a": "다람쥐 색: 파란색",
+    "a-low-d5db36ab1d2a4fc3": "컵",
+    "a-low-7355fa275e2b3135": "물뿌리개",
+    "a-low-9d4702b82249c361": "도넛",
+    "a-low-7f45ebbd7e65d469": "컵 몸통 색: 크림색",
+    "a-low-660a34e5059f44b5": "컵 몸통 색: 초록색",
+    "a-low-b045553ab8714d5b": "컵 몸통 색: 검은색",
+    "a-low-70c10390760c7f89": "컵 뚜껑 색: 초록색",
+    "a-low-459808c2a1bf22bc": "컵 뚜껑 색: 빨간색",
+    "a-low-7480dfd4bbe03082": "컵 뚜껑 색: 보라색",
+    "a-low-5f456f910630017d": "양손으로 컵 들기",
+    "a-low-0604251a2be89a52": "컵을 입에 대고 마시기",
+    "a-low-758b166395944b61": "컵 건네기",
+    "a-low-8cb8a95d319d608f": "정면 구도",
+    "a-low-549dbd2d2fa83764": "측면 구도",
+    "a-low-0613762fdde270f1": "단색 크림색 배경",
+    "a-low-b59c51a32a47fb20": "가을 숲",
+    "a-low-24e24bea0c9c346b": "파란 하늘",
+    "a-low-09bf9cd81b47254c": "픽셀아트",
+    "a-low-1af4df6b0a6dfdd2": "사진풍"
+  },
+  "answer_prompt": "픽셀아트. 정면을 향한 주황색 아기 다람쥐가 초록색 뚜껑의 크림색 컵을 양손으로 들고 있다. 단색 크림색 배경.",
+  "assets": {
+    "sha256": "c3fa61c4c9a7d360f6924c7d6f95e1b326151abb4401001baeb7b298d5d1a981"
+  },
+  "source_label": "AI SLOP STOP 캠페인 A하 목표 이미지",
+  "tips": [
+    {
+      "id": "subject",
+      "title": "대상과 행동을 먼저 정해요",
+      "text": "다람쥐가 무엇을 하고 있는지 적어요. A하에서는 컵을 양손으로 들고 있어요. A중에서는 컵을 입에 대고 마시는 행동을 관찰해 보세요."
+    },
+    {
+      "id": "color",
+      "title": "색의 주인을 구분해요",
+      "text": "주황색은 다람쥐, 크림색은 컵 몸통, 초록색은 뚜껑에 연결해요. 배경도 크림색이지만 서로 다른 조건이에요."
+    },
+    {
+      "id": "scene",
+      "title": "구도와 배경을 덧붙여요",
+      "text": "A하는 정면과 단색 배경이에요. 재도전할 A중에서는 같은 특징과 달라진 장면을 구분해서 작성해 보세요."
+    }
+  ]
+}

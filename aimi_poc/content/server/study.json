@@ -1,0 +1,21 @@
+{
+  "id": "aimi-poc-v1",
+  "title": "AIMI 프롬프트 학습 연구",
+  "target_id": "campaign-a-mid",
+  "target_approved": false,
+  "target_description": "사전·사후 공통 과제 후보: 가을 숲의 픽셀아트 다람쥐",
+  "training_id": "campaign-a-low",
+  "training_limit": 3,
+  "assessment_attempts": 1,
+  "image_model": "black-forest-labs/FLUX.2-klein-9B",
+  "image_revision": "92196c8e11f7b6cf2b7493e037d8c5345c559216",
+  "image_quantization": "nf4",
+  "router_model": "Qwen/Qwen3.5-4B",
+  "router_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+  "router_quantization": "bf16",
+  "router_max_pixels": 262144,
+  "width": 1024,
+  "height": 1024,
+  "steps": 4,
+  "router_output_format": "pass-fail-v1"
+}
