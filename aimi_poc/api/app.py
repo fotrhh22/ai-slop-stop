@@ -31,15 +31,23 @@ def encode(value):
 
 def create_app(store=None, mode=None):
     mode = mode or os.getenv("POC_GPU_MODE", "mock")
-    if mode not in ("mock", "runpod"):
-        raise RuntimeError("POC_GPU_MODE must be mock or runpod")
+    if mode not in ("mock", "runpod", "gemini"):
+        raise RuntimeError("POC_GPU_MODE must be mock, runpod, or gemini")
     cfg = study.config(mode)
-    if mode == "runpod" and not cfg["target_approved"] and not cfg['is_test']:
+    if mode != "mock" and not cfg["target_approved"] and not cfg['is_test']:
         raise RuntimeError("Approve assessment target A in content/server/study.json before real participant collection")
     store = store or Store(url=os.getenv("POC_DATABASE_URL", os.getenv("DATABASE_URL", "")), path=os.getenv("POC_DB_PATH", str(study.ROOT / "data/poc.sqlite3")))
     media = Path(os.getenv("POC_MEDIA_PATH", str(study.ROOT / "data/images")))
     gpu = GPUClient(mode, cfg)
-    clients = {"runpod": gpu, "gemini": GeminiClient(cfg, store)} if mode != "mock" else {"mock": gpu}
+    if mode == "mock":
+        clients = {"mock": gpu}
+    else:
+        gemini = GeminiClient(cfg, store)
+        clients = {"gemini": gemini}
+        if mode == "runpod":
+            clients["runpod"] = gpu
+        else:
+            gpu = gemini
     worker = QueueWorker(store, gpu, media)
     worker.clients = clients
     cookie = "aimi_poc_session"
@@ -133,7 +141,7 @@ def create_app(store=None, mode=None):
         return {"mode": mode, "is_test": cfg['is_test'], "title": cfg["title"], "target": "/content/target-a.png", "training_limit": cfg["training_limit"], "post_attempt_limit": 2,
                 "writing_items": study.WRITING, "pre_options": study.PRE_OPTIONS, "pre_labels": study.PRE_LABELS,
                 "learning_items": study.TRAINING_ITEMS, "features": study.FEATURES, "revisit_items": study.REVISIT,
-                "target_approved": cfg["target_approved"], "prompt_limits": study.PROMPT_LIMITS, "profiles": [{"id": "runpod", "label": "RTX 5090 · Klein 9B / Qwen", "available": mode != "mock" and bool(gpu.key and gpu.url)}, {"id": "gemini", "label": "Gemini", "available": mode != "mock" and bool(clients.get("gemini") and clients["gemini"].key)}] + ([{"id":"mock","label":"모의 실행","available":True}] if mode == "mock" else [])}
+                "target_approved": cfg["target_approved"], "prompt_limits": study.PROMPT_LIMITS, "profiles": [{"id": "runpod", "label": "RTX 5090 · Klein 9B / Qwen", "available": mode == "runpod" and bool(gpu.key and gpu.url)}, {"id": "gemini", "label": "Gemini", "available": mode != "mock" and bool(clients.get("gemini") and clients["gemini"].key)}] + ([{"id":"mock","label":"모의 실행","available":True}] if mode == "mock" else [])}
 
     @app.post("/api/poc/session/reset")
     def reset_session(response: Response):
@@ -144,7 +152,7 @@ def create_app(store=None, mode=None):
     @app.post("/api/poc/sessions")
     def start(req: schemas.Start, request: Request, response: Response):
         profile_id = req.profile_id or mode
-        if profile_id not in clients or (profile_id == "gemini" and not os.getenv("GEMINI_API_KEY")):
+        if profile_id not in clients or (profile_id == "gemini" and not clients["gemini"].key):
             fail("MODEL_PROFILE_UNAVAILABLE", 400)
         token = request.cookies.get(cookie, "")
         with store.db(write=True) as db:

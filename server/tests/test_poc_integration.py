@@ -65,3 +65,33 @@ class IntegrationTests(unittest.TestCase):
             gpu=GPUClient('mock',{})
             self.assertEqual(gpu.url,'https://study.example')
             self.assertEqual(gpu.key,'p'*40)
+
+    def test_gemini_only_ignores_invalid_gpu_settings(self):
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {
+            'POC_ENABLED':'true','POC_GPU_MODE':'gemini','POC_TEST_MODE':'false',
+            'POC_TARGET_APPROVED':'true','POC_ADMIN_TOKEN':'a'*40,
+            'POC_ALLOWED_ORIGINS':'https://study.example',
+            'POC_DB_PATH':temp+'/study.sqlite3','POC_MEDIA_PATH':temp+'/images',
+            'GEMINI_API_KEY':'existing-gemini-key','POC_GPU_API_URL':'invalid',
+            'POC_GPU_API_KEY':'short',
+        }, clear=True):
+            app=create_poc_app()
+            with TestClient(app, headers={'X-Poc-Request':'1'}) as c:
+                self.assertEqual(c.get('/health').json()['mode'],'gemini')
+                profiles={p['id']:p['available'] for p in c.get('/api/poc/config').json()['profiles']}
+                self.assertTrue(profiles['gemini'])
+                self.assertFalse(profiles['runpod'])
+                r=c.post('/api/poc/sessions',json={'consent':True,'profile_id':'gemini'})
+                self.assertEqual(r.status_code,200)
+                self.assertEqual(r.json()['profile_id'],'gemini')
+                self.assertEqual(c.post('/api/poc/sessions',json={'consent':True,'profile_id':'runpod'}).status_code,400)
+
+    def test_gemini_namespaced_key_without_shared_key(self):
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {
+            'POC_ENABLED':'true','POC_GPU_MODE':'gemini','POC_TEST_MODE':'true',
+            'POC_ADMIN_TOKEN':'a'*40,'POC_ALLOWED_ORIGINS':'https://study.example',
+            'POC_DB_PATH':temp+'/study.sqlite3','POC_MEDIA_PATH':temp+'/images',
+            'POC_GEMINI_API_KEY':'poc-only-key',
+        }, clear=True):
+            with TestClient(create_poc_app(),headers={'X-Poc-Request':'1'}) as c:
+                self.assertEqual(c.post('/api/poc/sessions',json={'consent':True}).status_code,200)

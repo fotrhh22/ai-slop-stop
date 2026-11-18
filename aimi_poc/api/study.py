@@ -40,6 +40,7 @@ def config(mode):
     value = json.loads((CONTENT / "server/study.json").read_text())
     value["id"] = os.getenv("POC_STUDY_ID", value["id"] + "-" + mode)
     value["mode"] = mode
+    value["target_approved"] = value["target_approved"] or os.getenv("POC_TARGET_APPROVED", "false").lower() == "true"
     value["router_output_format"] = "pass-fail-v1"
     value["profiles"] = {"gemini": {"image_model": os.getenv("POC_GEMINI_IMAGE_MODEL", os.getenv("GEMINI_IMAGE_MODEL", "gemini-3.1-flash-lite-image")), "router_model": os.getenv("POC_GEMINI_ROUTER_MODEL", os.getenv("GEMINI_ROUTER_MODEL", "gemini-3.5-flash-lite"))}, "runpod": {"image_model": value["image_model"], "router_model": value["router_model"]}}
     value["flow_version"] = "result-next-v5-two-post-attempts"
