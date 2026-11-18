@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Sidebar } from "./components/Sidebar";
 import { Chat } from "./components/Chat";
 import { Composer } from "./components/Composer";
 import { TargetImagePicker } from "./components/TargetImagePicker";
 import { MenuIcon } from "./components/icons";
 import type { Attempt, Challenge, ProfileSnapshot } from "./types";
-import { createChallenge, generateImage, evaluate, finalize, fetchReceipt } from "./api/client";
+import { createChallenge, generateImage, evaluate, finalize, fetchReceipt, fetchModelProfiles } from "./api/client";
 import type { ChallengeTarget } from "./data/challengeTargets";
 
 const MODEL_SETTING_KEY = "ai-slop-stop:model-profile";
@@ -33,6 +33,9 @@ export default function App() {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(() => {
     try { return localStorage.getItem(MODEL_SETTING_KEY) || null; } catch { return null; }
   });
+  const manualProfile = useRef(false);
+  const [checkingModel, setCheckingModel] = useState(false);
+  const checkingModelRef = useRef(false);
   const [showSettings, setShowSettings] = useState(false);
   const [startAfterSettings, setStartAfterSettings] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
@@ -89,6 +92,7 @@ export default function App() {
   }, []);
 
   const saveModel = (profileId: string) => {
+    manualProfile.current = true;
     try { localStorage.setItem(MODEL_SETTING_KEY, profileId); }
     catch { setError("모델 설정을 저장하지 못했습니다. 브라우저의 사이트 저장 권한을 확인해 주세요."); return; }
     setSelectedProfileId(profileId);
@@ -98,12 +102,33 @@ export default function App() {
     setStartAfterSettings(false);
   };
 
-  // 저장된 모델을 사용하므로 새 세션에서는 이미지 선택만 진행한다.
-  const startNewChallenge = () => {
-    if (creating) return;
-    if (selectedProfileId) setShowPicker(true);
-    else { setStartAfterSettings(true); setShowSettings(true); }
+  // Verify readiness for each new session; never switch an existing challenge's model.
+  const startNewChallenge = async () => {
+    if (creating || checkingModelRef.current) return;
+    checkingModelRef.current = true;
+    setCheckingModel(true);
     setSidebarOpen(false);
+    setError("");
+    try {
+      const profiles = await fetchModelProfiles();
+      const manual = manualProfile.current && profiles.find(p => p.id === selectedProfileId && p.ready);
+      const selected = manual || profiles.find(p => p.id === "open-5090" && p.ready)
+        || profiles.find(p => p.id === "gemini" && p.ready);
+      if (selected) {
+        setSelectedProfileId(selected.id);
+        setShowSettings(false);
+        setStartAfterSettings(false);
+        setShowPicker(true);
+      } else {
+        setStartAfterSettings(true);
+        setShowSettings(true);
+      }
+    } catch {
+      setError("모델 연결 상태를 확인하지 못했습니다. 새 세션 시작을 다시 눌러 주세요.");
+    } finally {
+      checkingModelRef.current = false;
+      setCheckingModel(false);
+    }
   };
 
   // 모달에서 목표 이미지 확정 -> 그제서야 챌린지 생성 + 활성화
@@ -308,8 +333,8 @@ export default function App() {
                 목표 이미지 9개 중 하나를 선택하고,
                 프롬프트로 최대한 비슷하게 재현해보세요.
               </p>
-              <button className="btn-primary" onClick={startNewChallenge}>
-                + 새 세션 시작
+              <button className="btn-primary" disabled={checkingModel} onClick={startNewChallenge}>
+                {checkingModel ? "모델 연결 확인 중…" : "+ 새 세션 시작"}
               </button>
             </div>
           </div>

@@ -70,7 +70,7 @@ export function TargetImagePicker({ mode, selectedProfileId, onSaveModel, onSett
           }
         }}>
         <h2 id="session-picker-title" className="modal__title">{mode === "settings" ? "환경설정" : "목표 이미지를 골라주세요"}</h2>
-        <p className="modal__desc">{mode === "settings" ? "모델을 한 번 선택하면 이 브라우저의 모든 새 세션에 적용됩니다. 새로고침 후에도 유지됩니다." : "이미지를 누르면 저장된 모델로 새 세션이 시작됩니다. 각 테마는 왼쪽부터 하·중·상입니다."}</p>
+        <p className="modal__desc">{mode === "settings" ? "직접 선택한 모델은 현재 페이지의 새 세션에 적용됩니다. 새로고침 후에는 연결된 5090을 우선 사용하며, 준비되지 않았으면 Gemini를 사용합니다." : "이미지를 누르면 선택된 모델로 새 세션이 시작됩니다. 각 테마는 왼쪽부터 하·중·상입니다."}</p>
 
         {mode === "settings" ? <>
           <div className="session-models" role="radiogroup" aria-label="생성·판정 모델">
