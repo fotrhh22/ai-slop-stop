@@ -4,17 +4,14 @@ import { CHALLENGE_TARGETS, loadTargetDataUrl, type ChallengeTarget } from "../d
 import type { ModelProfile } from "../types";
 
 interface Props {
-  mode: "settings" | "target";
   selectedProfileId: string | null;
-  onSaveModel: (profileId: string) => void;
-  onSettings: () => void;
   onCancel: () => void;
   onConfirm: (dataUrl: string, profileId: string, target: ChallengeTarget) => Promise<void>;
 }
 
-export function TargetImagePicker({ mode, selectedProfileId, onSaveModel, onSettings, onCancel, onConfirm }: Props) {
+export function TargetImagePicker({ selectedProfileId, onCancel, onConfirm }: Props) {
   const [profiles, setProfiles] = useState<ModelProfile[]>([]);
-  const [profileId, setProfileId] = useState(selectedProfileId ?? "gemini");
+  const profileId = selectedProfileId ?? "gemini";
   const [profileError, setProfileError] = useState("");
   const [error, setError] = useState("");
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -45,7 +42,7 @@ export function TargetImagePicker({ mode, selectedProfileId, onSaveModel, onSett
   const choose = async (target: ChallengeTarget) => {
     if (selecting.current) return;
     if (!selected?.ready || profileError) {
-      setError("환경설정에서 사용 가능한 모델을 선택해 주세요."); return;
+      setError("모델이 준비되지 않았습니다. 창을 닫고 새 세션을 다시 시작해 주세요."); return;
     }
     selecting.current = true; setPendingId(target.id); setError("");
     try {
@@ -57,7 +54,7 @@ export function TargetImagePicker({ mode, selectedProfileId, onSaveModel, onSett
 
   return (
     <div className="modal-scrim" onClick={() => { if (!selecting.current) onCancel(); }}>
-      <div ref={dialog} className={`modal session-picker${mode === "target" ? " session-picker--targets" : ""}`}
+      <div ref={dialog} className="modal session-picker session-picker--targets"
         role="dialog" aria-modal="true" aria-labelledby="session-picker-title" tabIndex={-1}
         onClick={e => e.stopPropagation()} onKeyDown={e => {
           if (e.key === "Escape" && !selecting.current) { e.stopPropagation(); onCancel(); }
@@ -69,20 +66,9 @@ export function TargetImagePicker({ mode, selectedProfileId, onSaveModel, onSett
             else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog.current)) { e.preventDefault(); first.focus(); }
           }
         }}>
-        <h2 id="session-picker-title" className="modal__title">{mode === "settings" ? "환경설정" : "목표 이미지를 골라주세요"}</h2>
-        <p className="modal__desc">{mode === "settings" ? "직접 선택한 모델은 현재 페이지의 새 세션에 적용됩니다. 새로고침 후에는 연결된 5090을 우선 사용하며, 준비되지 않았으면 Gemini를 사용합니다." : "이미지를 누르면 선택된 모델로 새 세션이 시작됩니다. 각 테마는 왼쪽부터 하·중·상입니다."}</p>
-
-        {mode === "settings" ? <>
-          <div className="session-models" role="radiogroup" aria-label="생성·판정 모델">
-            {profiles.map(p => <button key={p.id} type="button" role="radio" aria-checked={p.id === profileId}
-              className={`session-model${p.id === profileId ? " is-selected" : ""}`} disabled={!p.ready}
-              onClick={() => { setProfileId(p.id); setError(""); }}>
-              <strong>{p.label}</strong><span>{p.ready ? "사용 가능" : "준비 안 됨"}</span>
-            </button>)}
-          </div>
-          {!profiles.length && !profileError && <p role="status">모델 연결 상태 확인 중…</p>}
-          {selected && <p className="modal__desc">생성: {selected.image_model}<br />판정: {selected.router_model}</p>}
-        </> : <>
+        <h2 id="session-picker-title" className="modal__title">목표 이미지를 골라주세요</h2>
+        <p className="modal__desc">이미지를 누르면 자동 선택된 모델로 새 세션이 시작됩니다. 각 테마는 왼쪽부터 하·중·상입니다.</p>
+        <>
           <p className="session-picker__model">선택 모델 · {selected?.label ?? profileId}</p>
           <div className="target-catalog" aria-busy={!!pendingId}>
             {(["A", "B", "C"] as const).map(theme => {
@@ -98,16 +84,14 @@ export function TargetImagePicker({ mode, selectedProfileId, onSaveModel, onSett
               </section>;
             })}
           </div>
-        </>}
-        {mode === "target" && !selected?.ready && !profileError && <p role="status">{profiles.length ? "저장된 모델을 사용할 수 없습니다. 환경설정에서 모델을 확인해 주세요." : "모델 연결 상태 확인 중…"}</p>}
+        </>
+        {!selected?.ready && !profileError && <p role="status">{profiles.length ? "선택된 모델을 사용할 수 없습니다. 창을 닫고 새 세션을 다시 시작해 주세요." : "모델 연결 상태 확인 중…"}</p>}
         {pendingId && <p role="status">{pendingId} · 목표 이미지와 세션을 저장하는 중…</p>}
         {(profileError || error) && <p className="modal__error" role="alert">{error || profileError}</p>}
         <div className="modal__actions">
           <button className="btn-secondary" disabled={!!pendingId} onClick={onCancel}>취소</button>
           {profileError && <button className="btn-secondary" onClick={() => setRetry(v => v + 1)}>연결 다시 확인</button>}
-          {mode === "target" ? <button className="btn-secondary" disabled={!!pendingId} onClick={onSettings}>환경설정</button>
-            : <>
-              <button className="btn-primary" disabled={!selected?.ready || !!profileError} onClick={() => onSaveModel(profileId)}>저장</button></>}
+
         </div>
       </div>
     </div>

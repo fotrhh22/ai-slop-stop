@@ -8,7 +8,6 @@ import type { Attempt, Challenge, ProfileSnapshot } from "./types";
 import { createChallenge, generateImage, evaluate, finalize, fetchReceipt, fetchModelProfiles } from "./api/client";
 import type { ChallengeTarget } from "./data/challengeTargets";
 
-const MODEL_SETTING_KEY = "ai-slop-stop:model-profile";
 const uid = () => crypto.randomUUID();
 
 // 선택한 카탈로그 이미지 원본을 data URL로 저장한 뒤 챌린지를 만든다.
@@ -30,14 +29,9 @@ export default function App() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(() => {
-    try { return localStorage.getItem(MODEL_SETTING_KEY) || null; } catch { return null; }
-  });
-  const manualProfile = useRef(false);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [checkingModel, setCheckingModel] = useState(false);
   const checkingModelRef = useRef(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [startAfterSettings, setStartAfterSettings] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [staffMode, setStaffMode] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -80,28 +74,6 @@ export default function App() {
       updatedAt: Date.now(),
     }));
 
-  useEffect(() => {
-    const syncModel = (event: StorageEvent) => {
-      if (event.key === MODEL_SETTING_KEY || event.key === null) {
-        setSelectedProfileId(event.newValue || null);
-        setShowPicker(false);
-      }
-    };
-    window.addEventListener("storage", syncModel);
-    return () => window.removeEventListener("storage", syncModel);
-  }, []);
-
-  const saveModel = (profileId: string) => {
-    manualProfile.current = true;
-    try { localStorage.setItem(MODEL_SETTING_KEY, profileId); }
-    catch { setError("모델 설정을 저장하지 못했습니다. 브라우저의 사이트 저장 권한을 확인해 주세요."); return; }
-    setSelectedProfileId(profileId);
-    setError("");
-    setShowSettings(false);
-    if (startAfterSettings) setShowPicker(true);
-    setStartAfterSettings(false);
-  };
-
   // Verify readiness for each new session; never switch an existing challenge's model.
   const startNewChallenge = async () => {
     if (creating || checkingModelRef.current) return;
@@ -111,17 +83,13 @@ export default function App() {
     setError("");
     try {
       const profiles = await fetchModelProfiles();
-      const manual = manualProfile.current && profiles.find(p => p.id === selectedProfileId && p.ready);
-      const selected = manual || profiles.find(p => p.id === "open-5090" && p.ready)
+      const selected = profiles.find(p => p.id === "open-5090" && p.ready)
         || profiles.find(p => p.id === "gemini" && p.ready);
       if (selected) {
         setSelectedProfileId(selected.id);
-        setShowSettings(false);
-        setStartAfterSettings(false);
         setShowPicker(true);
       } else {
-        setStartAfterSettings(true);
-        setShowSettings(true);
+        setError("사용 가능한 모델이 없습니다. 운영자에게 연결 상태를 확인해 주세요.");
       }
     } catch {
       setError("모델 연결 상태를 확인하지 못했습니다. 새 세션 시작을 다시 눌러 주세요.");
@@ -283,10 +251,6 @@ export default function App() {
           <span className="chat__title">
             {active?.title ?? "AI SLOP STOP CHALLENGE"}
           </span>
-          <button className="settings-toggle" aria-label="환경설정" aria-haspopup="dialog"
-            disabled={creating} onClick={() => { setStartAfterSettings(false); setShowSettings(true); }}>
-            <span aria-hidden="true">⚙</span> 환경설정
-          </button>
           <button className={"staff-toggle" + (staffMode ? " is-on" : "")}
             onClick={() => setStaffMode(v => !v)} title="STAFF 모드: 수동 PASS 전환 허용">
             STAFF {staffMode ? "ON" : "OFF"}
@@ -341,14 +305,10 @@ export default function App() {
         )}
       </div>
 
-      {(showPicker || showSettings) && (
+      {showPicker && (
         <TargetImagePicker
-          key={showSettings ? "settings" : "target"}
-          mode={showSettings ? "settings" : "target"}
           selectedProfileId={selectedProfileId}
-          onSaveModel={saveModel}
-          onSettings={() => { setShowPicker(false); setStartAfterSettings(true); setShowSettings(true); }}
-          onCancel={() => { setShowPicker(false); setShowSettings(false); setStartAfterSettings(false); }}
+          onCancel={() => setShowPicker(false)}
           onConfirm={confirmTarget}
         />
       )}
